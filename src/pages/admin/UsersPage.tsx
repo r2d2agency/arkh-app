@@ -40,28 +40,27 @@ const UsersPage = () => {
   return (
     <>
       <AdminHeader title="Usuários" subtitle="Visualize e gerencie todos os usuários" />
-      <div className="flex-1 overflow-auto p-6 space-y-6">
-        {/* Toolbar */}
+      <div className="flex-1 overflow-auto p-6 space-y-6 animate-slide-up">
         <div className="flex items-center justify-between gap-4">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Buscar por nome ou email..."
-              className="pl-9"
+              className="pl-9 rounded-xl bg-muted/50 border-transparent focus:border-primary/30"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" className="gap-2 rounded-xl">
             <Filter className="w-4 h-4" />
             Filtrar
           </Button>
         </div>
 
-        <Card>
+        <Card className="rounded-2xl overflow-hidden">
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-muted/30">
                 <TableHead>Usuário</TableHead>
                 <TableHead>Igreja</TableHead>
                 <TableHead>Função</TableHead>
@@ -72,10 +71,10 @@ const UsersPage = () => {
             </TableHeader>
             <TableBody>
               {filtered.map((user) => (
-                <TableRow key={user.id}>
+                <TableRow key={user.id} className="hover:bg-muted/30 transition-colors">
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
+                      <div className="w-9 h-9 rounded-xl gradient-primary flex items-center justify-center text-white text-xs font-bold">
                         {user.name.split(" ").map((n) => n[0]).join("")}
                       </div>
                       <div>
@@ -86,15 +85,15 @@ const UsersPage = () => {
                   </TableCell>
                   <TableCell className="text-sm">{user.church}</TableCell>
                   <TableCell>
-                    <Badge variant="secondary">{user.role}</Badge>
+                    <Badge variant="secondary" className="rounded-lg">{user.role}</Badge>
                   </TableCell>
                   <TableCell>
                     <Badge
                       variant="outline"
                       className={
                         user.status === "active"
-                          ? "border-success/50 text-success"
-                          : "border-destructive/50 text-destructive"
+                          ? "border-success/50 text-success bg-success/5"
+                          : "border-destructive/50 text-destructive bg-destructive/5"
                       }
                     >
                       {user.status === "active" ? "Ativo" : "Bloqueado"}
@@ -104,13 +103,13 @@ const UsersPage = () => {
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg">
                           <MoreHorizontal className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem className="gap-2"><Eye className="w-4 h-4" /> Ver perfil</DropdownMenuItem>
-                        <DropdownMenuItem className="gap-2 text-destructive"><Ban className="w-4 h-4" /> Bloquear</DropdownMenuItem>
+                      <DropdownMenuContent align="end" className="rounded-xl">
+                        <DropdownMenuItem className="gap-2 rounded-lg"><Eye className="w-4 h-4" /> Ver perfil</DropdownMenuItem>
+                        <DropdownMenuItem className="gap-2 rounded-lg text-destructive"><Ban className="w-4 h-4" /> Bloquear</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

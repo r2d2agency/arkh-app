@@ -2,7 +2,7 @@ import AdminHeader from "@/components/admin/AdminHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, X, Plus, Pencil } from "lucide-react";
+import { Check, X, Plus, Pencil, Sparkles } from "lucide-react";
 
 const plans = [
   {
@@ -44,9 +44,9 @@ const Plans = () => {
   return (
     <>
       <AdminHeader title="Planos" subtitle="Gerencie os planos da plataforma" />
-      <div className="flex-1 overflow-auto p-6 space-y-6">
+      <div className="flex-1 overflow-auto p-6 space-y-6 animate-slide-up">
         <div className="flex justify-end">
-          <Button className="gap-2">
+          <Button className="gap-2 rounded-xl gradient-primary border-0 shadow-md shadow-primary/20">
             <Plus className="w-4 h-4" />
             Novo Plano
           </Button>
@@ -56,10 +56,13 @@ const Plans = () => {
           {plans.map((plan) => (
             <Card
               key={plan.name}
-              className={`p-6 relative ${plan.featured ? "border-primary border-2 shadow-lg" : ""}`}
+              className={`p-6 rounded-2xl relative card-hover ${
+                plan.featured ? "border-2 border-primary/50 glow-primary" : ""
+              }`}
             >
               {plan.featured && (
-                <Badge className="absolute -top-3 left-6 bg-primary text-primary-foreground">
+                <Badge className="absolute -top-3 left-6 gradient-primary border-0 text-white gap-1 shadow-md shadow-primary/20">
+                  <Sparkles className="w-3 h-3" />
                   Popular
                 </Badge>
               )}
@@ -68,19 +71,23 @@ const Plans = () => {
                   <h3 className="font-heading font-bold text-xl">{plan.name}</h3>
                   <p className="text-muted-foreground text-sm">{plan.churches} igrejas</p>
                 </div>
-                <Button variant="ghost" size="icon"><Pencil className="w-4 h-4" /></Button>
+                <Button variant="ghost" size="icon" className="rounded-xl"><Pencil className="w-4 h-4" /></Button>
               </div>
               <div className="mb-6">
-                <span className="text-3xl font-heading font-bold">{plan.price}</span>
+                <span className="text-4xl font-heading font-bold">{plan.price}</span>
                 <span className="text-muted-foreground">{plan.period}</span>
               </div>
               <div className="space-y-3">
                 {plan.features.map((f) => (
                   <div key={f.name} className="flex items-center gap-3 text-sm">
                     {f.included ? (
-                      <Check className="w-4 h-4 text-success shrink-0" />
+                      <div className="w-5 h-5 rounded-full bg-success/10 flex items-center justify-center">
+                        <Check className="w-3 h-3 text-success" />
+                      </div>
                     ) : (
-                      <X className="w-4 h-4 text-muted-foreground shrink-0" />
+                      <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center">
+                        <X className="w-3 h-3 text-muted-foreground" />
+                      </div>
                     )}
                     <span className={f.included ? "" : "text-muted-foreground"}>{f.name}</span>
                   </div>

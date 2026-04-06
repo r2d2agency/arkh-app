@@ -1,6 +1,6 @@
 import AdminHeader from "@/components/admin/AdminHeader";
 import StatCard from "@/components/admin/StatCard";
-import { Church, Users, Video, UsersRound, BookOpen, Calendar, Brain, Crown } from "lucide-react";
+import { Church, Users, Video, UsersRound, BookOpen, Calendar, Brain, Crown, TrendingUp, ArrowUpRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
 const recentChurches = [
@@ -14,7 +14,7 @@ const Dashboard = () => {
   return (
     <>
       <AdminHeader title="Dashboard" subtitle="Visão geral da plataforma ARKHÉ" />
-      <div className="flex-1 overflow-auto p-6 space-y-6">
+      <div className="flex-1 overflow-auto p-6 space-y-6 animate-slide-up">
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
@@ -68,11 +68,14 @@ const Dashboard = () => {
         {/* AI Usage + Recent Churches */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* AI Consumption */}
-          <Card className="p-6">
-            <h2 className="font-heading font-bold text-base mb-4 flex items-center gap-2">
-              <Brain className="w-5 h-5 text-primary" />
-              Consumo de IA
-            </h2>
+          <Card className="p-6 rounded-2xl">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="font-heading font-bold text-sm flex items-center gap-2 uppercase tracking-wider text-muted-foreground">
+                <Brain className="w-4 h-4 text-primary" />
+                Consumo de IA
+              </h2>
+              <span className="text-xs text-muted-foreground bg-muted px-2.5 py-1 rounded-full">Este mês</span>
+            </div>
             <div className="space-y-4">
               {[
                 { label: "Transcrições", used: 342, limit: 500, color: "bg-primary" },
@@ -81,40 +84,53 @@ const Dashboard = () => {
                 { label: "Reflexão do Dia", used: 423, limit: 1000, color: "bg-warning" },
               ].map((item) => (
                 <div key={item.label}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-muted-foreground">{item.label}</span>
-                    <span className="font-medium">{item.used}/{item.limit}</span>
+                  <div className="flex justify-between text-sm mb-1.5">
+                    <span className="text-muted-foreground text-xs">{item.label}</span>
+                    <span className="font-medium text-xs">{item.used}<span className="text-muted-foreground">/{item.limit}</span></span>
                   </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                     <div
-                      className={`h-full rounded-full ${item.color} transition-all`}
+                      className={`h-full rounded-full ${item.color} transition-all duration-500`}
                       style={{ width: `${(item.used / item.limit) * 100}%` }}
                     />
                   </div>
                 </div>
               ))}
             </div>
-            <p className="text-xs text-muted-foreground mt-4">Custo estimado: R$ 347,20 este mês</p>
+            <div className="mt-5 pt-4 border-t border-border flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">Custo estimado</p>
+              <p className="text-sm font-heading font-bold">R$ 347,20</p>
+            </div>
           </Card>
 
           {/* Recent Churches */}
-          <Card className="p-6">
-            <h2 className="font-heading font-bold text-base mb-4 flex items-center gap-2">
-              <Church className="w-5 h-5 text-primary" />
-              Igrejas Recentes
-            </h2>
-            <div className="space-y-3">
-              {recentChurches.map((church) => (
+          <Card className="p-6 rounded-2xl">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="font-heading font-bold text-sm flex items-center gap-2 uppercase tracking-wider text-muted-foreground">
+                <Church className="w-4 h-4 text-primary" />
+                Igrejas Recentes
+              </h2>
+              <button className="text-xs text-primary hover:text-primary/80 font-medium flex items-center gap-1 transition-colors">
+                Ver todas <ArrowUpRight className="w-3 h-3" />
+              </button>
+            </div>
+            <div className="space-y-1">
+              {recentChurches.map((church, i) => (
                 <div
                   key={church.name}
-                  className="flex items-center justify-between py-3 border-b border-border last:border-0"
+                  className="flex items-center justify-between py-3 px-3 rounded-xl hover:bg-muted/50 transition-colors -mx-1 cursor-pointer group"
                 >
-                  <div>
-                    <p className="text-sm font-medium">{church.name}</p>
-                    <p className="text-xs text-muted-foreground">{church.members} membros · {church.date}</p>
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-primary/8 flex items-center justify-center text-primary font-bold text-xs shrink-0">
+                      {church.name.split(" ").slice(0, 2).map(w => w[0]).join("")}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium group-hover:text-primary transition-colors">{church.name}</p>
+                      <p className="text-xs text-muted-foreground">{church.members} membros · {church.date}</p>
+                    </div>
                   </div>
                   <span
-                    className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                    className={`text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full ${
                       church.plan === "Premium"
                         ? "bg-warning/10 text-warning"
                         : "bg-muted text-muted-foreground"
