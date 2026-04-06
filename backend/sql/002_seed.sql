@@ -7,7 +7,7 @@ ON CONFLICT DO NOTHING;
 INSERT INTO users (email, password_hash, name, role)
 VALUES (
   'admin@arkhe.app',
-  '$2a$12$LJ3hFgN1rPD0v5rKBGZGxOZ1V1YB6V0xP5r3YVG9R5z3KhMnO5Iry',
+  '$2a$12$bdL4ypMPbKldGbJVasgVb.wzrEe1dgFnfp5qun8KI4Yqyi0wWvGSC',
   'Super Admin',
   'super_admin'
 ) ON CONFLICT (email) DO NOTHING;
