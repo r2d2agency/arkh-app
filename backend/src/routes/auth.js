@@ -24,7 +24,7 @@ router.post('/login', async (req, res) => {
     );
 
     const refreshToken = uuidv4();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + (remember ? 90 : 30) * 24 * 60 * 60 * 1000);
     await pool.query(
       'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
       [user.id, refreshToken, expiresAt]
