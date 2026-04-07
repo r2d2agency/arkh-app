@@ -31,6 +31,7 @@ import ChurchMembers from "@/pages/church/ChurchMembers";
 import ChurchCustomize from "@/pages/church/ChurchCustomize";
 import ChurchSettings from "@/pages/church/ChurchSettings";
 import ChurchServices from "@/pages/church/ChurchServices";
+import GroupsPage from "@/pages/church/GroupsPage";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -93,6 +94,7 @@ const AppRoutes = () => (
         <Route path="/church/customize" element={<ChurchCustomize />} />
         <Route path="/church/settings" element={<ChurchSettings />} />
         <Route path="/church/manage-services" element={<ChurchServices />} />
+        <Route path="/church/groups" element={<GroupsPage />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />

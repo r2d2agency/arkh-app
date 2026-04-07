@@ -40,6 +40,7 @@ app.use('/api/settings', authenticate, requireRole('super_admin'), settingsRoute
 
 // Protected routes (Church Admin / Leader)
 app.use('/api/church', authenticate, churchPanelRoutes);
+app.use('/api/church/groups', authenticate, require('./routes/groups'));
 
 app.use((err, req, res, next) => {
   console.error('Error:', err.message);
