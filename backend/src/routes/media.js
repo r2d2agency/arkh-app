@@ -25,10 +25,10 @@ router.put('/progress/:serviceId', async (req, res) => {
   try {
     const { current_time, duration, completed } = req.body;
     const { rows } = await pool.query(
-      `INSERT INTO media_progress (user_id, service_id, current_time, duration, completed, last_played_at)
+      `INSERT INTO media_progress (user_id, service_id, progress_seconds, duration_seconds, completed, last_played_at)
        VALUES ($1, $2, $3, $4, $5, NOW())
        ON CONFLICT (user_id, service_id) DO UPDATE SET
-         current_time = $3, duration = COALESCE($4, media_progress.duration),
+         progress_seconds = $3, duration_seconds = COALESCE($4, media_progress.duration_seconds),
          completed = COALESCE($5, media_progress.completed), last_played_at = NOW()
        RETURNING *`,
       [req.user.id, req.params.serviceId, current_time || 0, duration || 0, completed || false]
