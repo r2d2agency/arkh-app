@@ -42,6 +42,8 @@ app.use('/api/settings', authenticate, requireRole('super_admin'), settingsRoute
 app.use('/api/church', authenticate, churchPanelRoutes);
 app.use('/api/church/groups', authenticate, require('./routes/groups'));
 app.use('/api/church/studies', authenticate, require('./routes/studies'));
+app.use('/api/church/polls', authenticate, require('./routes/polls'));
+app.use('/api/church/events', authenticate, require('./routes/events'));
 
 app.use((err, req, res, next) => {
   console.error('Error:', err.message);

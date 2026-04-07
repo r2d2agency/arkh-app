@@ -121,4 +121,96 @@ router.delete('/:id/members/:memberId', async (req, res) => {
   }
 });
 
+// === ANNOUNCEMENTS ===
+
+// GET /api/church/groups/:id/announcements
+router.get('/:id/announcements', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT ga.*, u.name as author_name FROM group_announcements ga
+       JOIN users u ON u.id = ga.author_id
+       WHERE ga.group_id = $1 ORDER BY ga.created_at DESC LIMIT 50`,
+      [req.params.id]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('GET announcements error:', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// POST /api/church/groups/:id/announcements
+router.post('/:id/announcements', async (req, res) => {
+  try {
+    const { content } = req.body;
+    if (!content) return res.status(400).json({ error: 'Content required' });
+    const { rows } = await pool.query(
+      `INSERT INTO group_announcements (group_id, author_id, content) VALUES ($1, $2, $3) RETURNING *`,
+      [req.params.id, req.user.id, content]
+    );
+    res.status(201).json({ ...rows[0], author_name: req.user.name });
+  } catch (err) {
+    console.error('POST announcement error:', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// DELETE /api/church/groups/:id/announcements/:annId
+router.delete('/:id/announcements/:annId', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM group_announcements WHERE id = $1 AND group_id = $2', [req.params.annId, req.params.id]);
+    res.json({ message: 'Deleted' });
+  } catch (err) {
+    console.error('DELETE announcement error:', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// === GROUP CONTENT ===
+
+// GET /api/church/groups/:id/content
+router.get('/:id/content', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT gc.*,
+        CASE WHEN gc.content_type = 'service' THEN (SELECT title FROM services WHERE id = gc.content_id)
+             WHEN gc.content_type = 'study' THEN (SELECT title FROM bible_studies WHERE id = gc.content_id)
+        END as content_title
+       FROM group_content gc WHERE gc.group_id = $1 ORDER BY gc.created_at DESC`,
+      [req.params.id]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('GET group content error:', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// POST /api/church/groups/:id/content
+router.post('/:id/content', async (req, res) => {
+  try {
+    const { content_type, content_id } = req.body;
+    if (!content_type || !content_id) return res.status(400).json({ error: 'content_type and content_id required' });
+    const { rows } = await pool.query(
+      `INSERT INTO group_content (group_id, content_type, content_id, added_by) VALUES ($1, $2, $3, $4) RETURNING *`,
+      [req.params.id, content_type, content_id, req.user.id]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    console.error('POST group content error:', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// DELETE /api/church/groups/:id/content/:contentId
+router.delete('/:id/content/:contentId', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM group_content WHERE id = $1 AND group_id = $2', [req.params.contentId, req.params.id]);
+    res.json({ message: 'Deleted' });
+  } catch (err) {
+    console.error('DELETE group content error:', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
 module.exports = router;
