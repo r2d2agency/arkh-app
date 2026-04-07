@@ -37,6 +37,9 @@ app.use('/api/ai', authenticate, requireRole('super_admin'), aiRoutes);
 app.use('/api/agents', authenticate, requireRole('super_admin'), agentsRoutes);
 app.use('/api/settings', authenticate, requireRole('super_admin'), settingsRoutes);
 
+// Protected routes (Church Admin / Leader)
+app.use('/api/church', authenticate, churchPanelRoutes);
+
 app.use((err, req, res, next) => {
   console.error('Error:', err.message);
   res.status(500).json({ error: 'Internal server error' });
