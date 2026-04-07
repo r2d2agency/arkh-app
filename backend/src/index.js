@@ -11,6 +11,7 @@ const logsRoutes = require('./routes/logs');
 const aiRoutes = require('./routes/ai');
 const agentsRoutes = require('./routes/agents');
 const settingsRoutes = require('./routes/settings');
+const churchPanelRoutes = require('./routes/church');
 const { authenticate, requireRole } = require('./middleware/auth');
 
 const app = express();
