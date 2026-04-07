@@ -4,7 +4,7 @@ const pool = require('../db/pool');
  * Process a service: fetch YouTube transcript, send to AI, save results.
  * Runs asynchronously (fire-and-forget from the route handler).
  */
-async function processService(serviceId) {
+async function processService(serviceId, options = {}) {
   const log = [];
   const addLog = async (step, message, status = 'info') => {
     const entry = { step, message, status, timestamp: new Date().toISOString() };
@@ -29,18 +29,23 @@ async function processService(serviceId) {
     }
     const service = svcRows[0];
 
-    // 2. Get active AI provider
+    // 2. Get AI provider (specific or default)
     await addLog('provider', 'Buscando provedor de IA...');
-    const { rows: providerRows } = await pool.query(
-      `SELECT * FROM ai_providers WHERE is_active = true ORDER BY created_at LIMIT 1`
-    );
-    if (!providerRows.length) {
+    const providerId = options.provider_id || service.provider_id;
+    let providerQuery;
+    if (providerId) {
+      providerQuery = await pool.query(`SELECT * FROM ai_providers WHERE id = $1 AND is_active = true`, [providerId]);
+    }
+    if (!providerQuery?.rows?.length) {
+      providerQuery = await pool.query(`SELECT * FROM ai_providers WHERE is_active = true ORDER BY created_at LIMIT 1`);
+    }
+    if (!providerQuery.rows.length) {
       await addLog('provider', 'Nenhum provedor de IA configurado ou ativo. Configure em Admin > IA.', 'error');
       await pool.query(`UPDATE services SET ai_status = 'error', processing_error = $1 WHERE id = $2`, ['Nenhum provedor de IA configurado', serviceId]);
       return;
     }
-    const provider = providerRows[0];
-    const apiKey = (provider.api_keys_encrypted || [])[0];
+    const provider = providerQuery.rows[0];
+    const apiKey = (provider.api_keys_encrypted || [])[0] || provider.api_key_encrypted;
     if (!apiKey) {
       await addLog('provider', 'Provedor sem API key configurada', 'error');
       await pool.query(`UPDATE services SET ai_status = 'error', processing_error = $1 WHERE id = $2`, ['API key não configurada', serviceId]);
@@ -48,7 +53,59 @@ async function processService(serviceId) {
     }
     await addLog('provider', `Usando provedor: ${provider.name} (${provider.provider}/${provider.model})`);
 
-    // 3. Fetch YouTube transcript
+    // Save provider used
+    if (providerId) {
+      await pool.query('UPDATE services SET provider_id = $1 WHERE id = $2', [provider.id, serviceId]);
+    }
+
+    // 3. Get church-level AI settings
+    let churchPrompt = null;
+    let churchTemp = null;
+    let churchMaxTokens = null;
+    if (service.church_id) {
+      const { rows: churchRows } = await pool.query(
+        'SELECT ai_prompt_template, ai_temperature, ai_max_tokens FROM churches WHERE id = $1',
+        [service.church_id]
+      );
+      if (churchRows.length) {
+        churchPrompt = churchRows[0].ai_prompt_template;
+        churchTemp = churchRows[0].ai_temperature;
+        churchMaxTokens = churchRows[0].ai_max_tokens;
+      }
+    }
+
+    // 4. Fetch previous sermons for cross-referencing
+    await addLog('context', 'Buscando pregações anteriores para correlação...');
+    let previousContext = '';
+    try {
+      const { rows: prevRows } = await pool.query(
+        `SELECT title, preacher, service_date, ai_summary, ai_topics, ai_key_verses 
+         FROM services 
+         WHERE church_id = $1 AND id != $2 AND ai_status = 'completed' 
+         ORDER BY service_date DESC NULLS LAST 
+         LIMIT 5`,
+        [service.church_id, serviceId]
+      );
+      if (prevRows.length > 0) {
+        previousContext = '\n\n--- PREGAÇÕES ANTERIORES (para correlação) ---\n';
+        prevRows.forEach((prev, i) => {
+          const topics = typeof prev.ai_topics === 'string' ? JSON.parse(prev.ai_topics) : (prev.ai_topics || []);
+          const verses = typeof prev.ai_key_verses === 'string' ? JSON.parse(prev.ai_key_verses) : (prev.ai_key_verses || []);
+          previousContext += `\n${i + 1}. "${prev.title}" - ${prev.preacher || 'Pregador não informado'} (${prev.service_date ? new Date(prev.service_date).toLocaleDateString('pt-BR') : 'data não informada'})`;
+          previousContext += `\nResumo: ${(prev.ai_summary || '').slice(0, 300)}`;
+          previousContext += `\nTópicos: ${topics.join(', ')}`;
+          previousContext += `\nVersículos: ${verses.map(v => v.reference || v).join(', ')}`;
+          previousContext += '\n';
+        });
+        await addLog('context', `${prevRows.length} pregações anteriores carregadas para correlação`);
+      } else {
+        await addLog('context', 'Nenhuma pregação anterior encontrada', 'info');
+      }
+    } catch (e) {
+      await addLog('context', 'Erro ao buscar pregações anteriores, prosseguindo sem correlação', 'warn');
+    }
+
+    // 5. Fetch YouTube transcript
     await addLog('transcript', 'Buscando legenda/transcrição do YouTube...');
     let transcript = '';
     try {
@@ -67,28 +124,27 @@ async function processService(serviceId) {
     // Save transcription
     await pool.query('UPDATE services SET transcription = $1 WHERE id = $2', [transcript, serviceId]);
 
-    // 4. Call AI for summary, topics, key verses
-    await addLog('ai', 'Enviando para IA analisar...');
-    
-    const systemPrompt = `Você é um assistente especializado em análise de pregações e cultos cristãos. Responda SEMPRE em JSON válido com a seguinte estrutura:
-{
-  "summary": "Resumo da pregação em 3-5 parágrafos",
-  "topics": ["tópico 1", "tópico 2", ...],
-  "key_verses": [{"reference": "João 3:16", "text": "Porque Deus amou o mundo..."}, ...]
-}`;
+    // 6. Call AI for deep analysis
+    await addLog('ai', 'Enviando para IA analisar em profundidade...');
 
-    const userPrompt = `Analise esta pregação/culto e gere um resumo detalhado, os principais tópicos abordados e os versículos-chave mencionados ou relacionados.
+    const systemPrompt = churchPrompt || getDefaultSystemPrompt();
+
+    const userPrompt = `Analise esta pregação/culto de forma PROFUNDA e COMPLETA.
 
 Título: ${service.title}
 Pregador: ${service.preacher || 'Não informado'}
-Data: ${service.service_date || 'Não informada'}
+Data: ${service.service_date ? new Date(service.service_date).toLocaleDateString('pt-BR') : 'Não informada'}
 
 Transcrição/Conteúdo:
-${transcript.slice(0, 15000)}`;
+${transcript.slice(0, 20000)}
+${previousContext}`;
+
+    const temperature = churchTemp ? parseFloat(churchTemp) : (parseFloat(provider.temperature) || 0.7);
+    const maxTokens = churchMaxTokens || provider.max_tokens || 8192;
 
     let aiResult;
     try {
-      aiResult = await callAI(provider, apiKey, systemPrompt, userPrompt);
+      aiResult = await callAI(provider, apiKey, systemPrompt, userPrompt, temperature, maxTokens);
       await addLog('ai', 'Resposta da IA recebida, processando...');
     } catch (err) {
       await addLog('ai', `Erro na chamada à IA: ${err.message}`, 'error');
@@ -96,11 +152,10 @@ ${transcript.slice(0, 15000)}`;
       return;
     }
 
-    // 5. Parse AI response
+    // 7. Parse AI response
     await addLog('parse', 'Interpretando resposta da IA...');
     let parsed;
     try {
-      // Try to extract JSON from the response
       const jsonMatch = aiResult.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         parsed = JSON.parse(jsonMatch[0]);
@@ -113,10 +168,13 @@ ${transcript.slice(0, 15000)}`;
         summary: aiResult,
         topics: [],
         key_verses: [],
+        practical_applications: [],
+        connections: [],
+        reflection_questions: [],
       };
     }
 
-    // 6. Save results
+    // 8. Save results
     await addLog('save', 'Salvando resultados...');
     await pool.query(
       `UPDATE services SET 
@@ -128,7 +186,14 @@ ${transcript.slice(0, 15000)}`;
        WHERE id = $4`,
       [
         parsed.summary || '',
-        JSON.stringify(parsed.topics || []),
+        JSON.stringify({
+          topics: parsed.topics || [],
+          practical_applications: parsed.practical_applications || [],
+          connections: parsed.connections || [],
+          reflection_questions: parsed.reflection_questions || [],
+          theological_context: parsed.theological_context || '',
+          sermon_structure: parsed.sermon_structure || [],
+        }),
         JSON.stringify(parsed.key_verses || []),
         serviceId,
       ]
@@ -156,8 +221,60 @@ ${transcript.slice(0, 15000)}`;
   }
 }
 
+function getDefaultSystemPrompt() {
+  return `Você é um teólogo e analista bíblico especializado em pregações cristãs. Sua função é criar uma análise PROFUNDA, COMPLETA e DETALHADA de cada pregação.
+
+Responda SEMPRE em JSON válido com a seguinte estrutura:
+{
+  "summary": "Resumo DETALHADO da pregação em 5-8 parágrafos completos. Inclua: contexto bíblico, argumento principal do pregador, desenvolvimento das ideias, ilustrações usadas, apelo final. Seja rico em detalhes.",
+  
+  "theological_context": "Contexto teológico e histórico dos textos abordados. Explique o pano de fundo dos versículos, época, autor, destinatários originais.",
+  
+  "sermon_structure": [
+    {"part": "Introdução", "description": "O que foi abordado na abertura"},
+    {"part": "Desenvolvimento 1", "description": "Primeiro ponto principal"},
+    {"part": "Desenvolvimento 2", "description": "Segundo ponto principal"},
+    {"part": "Conclusão", "description": "Como o pregador concluiu"}
+  ],
+  
+  "topics": ["tópico detalhado 1", "tópico detalhado 2", "tópico 3", "tópico 4", "tópico 5"],
+  
+  "key_verses": [
+    {"reference": "João 3:16", "text": "Texto completo do versículo", "context": "Por que este versículo foi citado e como se conecta com a mensagem"},
+    {"reference": "Romanos 8:28", "text": "Texto completo", "context": "Relevância na pregação"}
+  ],
+  
+  "practical_applications": [
+    "Aplicação prática 1 - como aplicar no dia a dia",
+    "Aplicação prática 2 - mudança de comportamento sugerida",
+    "Aplicação prática 3 - reflexão para a semana"
+  ],
+  
+  "reflection_questions": [
+    "Pergunta reflexiva 1 para estudo pessoal?",
+    "Pergunta reflexiva 2 para grupo pequeno?",
+    "Pergunta reflexiva 3 para devocional?"
+  ],
+  
+  "connections": [
+    {"sermon_title": "Título da pregação anterior", "connection": "Como esta mensagem se conecta com a anterior"},
+    {"theme": "Tema recorrente", "connection": "Padrão identificado entre as pregações"}
+  ]
+}
+
+REGRAS IMPORTANTES:
+- O resumo deve ter NO MÍNIMO 5 parágrafos densos e detalhados
+- Liste PELO MENOS 5 tópicos relevantes
+- Cite TODOS os versículos mencionados na pregação com texto completo
+- Crie PELO MENOS 3 aplicações práticas
+- Crie PELO MENOS 3 perguntas reflexivas
+- Se houver pregações anteriores fornecidas, IDENTIFIQUE conexões temáticas entre elas
+- Seja profundo, teológico, mas acessível ao membro comum
+- NÃO seja superficial, genérico ou resumido demais`;
+}
+
 /**
- * Fetch YouTube transcript using the innertube API
+ * Fetch YouTube transcript using the timedtext API
  */
 async function fetchYouTubeTranscript(videoId, startTime, endTime) {
   if (!videoId) throw new Error('Video ID não encontrado');
@@ -168,7 +285,6 @@ async function fetchYouTubeTranscript(videoId, startTime, endTime) {
     return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
   };
 
-  // Try fetching captions via YouTube's timedtext API
   const langCodes = ['pt', 'pt-BR', 'en', 'es'];
   
   for (const lang of langCodes) {
@@ -201,19 +317,17 @@ async function fetchYouTubeTranscript(videoId, startTime, endTime) {
     }
   }
 
-  // Fallback: try to get auto-generated captions
+  // Fallback: try auto-generated captions
   try {
     const pageRes = await fetchWithTimeout(`https://www.youtube.com/watch?v=${videoId}`, 20000);
     const html = await pageRes.text();
     
-    // Extract caption track URLs from the page
     const captionMatch = html.match(/"captions":\s*(\{.*?"playerCaptionsTracklistRenderer".*?\})/s);
     if (captionMatch) {
       const captionsData = JSON.parse(captionMatch[1]);
       const tracks = captionsData?.playerCaptionsTracklistRenderer?.captionTracks || [];
       
       if (tracks.length > 0) {
-        // Prefer Portuguese, then English
         const track = tracks.find(t => t.languageCode === 'pt') || 
                      tracks.find(t => t.languageCode === 'en') || 
                      tracks[0];
@@ -244,7 +358,7 @@ async function fetchYouTubeTranscript(videoId, startTime, endTime) {
     // Fallback failed
   }
 
-  throw new Error('Não foi possível obter a transcrição do vídeo. Verifique se o vídeo tem legendas disponíveis.');
+  throw new Error('Não foi possível obter a transcrição do vídeo.');
 }
 
 function timeToMs(timeStr) {
@@ -256,9 +370,9 @@ function timeToMs(timeStr) {
 }
 
 /**
- * Call AI provider with the given prompt
+ * Call AI provider
  */
-async function callAI(provider, apiKey, systemPrompt, userPrompt) {
+async function callAI(provider, apiKey, systemPrompt, userPrompt, temperature = 0.7, maxTokens = 8192) {
   const providerType = provider.provider;
   const model = provider.model;
 
@@ -277,8 +391,8 @@ async function callAI(provider, apiKey, systemPrompt, userPrompt) {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        temperature: parseFloat(provider.temperature) || 0.7,
-        max_tokens: provider.max_tokens || 4096,
+        temperature,
+        max_tokens: maxTokens,
       }),
     });
     if (!res.ok) {
@@ -298,8 +412,8 @@ async function callAI(provider, apiKey, systemPrompt, userPrompt) {
         body: JSON.stringify({
           contents: [{ parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }] }],
           generationConfig: {
-            temperature: parseFloat(provider.temperature) || 0.7,
-            maxOutputTokens: provider.max_tokens || 4096,
+            temperature,
+            maxOutputTokens: maxTokens,
           },
         }),
       }
@@ -322,7 +436,7 @@ async function callAI(provider, apiKey, systemPrompt, userPrompt) {
       },
       body: JSON.stringify({
         model,
-        max_tokens: provider.max_tokens || 4096,
+        max_tokens: maxTokens,
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }],
       }),
@@ -335,7 +449,7 @@ async function callAI(provider, apiKey, systemPrompt, userPrompt) {
     return data.content?.[0]?.text || '';
   }
 
-  throw new Error(`Provedor "${providerType}" não suportado para processamento`);
+  throw new Error(`Provedor "${providerType}" não suportado`);
 }
 
 module.exports = { processService };
