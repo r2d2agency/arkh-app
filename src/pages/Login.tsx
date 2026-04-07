@@ -35,10 +35,10 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md p-8 rounded-2xl space-y-6 border-gold/20">
+      <Card className="w-full max-w-md p-8 rounded-2xl space-y-6 border-primary/15 shadow-xl shadow-primary/5">
         <div className="text-center space-y-3">
           <img src={logoImg} alt="ARKHÉ" className="w-20 h-20 mx-auto object-contain" />
-          <h1 className="font-heading text-3xl font-bold tracking-tight gradient-text">ARKHÉ</h1>
+          <h1 className="font-heading text-3xl font-bold tracking-tight text-primary">ARKHÉ</h1>
           <p className="text-muted-foreground text-sm">Acesse sua conta</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -66,7 +66,7 @@ const Login = () => {
           </div>
           <Button
             type="submit"
-            className="w-full rounded-xl gradient-blue-gold border-0 shadow-md shadow-primary/20 text-primary-foreground"
+            className="w-full rounded-xl bg-primary hover:bg-primary/90 border-0 shadow-md shadow-primary/20 text-primary-foreground"
             disabled={loading}
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Entrar'}
@@ -74,7 +74,7 @@ const Login = () => {
         </form>
         <p className="text-center text-sm text-muted-foreground">
           Sua igreja ainda não está cadastrada?{' '}
-          <Link to="/register" className="text-primary hover:underline font-medium">
+          <Link to="/register" className="text-gold hover:underline font-medium">
             Cadastre gratuitamente
           </Link>
         </p>
