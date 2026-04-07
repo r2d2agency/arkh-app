@@ -78,6 +78,7 @@ export default function AIProviderDialog({ open, onOpenChange, provider, onSave,
   const [apiKeys, setApiKeys] = useState<string[]>([""]);
   const [isActive, setIsActive] = useState(true);
   const [costPer1k, setCostPer1k] = useState("0");
+  const [keyStatuses, setKeyStatuses] = useState<Record<number, 'idle' | 'validating' | 'valid' | 'invalid'>>({});
 
   const models = MODELS_BY_PROVIDER[providerType] || [];
   const useCustomInput = providerType === "custom" || models.length === 0;
