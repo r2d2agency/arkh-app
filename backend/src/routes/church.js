@@ -20,6 +20,23 @@ router.get('/services', async (req, res) => {
   }
 });
 
+// GET /api/church/services/:id
+router.get('/services/:id', async (req, res) => {
+  try {
+    const churchId = req.user.church_id;
+    if (!churchId) return res.status(400).json({ error: 'No church associated' });
+    const { rows } = await pool.query(
+      `SELECT * FROM services WHERE id = $1 AND church_id = $2`,
+      [req.params.id, churchId]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Service not found' });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error('GET service detail error:', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
 // POST /api/church/services
 router.post('/services', async (req, res) => {
   try {
