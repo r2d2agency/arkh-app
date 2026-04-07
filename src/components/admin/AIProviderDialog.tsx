@@ -219,14 +219,28 @@ export default function AIProviderDialog({ open, onOpenChange, provider, onSave,
             </div>
             <div className="space-y-2">
               {apiKeys.map((key, i) => (
-                <div key={i} className="flex gap-2">
-                  <Input
-                    type="password"
-                    value={key}
-                    onChange={e => updateKey(i, e.target.value)}
-                    placeholder={`Token ${i + 1}`}
-                    className="rounded-xl font-mono text-xs"
-                  />
+                <div key={i} className="flex gap-2 items-center">
+                  <div className="relative flex-1">
+                    <Input
+                      type="password"
+                      value={key}
+                      onChange={e => updateKey(i, e.target.value)}
+                      placeholder={`Token ${i + 1}`}
+                      className="rounded-xl font-mono text-xs pr-10"
+                    />
+                    {keyStatuses[i] === 'valid' && <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-success" />}
+                    {keyStatuses[i] === 'invalid' && <XCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-destructive" />}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => validateKey(i)}
+                    disabled={!key.trim() || keyStatuses[i] === 'validating'}
+                    className="shrink-0 rounded-lg text-xs gap-1 h-10"
+                  >
+                    {keyStatuses[i] === 'validating' ? <RefreshCw className="w-3 h-3 animate-spin" /> : 'Validar'}
+                  </Button>
                   {apiKeys.length > 1 && (
                     <Button type="button" variant="ghost" size="icon" onClick={() => removeKey(i)} className="shrink-0 h-10 w-10 rounded-lg text-destructive hover:text-destructive">
                       <Trash2 className="w-4 h-4" />
