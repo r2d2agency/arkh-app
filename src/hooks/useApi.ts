@@ -1,7 +1,8 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { toast } from 'sonner';
 
-// Dashboard
+// ── Dashboard ──
 export function useDashboard() {
   return useQuery({
     queryKey: ['dashboard'],
@@ -14,12 +15,13 @@ export function useDashboard() {
   });
 }
 
-// Churches
+// ── Churches ──
 export interface Church {
   id: string;
   name: string;
   slug: string;
   status: string;
+  plan_id: string | null;
   plan_name: string | null;
   member_count: number;
   created_at: string;
@@ -32,7 +34,36 @@ export function useChurches() {
   });
 }
 
-// Users
+export function useCreateChurch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name: string; slug: string; plan_id?: string; status?: string }) =>
+      api.post<Church>('/api/churches', data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['churches'] }); qc.invalidateQueries({ queryKey: ['dashboard'] }); toast.success('Igreja criada'); },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useUpdateChurch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; name?: string; slug?: string; plan_id?: string; status?: string }) =>
+      api.put<Church>(`/api/churches/${id}`, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['churches'] }); qc.invalidateQueries({ queryKey: ['dashboard'] }); toast.success('Igreja atualizada'); },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useDeleteChurch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/api/churches/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['churches'] }); qc.invalidateQueries({ queryKey: ['dashboard'] }); toast.success('Igreja removida'); },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+// ── Users ──
 export interface UserData {
   id: string;
   email: string;
@@ -51,7 +82,19 @@ export function useUsers() {
   });
 }
 
-// Plans
+export function useToggleUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.put<{ id: string; is_active: boolean }>(`/api/users/${id}/toggle`, {}),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['users'] });
+      toast.success(data.is_active ? 'Usuário ativado' : 'Usuário bloqueado');
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+// ── Plans ──
 export interface Plan {
   id: string;
   name: string;
@@ -71,7 +114,27 @@ export function usePlans() {
   });
 }
 
-// Logs
+export function useCreatePlan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name: string; price: number; interval: string; max_members: number; max_ai_tokens: number; features: string[] }) =>
+      api.post<Plan>('/api/plans', data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['plans'] }); toast.success('Plano criado'); },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useUpdatePlan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; name?: string; price?: number; interval?: string; max_members?: number; max_ai_tokens?: number; features?: string[]; is_active?: boolean }) =>
+      api.put<Plan>(`/api/plans/${id}`, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['plans'] }); toast.success('Plano atualizado'); },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+// ── Logs ──
 export interface LogEntry {
   id: string;
   level: string;
@@ -89,7 +152,7 @@ export function useLogs(level?: string) {
   });
 }
 
-// AI Providers
+// ── AI ──
 export interface AIProvider {
   id: string;
   name: string;
@@ -113,7 +176,7 @@ export function useAIUsage() {
   });
 }
 
-// Settings
+// ── Settings ──
 export function useSettings() {
   return useQuery({
     queryKey: ['settings'],
