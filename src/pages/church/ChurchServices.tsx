@@ -558,6 +558,48 @@ const ChurchServices = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Process with Provider Selection Dialog */}
+      <Dialog open={processDialogOpen} onOpenChange={setProcessDialogOpen}>
+        <DialogContent className="rounded-xl max-w-md" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Brain className="w-5 h-5 text-primary" />
+              Processar com IA
+            </DialogTitle>
+            <DialogDescription>
+              Escolha o provedor de IA para processar esta pregação. A IA irá gerar resumo detalhado, tópicos, versículos e conexões com pregações anteriores.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Provedor de IA</Label>
+              <Select value={selectedProviderId} onValueChange={setSelectedProviderId}>
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue placeholder="Usar provedor padrão" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Provedor padrão (automático)</SelectItem>
+                  {aiProviders.map(p => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name} ({p.provider}/{p.model})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground">
+                Selecione um provedor específico ou deixe automático para usar o padrão ativo.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setProcessDialogOpen(false)} className="rounded-xl">Cancelar</Button>
+            <Button onClick={() => handleProcess()} className="rounded-xl bg-primary hover:bg-primary/90 border-0 text-primary-foreground">
+              <Sparkles className="w-4 h-4 mr-2" /> Iniciar Processamento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
