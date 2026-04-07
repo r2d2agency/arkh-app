@@ -9,6 +9,7 @@ import {
   User,
   Settings,
   Users,
+  UsersRound,
   Palette,
   Shield,
   LogOut,
@@ -32,7 +33,7 @@ const memberBottomNav = [
 
 const adminSidebarItems = [
   { path: '/church/manage-services', label: 'Gerenciar Cultos', icon: Video },
-  { path: '/church/groups', label: 'Grupos', icon: Users },
+  { path: '/church/groups', label: 'Grupos', icon: UsersRound },
   { path: '/church/members', label: 'Membros', icon: Users },
   { path: '/church/customize', label: 'Personalizar', icon: Palette },
   { path: '/church/settings', label: 'Configurações', icon: Settings },
