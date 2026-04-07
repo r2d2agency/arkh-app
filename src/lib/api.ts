@@ -67,7 +67,7 @@ class ApiClient {
     const data = await this.post<{
       access_token: string;
       refresh_token: string;
-      user: { id: string; name: string; email: string; role: string };
+      user: { id: string; name: string; email: string; role: string; church_id?: string };
     }>('/api/auth/login', { email, password });
     localStorage.setItem('access_token', data.access_token);
     localStorage.setItem('refresh_token', data.refresh_token);
