@@ -5,11 +5,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Video, Plus, Search, Trash2, ExternalLink, Clock, User, Calendar, Sparkles, Loader2, FileText, CheckCircle, AlertCircle, Info, Pencil } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Video, Plus, Search, Trash2, ExternalLink, Clock, User, Calendar, Sparkles, Loader2, FileText, CheckCircle, AlertCircle, Info, Pencil, Brain } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
+
+interface AIProviderOption {
+  id: string;
+  name: string;
+  provider: string;
+  model: string;
+}
 
 interface Service {
   id: string;
@@ -81,8 +89,18 @@ const ChurchServices = () => {
   const [fetching, setFetching] = useState(true);
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
   const [form, setForm] = useState({ ...defaultForm });
+  const [aiProviders, setAiProviders] = useState<AIProviderOption[]>([]);
+  const [processDialogOpen, setProcessDialogOpen] = useState(false);
+  const [processServiceId, setProcessServiceId] = useState<string | null>(null);
+  const [selectedProviderId, setSelectedProviderId] = useState<string>('');
 
   const isAdmin = user?.role === 'admin_church' || user?.role === 'leader';
+
+  useEffect(() => {
+    if (isAdmin) {
+      api.get<AIProviderOption[]>('/api/church/ai-providers').then(setAiProviders).catch(() => {});
+    }
+  }, [isAdmin]);
 
   useEffect(() => {
     const fetchServices = async () => {
@@ -198,14 +216,24 @@ const ChurchServices = () => {
     }
   };
 
-  const handleProcess = async (id: string) => {
-    setProcessingIds(prev => new Set(prev).add(id));
+  const openProcessDialog = (id: string) => {
+    setProcessServiceId(id);
+    setSelectedProviderId('');
+    setProcessDialogOpen(true);
+  };
+
+  const handleProcess = async (id?: string) => {
+    const serviceId = id || processServiceId;
+    if (!serviceId) return;
+    setProcessDialogOpen(false);
+    setProcessingIds(prev => new Set(prev).add(serviceId));
     try {
-      await api.post(`/api/church/services/${id}/process`, {});
-      setServices(prev => prev.map(s => s.id === id ? { ...s, ai_status: 'processing' } : s));
+      await api.post(`/api/church/services/${serviceId}/process`, { 
+        provider_id: selectedProviderId || undefined 
+      });
+      setServices(prev => prev.map(s => s.id === serviceId ? { ...s, ai_status: 'processing' } : s));
       toast({ title: 'Processamento IA iniciado!' });
-      // Open log dialog
-      setSelectedServiceId(id);
+      setSelectedServiceId(serviceId);
       setLogData({ logs: [], status: 'processing' });
       setLogDialogOpen(true);
     } catch (err: any) {
@@ -213,7 +241,7 @@ const ChurchServices = () => {
     } finally {
       setProcessingIds(prev => {
         const n = new Set(prev);
-        n.delete(id);
+        n.delete(serviceId);
         return n;
       });
     }
@@ -340,7 +368,7 @@ const ChurchServices = () => {
                       <Button
                         size="sm"
                         className="rounded-lg bg-gold hover:bg-gold-dark text-foreground font-medium"
-                        onClick={() => handleProcess(service.id)}
+                        onClick={() => openProcessDialog(service.id)}
                         disabled={isProcessing}
                       >
                         {isProcessing ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
@@ -352,10 +380,20 @@ const ChurchServices = () => {
                         size="sm"
                         variant="outline"
                         className="rounded-lg border-destructive text-destructive"
-                        onClick={() => handleProcess(service.id)}
+                        onClick={() => openProcessDialog(service.id)}
                         disabled={processingIds.has(service.id)}
                       >
                         <Sparkles className="w-3 h-3 mr-1" /> Reprocessar
+                      </Button>
+                    )}
+                    {isAdmin && service.ai_status === 'completed' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="rounded-lg"
+                        onClick={() => openProcessDialog(service.id)}
+                      >
+                        <Brain className="w-3 h-3 mr-1" /> Reprocessar
                       </Button>
                     )}
                     {isAdmin && (service.ai_status === 'processing' || service.ai_status === 'completed' || service.ai_status === 'error') && (
@@ -518,6 +556,48 @@ const ChurchServices = () => {
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Process with Provider Selection Dialog */}
+      <Dialog open={processDialogOpen} onOpenChange={setProcessDialogOpen}>
+        <DialogContent className="rounded-xl max-w-md" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Brain className="w-5 h-5 text-primary" />
+              Processar com IA
+            </DialogTitle>
+            <DialogDescription>
+              Escolha o provedor de IA para processar esta pregação. A IA irá gerar resumo detalhado, tópicos, versículos e conexões com pregações anteriores.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Provedor de IA</Label>
+              <Select value={selectedProviderId} onValueChange={setSelectedProviderId}>
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue placeholder="Usar provedor padrão" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Provedor padrão (automático)</SelectItem>
+                  {aiProviders.map(p => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name} ({p.provider}/{p.model})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground">
+                Selecione um provedor específico ou deixe automático para usar o padrão ativo.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setProcessDialogOpen(false)} className="rounded-xl">Cancelar</Button>
+            <Button onClick={() => handleProcess()} className="rounded-xl bg-primary hover:bg-primary/90 border-0 text-primary-foreground">
+              <Sparkles className="w-4 h-4 mr-2" /> Iniciar Processamento
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

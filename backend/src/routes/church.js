@@ -98,6 +98,8 @@ router.post('/services/:id/process', async (req, res) => {
     );
     if (!svcRows.length) return res.status(404).json({ error: 'Service not found' });
     
+    const { provider_id } = req.body || {};
+    
     // Set status to processing and clear old logs
     await pool.query(
       `UPDATE services SET ai_status = 'processing', processing_logs = '[]', processing_error = NULL WHERE id = $1`,
@@ -106,13 +108,63 @@ router.post('/services/:id/process', async (req, res) => {
     
     // Fire-and-forget: process asynchronously
     const { processService } = require('../services/processService');
-    processService(req.params.id).catch(err => {
+    processService(req.params.id, { provider_id }).catch(err => {
       console.error('Background processing error:', err);
     });
     
     res.json({ message: 'AI processing started', status: 'processing' });
   } catch (err) {
     console.error('Process service error:', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// GET /api/church/ai-settings — get church AI settings
+router.get('/ai-settings', async (req, res) => {
+  try {
+    const churchId = req.user.church_id;
+    if (!churchId) return res.status(400).json({ error: 'No church' });
+    const { rows } = await pool.query(
+      'SELECT ai_prompt_template, ai_temperature, ai_max_tokens FROM churches WHERE id = $1',
+      [churchId]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Not found' });
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// PUT /api/church/ai-settings — update church AI settings
+router.put('/ai-settings', async (req, res) => {
+  try {
+    const churchId = req.user.church_id;
+    if (!churchId) return res.status(400).json({ error: 'No church' });
+    if (req.user.role !== 'admin_church') return res.status(403).json({ error: 'Admin only' });
+    
+    const { ai_prompt_template, ai_temperature, ai_max_tokens } = req.body;
+    await pool.query(
+      `UPDATE churches SET 
+        ai_prompt_template = COALESCE($1, ai_prompt_template),
+        ai_temperature = COALESCE($2, ai_temperature),
+        ai_max_tokens = COALESCE($3, ai_max_tokens)
+       WHERE id = $4`,
+      [ai_prompt_template || null, ai_temperature || null, ai_max_tokens || null, churchId]
+    );
+    res.json({ message: 'AI settings updated' });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// GET /api/church/ai-providers — list active AI providers for selection
+router.get('/ai-providers', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, name, provider, model FROM ai_providers WHERE is_active = true ORDER BY name`
+    );
+    res.json(rows);
+  } catch (err) {
     res.status(500).json({ error: 'Internal error' });
   }
 });
