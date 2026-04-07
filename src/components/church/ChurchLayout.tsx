@@ -13,23 +13,21 @@ import {
   Palette,
   Lock,
   Home,
+  Shield,
 } from 'lucide-react';
 import { useState } from 'react';
 import logoImg from '@/assets/logo.png';
-
-const adminNavItems = [
-  { path: '/church', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/church/services', label: 'Cultos', icon: Video },
-  { path: '/church/studies', label: 'Estudos', icon: BookOpen },
-  { path: '/church/members', label: 'Membros', icon: Users },
-  { path: '/church/customize', label: 'Personalizar', icon: Palette },
-  { path: '/church/settings', label: 'Config', icon: Settings },
-];
 
 const memberNavItems = [
   { path: '/church', label: 'Início', icon: Home },
   { path: '/church/services', label: 'Cultos', icon: Video },
   { path: '/church/studies', label: 'Estudos', icon: BookOpen },
+];
+
+const adminExtraItems = [
+  { path: '/church/members', label: 'Membros', icon: Users },
+  { path: '/church/customize', label: 'Personalizar', icon: Palette },
+  { path: '/church/settings', label: 'Config', icon: Settings },
 ];
 
 const ChurchLayout = () => {
@@ -39,7 +37,6 @@ const ChurchLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const isAdmin = user?.role === 'admin_church' || user?.role === 'leader';
-  const navItems = isAdmin ? adminNavItems : memberNavItems;
 
   const handleLogout = () => {
     logout();
@@ -53,7 +50,7 @@ const ChurchLayout = () => {
         <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/* Sidebar - desktop */}
+      {/* Sidebar */}
       <aside
         className={`fixed inset-y-0 left-0 z-50 w-64 glass-sidebar text-sidebar-foreground transform transition-transform duration-200 lg:relative lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
@@ -65,10 +62,8 @@ const ChurchLayout = () => {
               <div className="flex items-center gap-3">
                 <img src={logoImg} alt="ARKHÉ" className="w-9 h-9 rounded-lg object-contain" />
                 <div>
-                  <h2 className="font-heading text-sm font-bold text-sidebar-accent-foreground">
-                    {isAdmin ? 'Painel da Igreja' : 'Minha Igreja'}
-                  </h2>
-                  <p className="text-xs text-gold">{isAdmin ? 'Administração' : 'Área do Membro'}</p>
+                  <h2 className="font-heading text-sm font-bold text-sidebar-accent-foreground">Minha Igreja</h2>
+                  <p className="text-xs text-gold">Área do Membro</p>
                 </div>
               </div>
               <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-sidebar-foreground">
@@ -78,7 +73,7 @@ const ChurchLayout = () => {
           </div>
 
           <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-            {navItems.map(item => {
+            {memberNavItems.map(item => {
               const isActive = location.pathname === item.path;
               return (
                 <Link
@@ -96,6 +91,35 @@ const ChurchLayout = () => {
                 </Link>
               );
             })}
+
+            {isAdmin && (
+              <>
+                <div className="pt-4 pb-1 px-3">
+                  <p className="text-[10px] uppercase tracking-wider text-sidebar-foreground/50 flex items-center gap-1.5">
+                    <Shield className="w-3 h-3" />
+                    Administração
+                  </p>
+                </div>
+                {adminExtraItems.map(item => {
+                  const isActive = location.pathname === item.path;
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      onClick={() => setSidebarOpen(false)}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                        isActive
+                          ? 'bg-sidebar-accent text-gold font-medium'
+                          : 'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground'
+                      }`}
+                    >
+                      <item.icon className="w-4 h-4" />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </>
+            )}
           </nav>
 
           <div className="p-4 border-t border-sidebar-border">
@@ -148,7 +172,7 @@ const ChurchLayout = () => {
         {/* Mobile bottom nav */}
         <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-card/95 backdrop-blur-xl border-t border-border safe-bottom">
           <div className="flex items-center justify-around py-2">
-            {navItems.slice(0, 5).map(item => {
+            {memberNavItems.map(item => {
               const isActive = location.pathname === item.path;
               return (
                 <Link
