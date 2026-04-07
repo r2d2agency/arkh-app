@@ -7,12 +7,39 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import {
   ArrowLeft, Play, BookOpen, Sparkles, MessageSquare, Tag,
-  BookMarked, Save, Loader2, Volume2, Maximize2,
+  BookMarked, Save, Loader2, Maximize2, Lightbulb, HelpCircle,
+  Link2, ListOrdered, ChevronDown, ChevronUp, Heart,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 
-interface ServiceDetail {
+interface KeyVerse {
+  reference: string;
+  text: string;
+  context?: string;
+}
+
+interface Connection {
+  sermon_title?: string;
+  theme?: string;
+  connection: string;
+}
+
+interface SermonStructure {
+  part: string;
+  description: string;
+}
+
+interface AITopicsData {
+  topics?: string[];
+  practical_applications?: string[];
+  connections?: Connection[];
+  reflection_questions?: string[];
+  theological_context?: string;
+  sermon_structure?: SermonStructure[];
+}
+
+interface ServiceData {
   id: string;
   title: string;
   youtube_url: string;
@@ -20,11 +47,8 @@ interface ServiceDetail {
   service_date: string;
   ai_status: string;
   ai_summary?: string;
-  ai_topics?: string[];
-  ai_key_phrases?: string[];
-  ai_verses?: string[];
-  ai_tags?: string[];
-  ai_full_summary?: string;
+  ai_topics?: string | string[] | AITopicsData;
+  ai_key_verses?: string | KeyVerse[];
 }
 
 const getYouTubeId = (url: string) => {
@@ -32,24 +56,79 @@ const getYouTubeId = (url: string) => {
   return match?.[1];
 };
 
+function parseTopics(raw: any): AITopicsData {
+  if (!raw) return {};
+  if (typeof raw === 'string') {
+    try { return JSON.parse(raw); } catch { return { topics: [] }; }
+  }
+  if (Array.isArray(raw)) return { topics: raw };
+  return raw as AITopicsData;
+}
+
+function parseVerses(raw: any): KeyVerse[] {
+  if (!raw) return [];
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch { return []; }
+  }
+  return Array.isArray(raw) ? raw : [];
+}
+
 const ServiceDetailPage = () => {
   const { id } = useParams<{ id: string }>();
-  const [service, setService] = useState<ServiceDetail | null>(null);
+  const [service, setService] = useState<ServiceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [note, setNote] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
+  const [expandedSummary, setExpandedSummary] = useState(false);
+  const [savingVerse, setSavingVerse] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
-    api.get<ServiceDetail>(`/api/church/services/${id}`)
+    api.get<ServiceData>(`/api/church/services/${id}`)
       .then(data => setService(data))
       .catch(() => toast.error('Erro ao carregar culto'))
       .finally(() => setLoading(false));
   }, [id]);
 
-  const handleSaveNote = () => {
-    toast.success('Anotação salva no seu caderno!');
-    setNote('');
+  const handleSaveNote = async () => {
+    if (!note.trim() || !id) return;
+    setSavingNote(true);
+    try {
+      await api.post('/api/church/notes', {
+        service_id: id,
+        title: `Anotação - ${service?.title || 'Culto'}`,
+        content: note,
+        note_type: 'note',
+      });
+      toast.success('Anotação salva no caderno!');
+      setNote('');
+    } catch {
+      toast.error('Erro ao salvar anotação');
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  const handleSaveVerse = async (verse: KeyVerse) => {
+    setSavingVerse(verse.reference);
+    try {
+      await api.post('/api/church/notes', {
+        service_id: id,
+        title: verse.reference,
+        content: verse.text,
+        note_type: 'verse',
+        verse_reference: verse.reference,
+      });
+      toast.success(`${verse.reference} salvo no caderno!`);
+    } catch {
+      toast.error('Erro ao salvar versículo');
+    } finally {
+      setSavingVerse(null);
+    }
   };
 
   if (loading) {
@@ -75,6 +154,10 @@ const ServiceDetailPage = () => {
 
   const ytId = getYouTubeId(service.youtube_url);
   const hasAI = service.ai_status === 'completed';
+  const topicsData = parseTopics(service.ai_topics);
+  const verses = parseVerses(service.ai_key_verses);
+  const summaryText = service.ai_summary || '';
+  const shouldTruncate = summaryText.length > 500;
 
   return (
     <div className={`animate-fade-in ${focusMode ? 'bg-background' : ''}`}>
@@ -115,7 +198,7 @@ const ServiceDetailPage = () => {
         {/* AI Generated content */}
         {hasAI ? (
           <Tabs defaultValue="summary" className="w-full">
-            <TabsList className="w-full rounded-xl bg-muted/50 p-1 h-auto">
+            <TabsList className="w-full rounded-xl bg-muted/50 p-1 h-auto flex-wrap">
               <TabsTrigger value="summary" className="rounded-lg text-xs flex-1 data-[state=active]:bg-card">
                 Resumo
               </TabsTrigger>
@@ -125,39 +208,103 @@ const ServiceDetailPage = () => {
               <TabsTrigger value="verses" className="rounded-lg text-xs flex-1 data-[state=active]:bg-card">
                 Versículos
               </TabsTrigger>
-              <TabsTrigger value="phrases" className="rounded-lg text-xs flex-1 data-[state=active]:bg-card">
-                Destaques
+              <TabsTrigger value="apply" className="rounded-lg text-xs flex-1 data-[state=active]:bg-card">
+                Aplicar
               </TabsTrigger>
             </TabsList>
 
+            {/* RESUMO */}
             <TabsContent value="summary" className="mt-4 space-y-4">
               <Card className="p-4 rounded-2xl space-y-3">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-gold" />
-                  <h3 className="font-heading text-sm font-semibold">Resumo</h3>
+                  <h3 className="font-heading text-sm font-semibold">Resumo da Pregação</h3>
                 </div>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {service.ai_summary || 'Resumo gerado pela IA aparecerá aqui.'}
-                </p>
+                <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                  {shouldTruncate && !expandedSummary
+                    ? summaryText.slice(0, 500) + '...'
+                    : summaryText
+                  }
+                </div>
+                {shouldTruncate && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-primary"
+                    onClick={() => setExpandedSummary(!expandedSummary)}
+                  >
+                    {expandedSummary ? <ChevronUp className="w-3 h-3 mr-1" /> : <ChevronDown className="w-3 h-3 mr-1" />}
+                    {expandedSummary ? 'Ver menos' : 'Ler resumo completo'}
+                  </Button>
+                )}
               </Card>
-              {service.ai_full_summary && (
-                <Card className="p-4 rounded-2xl space-y-3">
-                  <h3 className="font-heading text-sm font-semibold">Resumo completo</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                    {service.ai_full_summary}
+
+              {/* Theological Context */}
+              {topicsData.theological_context && (
+                <Card className="p-4 rounded-2xl space-y-3 border-gold/20 bg-gold/5">
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="w-4 h-4 text-gold" />
+                    <h3 className="font-heading text-sm font-semibold">Contexto Teológico</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {topicsData.theological_context}
                   </p>
+                </Card>
+              )}
+
+              {/* Sermon Structure */}
+              {topicsData.sermon_structure && topicsData.sermon_structure.length > 0 && (
+                <Card className="p-4 rounded-2xl space-y-3">
+                  <div className="flex items-center gap-2">
+                    <ListOrdered className="w-4 h-4 text-primary" />
+                    <h3 className="font-heading text-sm font-semibold">Estrutura da Mensagem</h3>
+                  </div>
+                  <div className="space-y-2">
+                    {topicsData.sermon_structure.map((item, i) => (
+                      <div key={i} className="flex gap-3 p-3 rounded-xl bg-muted/30">
+                        <span className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0 mt-0.5">
+                          {i + 1}
+                        </span>
+                        <div>
+                          <p className="text-sm font-medium">{item.part}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
+              {/* Connections with previous sermons */}
+              {topicsData.connections && topicsData.connections.length > 0 && (
+                <Card className="p-4 rounded-2xl space-y-3 border-primary/10">
+                  <div className="flex items-center gap-2">
+                    <Link2 className="w-4 h-4 text-primary" />
+                    <h3 className="font-heading text-sm font-semibold">Conexões com Pregações Anteriores</h3>
+                  </div>
+                  <div className="space-y-2">
+                    {topicsData.connections.map((conn, i) => (
+                      <div key={i} className="p-3 rounded-xl bg-primary/5 border border-primary/10">
+                        <p className="text-xs font-semibold text-primary mb-1">
+                          {conn.sermon_title || conn.theme}
+                        </p>
+                        <p className="text-sm text-muted-foreground">{conn.connection}</p>
+                      </div>
+                    ))}
+                  </div>
                 </Card>
               )}
             </TabsContent>
 
+            {/* TÓPICOS */}
             <TabsContent value="topics" className="mt-4">
               <Card className="p-4 rounded-2xl space-y-3">
                 <div className="flex items-center gap-2">
                   <BookOpen className="w-4 h-4 text-primary" />
-                  <h3 className="font-heading text-sm font-semibold">Tópicos principais</h3>
+                  <h3 className="font-heading text-sm font-semibold">Tópicos Principais</h3>
                 </div>
                 <div className="space-y-2">
-                  {(service.ai_topics || []).map((topic, i) => (
+                  {(topicsData.topics || []).map((topic, i) => (
                     <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-muted/50">
                       <span className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0">
                         {i + 1}
@@ -165,49 +312,106 @@ const ServiceDetailPage = () => {
                       <p className="text-sm">{topic}</p>
                     </div>
                   ))}
-                  {(!service.ai_topics || service.ai_topics.length === 0) && (
-                    <p className="text-sm text-muted-foreground">Nenhum tópico extraído ainda.</p>
+                  {(!topicsData.topics || topicsData.topics.length === 0) && (
+                    <p className="text-sm text-muted-foreground">Nenhum tópico extraído.</p>
                   )}
                 </div>
               </Card>
             </TabsContent>
 
+            {/* VERSÍCULOS */}
             <TabsContent value="verses" className="mt-4">
               <Card className="p-4 rounded-2xl space-y-3">
                 <div className="flex items-center gap-2">
                   <BookMarked className="w-4 h-4 text-gold" />
-                  <h3 className="font-heading text-sm font-semibold">Versículos citados</h3>
+                  <h3 className="font-heading text-sm font-semibold">Versículos Citados</h3>
                 </div>
-                <div className="space-y-2">
-                  {(service.ai_verses || []).map((verse, i) => (
-                    <div key={i} className="p-3 rounded-xl bg-gold/5 border border-gold/10">
-                      <p className="text-sm font-medium text-gold">{verse}</p>
+                <div className="space-y-3">
+                  {verses.map((verse, i) => (
+                    <div key={i} className="p-4 rounded-xl bg-gold/5 border border-gold/10 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-bold text-gold">{verse.reference}</p>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-xs text-primary"
+                          onClick={() => handleSaveVerse(verse)}
+                          disabled={savingVerse === verse.reference}
+                        >
+                          {savingVerse === verse.reference ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <><Heart className="w-3 h-3 mr-1" /> Salvar</>
+                          )}
+                        </Button>
+                      </div>
+                      {verse.text && (
+                        <blockquote className="text-sm italic text-muted-foreground border-l-2 border-gold/30 pl-3">
+                          "{verse.text}"
+                        </blockquote>
+                      )}
+                      {verse.context && (
+                        <p className="text-xs text-muted-foreground/80 mt-1">
+                          💡 {verse.context}
+                        </p>
+                      )}
                     </div>
                   ))}
-                  {(!service.ai_verses || service.ai_verses.length === 0) && (
+                  {verses.length === 0 && (
                     <p className="text-sm text-muted-foreground">Nenhum versículo identificado.</p>
                   )}
                 </div>
               </Card>
             </TabsContent>
 
-            <TabsContent value="phrases" className="mt-4">
-              <Card className="p-4 rounded-2xl space-y-3">
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4 text-primary" />
-                  <h3 className="font-heading text-sm font-semibold">Frases impactantes</h3>
-                </div>
-                <div className="space-y-2">
-                  {(service.ai_key_phrases || []).map((phrase, i) => (
-                    <blockquote key={i} className="border-l-2 border-primary/30 pl-3 py-1">
-                      <p className="text-sm italic text-muted-foreground">"{phrase}"</p>
-                    </blockquote>
-                  ))}
-                  {(!service.ai_key_phrases || service.ai_key_phrases.length === 0) && (
-                    <p className="text-sm text-muted-foreground">Nenhuma frase destacada.</p>
-                  )}
-                </div>
-              </Card>
+            {/* APLICAR */}
+            <TabsContent value="apply" className="mt-4 space-y-4">
+              {/* Practical Applications */}
+              {topicsData.practical_applications && topicsData.practical_applications.length > 0 && (
+                <Card className="p-4 rounded-2xl space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Lightbulb className="w-4 h-4 text-gold" />
+                    <h3 className="font-heading text-sm font-semibold">Aplicações Práticas</h3>
+                  </div>
+                  <div className="space-y-2">
+                    {topicsData.practical_applications.map((app, i) => (
+                      <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-gold/5 border border-gold/10">
+                        <span className="text-gold text-sm mt-0.5">✦</span>
+                        <p className="text-sm text-muted-foreground">{app}</p>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
+              {/* Reflection Questions */}
+              {topicsData.reflection_questions && topicsData.reflection_questions.length > 0 && (
+                <Card className="p-4 rounded-2xl space-y-3">
+                  <div className="flex items-center gap-2">
+                    <HelpCircle className="w-4 h-4 text-primary" />
+                    <h3 className="font-heading text-sm font-semibold">Perguntas para Reflexão</h3>
+                  </div>
+                  <div className="space-y-2">
+                    {topicsData.reflection_questions.map((q, i) => (
+                      <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-primary/5 border border-primary/10">
+                        <span className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+                          ?
+                        </span>
+                        <p className="text-sm text-muted-foreground">{q}</p>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
+              {/* If no applications or questions */}
+              {(!topicsData.practical_applications || topicsData.practical_applications.length === 0) &&
+               (!topicsData.reflection_questions || topicsData.reflection_questions.length === 0) && (
+                <Card className="p-8 rounded-2xl text-center space-y-3">
+                  <Lightbulb className="w-10 h-10 mx-auto text-muted-foreground/40" />
+                  <p className="text-sm text-muted-foreground">Aplicações e reflexões serão geradas pela IA.</p>
+                </Card>
+              )}
             </TabsContent>
           </Tabs>
         ) : (
@@ -220,25 +424,14 @@ const ServiceDetailPage = () => {
           </Card>
         )}
 
-        {/* Tags */}
-        {hasAI && service.ai_tags && service.ai_tags.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {service.ai_tags.map((tag, i) => (
-              <Badge key={i} variant="secondary" className="rounded-full text-[10px] gap-1">
-                <Tag className="w-2.5 h-2.5" /> {tag}
-              </Badge>
-            ))}
-          </div>
-        )}
-
         {/* Notes section */}
         <Card className="p-4 rounded-2xl space-y-3">
           <h3 className="font-heading text-sm font-semibold flex items-center gap-2">
             <BookOpen className="w-4 h-4 text-primary" />
-            Minhas anotações
+            Minhas Anotações
           </h3>
           <Textarea
-            placeholder="Escreva suas anotações sobre este culto..."
+            placeholder="Escreva suas reflexões sobre esta pregação..."
             value={note}
             onChange={(e) => setNote(e.target.value)}
             className="rounded-xl min-h-[100px] bg-muted/30 border-0 resize-none"
@@ -247,9 +440,10 @@ const ServiceDetailPage = () => {
             size="sm"
             className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground"
             onClick={handleSaveNote}
-            disabled={!note.trim()}
+            disabled={!note.trim() || savingNote}
           >
-            <Save className="w-3.5 h-3.5 mr-1.5" /> Salvar no caderno
+            {savingNote ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
+            Salvar no caderno
           </Button>
         </Card>
       </div>
