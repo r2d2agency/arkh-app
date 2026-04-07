@@ -9,6 +9,7 @@ const dashboardRoutes = require('./routes/dashboard');
 const plansRoutes = require('./routes/plans');
 const logsRoutes = require('./routes/logs');
 const aiRoutes = require('./routes/ai');
+const agentsRoutes = require('./routes/agents');
 const settingsRoutes = require('./routes/settings');
 const { authenticate, requireRole } = require('./middleware/auth');
 
