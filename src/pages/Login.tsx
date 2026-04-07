@@ -37,8 +37,7 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md p-8 rounded-2xl space-y-6 border-primary/15 shadow-xl shadow-primary/5">
         <div className="text-center space-y-3">
-          <img src={logoImg} alt="ARKHÉ" className="w-20 h-20 mx-auto object-contain" />
-          <h1 className="font-heading text-3xl font-bold tracking-tight text-primary">ARKHÉ</h1>
+          <img src={logoImg} alt="ARKHÉ" className="w-24 h-24 mx-auto object-contain" />
           <p className="text-muted-foreground text-sm">Acesse sua conta</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">

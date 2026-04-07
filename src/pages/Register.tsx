@@ -119,7 +119,7 @@ const Register = () => {
       <div className="flex-1 flex items-center justify-center p-6">
         <Card className="w-full max-w-md p-8 rounded-2xl space-y-6 border-primary/15 shadow-xl shadow-primary/5">
           <div className="text-center space-y-2">
-            <img src={logoImg} alt="ARKHÉ" className="mx-auto w-16 h-16 object-contain lg:hidden" />
+            <img src={logoImg} alt="ARKHÉ" className="mx-auto w-20 h-20 object-contain lg:hidden" />
             <h1 className="font-heading text-2xl font-bold tracking-tight text-primary">
               {step === 1 ? 'Cadastre sua Igreja' : 'Seus dados de acesso'}
             </h1>
