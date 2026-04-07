@@ -36,6 +36,9 @@ import ChurchSettings from "@/pages/church/ChurchSettings";
 import ChurchServices from "@/pages/church/ChurchServices";
 import ChurchStudiesAdmin from "@/pages/church/ChurchStudiesAdmin";
 import GroupsPage from "@/pages/church/GroupsPage";
+import GroupDetailPage from "@/pages/church/GroupDetailPage";
+import PollsPage from "@/pages/church/PollsPage";
+import AgendaPage from "@/pages/church/AgendaPage";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -93,6 +96,9 @@ const AppRoutes = () => (
         <Route path="/church/reflection" element={<ReflectionPage />} />
         <Route path="/church/notifications" element={<NotificationsPage />} />
         <Route path="/church/password" element={<ChangePassword />} />
+        <Route path="/church/polls" element={<PollsPage />} />
+        <Route path="/church/agenda" element={<AgendaPage />} />
+        <Route path="/church/groups/:id" element={<GroupDetailPage />} />
       </Route>
 
       {/* Admin-only management pages (with sidebar layout) */}
