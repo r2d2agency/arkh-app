@@ -1,4 +1,6 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+// Remove trailing slash and /api suffix to normalize the base URL
+const raw = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_URL = raw.replace(/\/api\/?$/, '').replace(/\/$/, '');
 
 class ApiClient {
   private getToken(): string | null {
