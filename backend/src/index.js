@@ -44,6 +44,9 @@ app.use('/api/church/groups', authenticate, require('./routes/groups'));
 app.use('/api/church/studies', authenticate, require('./routes/studies'));
 app.use('/api/church/polls', authenticate, require('./routes/polls'));
 app.use('/api/church/events', authenticate, require('./routes/events'));
+app.use('/api/church/school', authenticate, require('./routes/school'));
+app.use('/api/church/onboarding', authenticate, require('./routes/onboarding'));
+app.use('/api/church/media', authenticate, require('./routes/media'));
 
 app.use((err, req, res, next) => {
   console.error('Error:', err.message);
