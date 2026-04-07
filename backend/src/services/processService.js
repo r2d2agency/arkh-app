@@ -162,6 +162,12 @@ ${transcript.slice(0, 15000)}`;
 async function fetchYouTubeTranscript(videoId, startTime, endTime) {
   if (!videoId) throw new Error('Video ID não encontrado');
 
+  const fetchWithTimeout = (url, timeoutMs = 15000) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
+  };
+
   // Try fetching captions via YouTube's timedtext API
   const langCodes = ['pt', 'pt-BR', 'en', 'es'];
   

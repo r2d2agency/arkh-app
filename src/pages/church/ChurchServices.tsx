@@ -347,12 +347,13 @@ const ChurchServices = () => {
                         Processar IA
                       </Button>
                     )}
-                    {isAdmin && service.ai_status === 'error' && (
+                    {isAdmin && (service.ai_status === 'error' || service.ai_status === 'processing') && (
                       <Button
                         size="sm"
                         variant="outline"
                         className="rounded-lg border-destructive text-destructive"
                         onClick={() => handleProcess(service.id)}
+                        disabled={processingIds.has(service.id)}
                       >
                         <Sparkles className="w-3 h-3 mr-1" /> Reprocessar
                       </Button>
