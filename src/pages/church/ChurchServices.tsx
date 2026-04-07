@@ -229,7 +229,7 @@ const ChurchServices = () => {
     setProcessingIds(prev => new Set(prev).add(serviceId));
     try {
       await api.post(`/api/church/services/${serviceId}/process`, { 
-        provider_id: selectedProviderId || undefined 
+        provider_id: selectedProviderId && selectedProviderId !== '__default' ? selectedProviderId : undefined 
       });
       setServices(prev => prev.map(s => s.id === serviceId ? { ...s, ai_status: 'processing' } : s));
       toast({ title: 'Processamento IA iniciado!' });
