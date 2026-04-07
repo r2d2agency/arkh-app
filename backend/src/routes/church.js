@@ -80,10 +80,38 @@ router.post('/services/:id/process', async (req, res) => {
       [req.params.id, churchId]
     );
     if (!svcRows.length) return res.status(404).json({ error: 'Service not found' });
-    await pool.query(`UPDATE services SET ai_status = 'processing' WHERE id = $1`, [req.params.id]);
-    res.json({ message: 'AI processing queued', status: 'processing' });
+    
+    // Set status to processing and clear old logs
+    await pool.query(
+      `UPDATE services SET ai_status = 'processing', processing_logs = '[]', processing_error = NULL WHERE id = $1`,
+      [req.params.id]
+    );
+    
+    // Fire-and-forget: process asynchronously
+    const { processService } = require('../services/processService');
+    processService(req.params.id).catch(err => {
+      console.error('Background processing error:', err);
+    });
+    
+    res.json({ message: 'AI processing started', status: 'processing' });
   } catch (err) {
     console.error('Process service error:', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// GET /api/church/services/:id/status — poll processing status and logs
+router.get('/services/:id/status', async (req, res) => {
+  try {
+    const churchId = req.user.church_id;
+    const { rows } = await pool.query(
+      `SELECT ai_status, processing_logs, processing_error, ai_summary, ai_topics, ai_key_verses 
+       FROM services WHERE id = $1 AND church_id = $2`,
+      [req.params.id, churchId]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Not found' });
+    res.json(rows[0]);
+  } catch (err) {
     res.status(500).json({ error: 'Internal error' });
   }
 });
