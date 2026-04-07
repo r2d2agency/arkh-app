@@ -368,7 +368,7 @@ const ChurchServices = () => {
                       <Button
                         size="sm"
                         className="rounded-lg bg-gold hover:bg-gold-dark text-foreground font-medium"
-                        onClick={() => handleProcess(service.id)}
+                        onClick={() => openProcessDialog(service.id)}
                         disabled={isProcessing}
                       >
                         {isProcessing ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
@@ -380,10 +380,20 @@ const ChurchServices = () => {
                         size="sm"
                         variant="outline"
                         className="rounded-lg border-destructive text-destructive"
-                        onClick={() => handleProcess(service.id)}
+                        onClick={() => openProcessDialog(service.id)}
                         disabled={processingIds.has(service.id)}
                       >
                         <Sparkles className="w-3 h-3 mr-1" /> Reprocessar
+                      </Button>
+                    )}
+                    {isAdmin && service.ai_status === 'completed' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="rounded-lg"
+                        onClick={() => openProcessDialog(service.id)}
+                      >
+                        <Brain className="w-3 h-3 mr-1" /> Reprocessar
                       </Button>
                     )}
                     {isAdmin && (service.ai_status === 'processing' || service.ai_status === 'completed' || service.ai_status === 'error') && (
