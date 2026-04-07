@@ -36,7 +36,7 @@ const ChurchServices = () => {
       const res = await api.post('/churches/services', {
         title: form.title,
         youtube_url: form.youtube_url,
-      });
+      }) as any;
       setServices(prev => [res.data, ...prev]);
       setForm({ title: '', youtube_url: '' });
       setOpen(false);
