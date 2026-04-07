@@ -21,7 +21,7 @@ async function processService(serviceId) {
 
   try {
     // 1. Get service details
-    addLog('init', 'Iniciando processamento...');
+    await addLog('init', 'Iniciando processamento...');
     const { rows: svcRows } = await pool.query('SELECT * FROM services WHERE id = $1', [serviceId]);
     if (!svcRows.length) {
       await addLog('init', 'Serviço não encontrado', 'error');
