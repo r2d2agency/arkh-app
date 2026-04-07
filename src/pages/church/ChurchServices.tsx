@@ -71,6 +71,7 @@ const ChurchServices = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
+  const [editingService, setEditingService] = useState<Service | null>(null);
   const [logDialogOpen, setLogDialogOpen] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [logData, setLogData] = useState<{ logs: ProcessingLog[]; status: string; error?: string } | null>(null);
