@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Video, Plus, Search, Trash2, ExternalLink, Clock, User, Calendar, Sparkles, Loader2, FileText, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import { Video, Plus, Search, Trash2, ExternalLink, Clock, User, Calendar, Sparkles, Loader2, FileText, CheckCircle, AlertCircle, Info, Pencil } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
