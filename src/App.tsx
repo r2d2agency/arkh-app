@@ -10,6 +10,7 @@ import Dashboard from "@/pages/admin/Dashboard";
 import Churches from "@/pages/admin/Churches";
 import UsersPage from "@/pages/admin/UsersPage";
 import AIManagement from "@/pages/admin/AIManagement";
+import AgentsPage from "@/pages/admin/AgentsPage";
 import Plans from "@/pages/admin/Plans";
 import SettingsPage from "@/pages/admin/SettingsPage";
 import Logs from "@/pages/admin/Logs";
