@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import AdminLayout from "@/components/admin/AdminLayout";
+import MemberLayout from "@/components/church/MemberLayout";
 import ChurchLayout from "@/components/church/ChurchLayout";
 import Dashboard from "@/pages/admin/Dashboard";
 import Churches from "@/pages/admin/Churches";
@@ -17,13 +18,19 @@ import Logs from "@/pages/admin/Logs";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import JoinChurch from "@/pages/JoinChurch";
-import ChurchDashboard from "@/pages/church/ChurchDashboard";
-import ChurchServices from "@/pages/church/ChurchServices";
-import ChurchStudies from "@/pages/church/ChurchStudies";
+import MemberHome from "@/pages/church/MemberHome";
+import MemberServices from "@/pages/church/MemberServices";
+import ServiceDetail from "@/pages/church/ServiceDetail";
+import ExplorePage from "@/pages/church/ExplorePage";
+import NotebookPage from "@/pages/church/NotebookPage";
+import ProfilePage from "@/pages/church/ProfilePage";
+import ReflectionPage from "@/pages/church/ReflectionPage";
+import NotificationsPage from "@/pages/church/NotificationsPage";
+import ChangePassword from "@/pages/church/ChangePassword";
 import ChurchMembers from "@/pages/church/ChurchMembers";
 import ChurchCustomize from "@/pages/church/ChurchCustomize";
 import ChurchSettings from "@/pages/church/ChurchSettings";
-import ChangePassword from "@/pages/church/ChangePassword";
+import ChurchServices from "@/pages/church/ChurchServices";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -67,19 +74,25 @@ const AppRoutes = () => (
         <Route path="/admin/logs" element={<Logs />} />
       </Route>
 
-      {/* Church Admin / Leader / Member */}
-      <Route element={<ProtectedRoute roles={['admin_church', 'leader', 'member']}><ChurchLayout /></ProtectedRoute>}>
-        <Route path="/church" element={<ChurchDashboard />} />
-        <Route path="/church/services" element={<ChurchServices />} />
-        <Route path="/church/studies" element={<ChurchStudies />} />
+      {/* Member app - all church roles */}
+      <Route element={<ProtectedRoute roles={['admin_church', 'leader', 'member']}><MemberLayout /></ProtectedRoute>}>
+        <Route path="/church" element={<MemberHome />} />
+        <Route path="/church/services" element={<MemberServices />} />
+        <Route path="/church/services/:id" element={<ServiceDetail />} />
+        <Route path="/church/explore" element={<ExplorePage />} />
+        <Route path="/church/notebook" element={<NotebookPage />} />
+        <Route path="/church/profile" element={<ProfilePage />} />
+        <Route path="/church/reflection" element={<ReflectionPage />} />
+        <Route path="/church/notifications" element={<NotificationsPage />} />
         <Route path="/church/password" element={<ChangePassword />} />
       </Route>
 
-      {/* Church Admin only */}
-      <Route element={<ProtectedRoute roles={['admin_church', 'leader']}><ChurchLayout /></ProtectedRoute>}>
+      {/* Admin-only management pages (with sidebar layout) */}
+      <Route element={<ProtectedRoute roles={['admin_church', 'leader']}><MemberLayout /></ProtectedRoute>}>
         <Route path="/church/members" element={<ChurchMembers />} />
         <Route path="/church/customize" element={<ChurchCustomize />} />
         <Route path="/church/settings" element={<ChurchSettings />} />
+        <Route path="/church/manage-services" element={<ChurchServices />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />
