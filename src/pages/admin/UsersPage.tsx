@@ -4,11 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, MoreHorizontal, Eye, Ban, Filter } from "lucide-react";
+import { Search, MoreHorizontal, Eye, Ban, Filter, CheckCircle } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useState } from "react";
-import { useUsers } from "@/hooks/useApi";
+import { useUsers, useToggleUser } from "@/hooks/useApi";
 
 const roleLabels: Record<string, string> = {
   admin_church: "Admin",
@@ -19,6 +19,7 @@ const roleLabels: Record<string, string> = {
 const UsersPage = () => {
   const [search, setSearch] = useState("");
   const { data: users, isLoading } = useUsers();
+  const toggleMut = useToggleUser();
 
   const filtered = (users || []).filter(
     (u) => u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase())
@@ -33,7 +34,6 @@ const UsersPage = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input placeholder="Buscar por nome ou email..." className="pl-9 rounded-xl bg-muted/50 border-transparent focus:border-primary/30" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
-          <Button variant="outline" className="gap-2 rounded-xl"><Filter className="w-4 h-4" /> Filtrar</Button>
         </div>
 
         {isLoading ? <Skeleton className="h-64 rounded-2xl" /> : (
@@ -82,8 +82,15 @@ const UsersPage = () => {
                           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg"><MoreHorizontal className="w-4 h-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="rounded-xl">
-                          <DropdownMenuItem className="gap-2 rounded-lg"><Eye className="w-4 h-4" /> Ver perfil</DropdownMenuItem>
-                          <DropdownMenuItem className="gap-2 rounded-lg text-destructive"><Ban className="w-4 h-4" /> Bloquear</DropdownMenuItem>
+                          {user.is_active ? (
+                            <DropdownMenuItem className="gap-2 rounded-lg text-destructive" onClick={() => toggleMut.mutate(user.id)}>
+                              <Ban className="w-4 h-4" /> Bloquear
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem className="gap-2 rounded-lg text-success" onClick={() => toggleMut.mutate(user.id)}>
+                              <CheckCircle className="w-4 h-4" /> Desbloquear
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
