@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Video, Plus, Search, Trash2, ExternalLink, Clock, User, Calendar, Sparkles, Loader2, FileText, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import { Video, Plus, Search, Trash2, ExternalLink, Clock, User, Calendar, Sparkles, Loader2, FileText, CheckCircle, AlertCircle, Info, Pencil } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -71,6 +71,7 @@ const ChurchServices = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
+  const [editingService, setEditingService] = useState<Service | null>(null);
   const [logDialogOpen, setLogDialogOpen] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [logData, setLogData] = useState<{ logs: ProcessingLog[]; status: string; error?: string } | null>(null);
@@ -131,16 +132,36 @@ const ChurchServices = () => {
     }
     setLoading(true);
     try {
-      const newService = await api.post<Service>('/api/church/services', form);
-      setServices(prev => [newService, ...prev]);
+      if (editingService) {
+        const updated = await api.put<Service>(`/api/church/services/${editingService.id}`, form);
+        setServices(prev => prev.map(s => s.id === editingService.id ? { ...s, ...updated } : s));
+        toast({ title: 'Culto atualizado com sucesso!' });
+      } else {
+        const newService = await api.post<Service>('/api/church/services', form);
+        setServices(prev => [newService, ...prev]);
+        toast({ title: 'Culto adicionado com sucesso!' });
+      }
       setForm({ ...defaultForm });
+      setEditingService(null);
       setOpen(false);
-      toast({ title: 'Culto adicionado com sucesso!' });
     } catch (err: any) {
       toast({ title: err.message || 'Erro ao salvar culto', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEdit = (service: Service) => {
+    setEditingService(service);
+    setForm({
+      title: service.title || '',
+      youtube_url: service.youtube_url || '',
+      preacher: service.preacher || '',
+      service_date: service.service_date ? service.service_date.split('T')[0] : '',
+      ai_start_time: service.ai_start_time || '00:00:00',
+      ai_end_time: service.ai_end_time || '',
+    });
+    setOpen(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -207,7 +228,7 @@ const ChurchServices = () => {
           </p>
         </div>
         {isAdmin && (
-          <Button className="rounded-xl bg-primary hover:bg-primary/90 border-0 text-primary-foreground" onClick={() => setOpen(true)}>
+          <Button className="rounded-xl bg-primary hover:bg-primary/90 border-0 text-primary-foreground" onClick={() => { setEditingService(null); setForm({ ...defaultForm }); setOpen(true); }}>
             <Plus className="w-4 h-4 mr-2" /> Novo culto
           </Button>
         )}
@@ -232,7 +253,7 @@ const ChurchServices = () => {
             {isAdmin ? 'Adicione seu primeiro culto colando o link do YouTube.' : 'Nenhum culto disponível ainda.'}
           </p>
           {isAdmin && (
-            <Button className="rounded-xl bg-primary hover:bg-primary/90 border-0 text-primary-foreground" onClick={() => setOpen(true)}>
+            <Button className="rounded-xl bg-primary hover:bg-primary/90 border-0 text-primary-foreground" onClick={() => { setEditingService(null); setForm({ ...defaultForm }); setOpen(true); }}>
               <Plus className="w-4 h-4 mr-2" /> Adicionar primeiro culto
             </Button>
           )}
@@ -312,9 +333,14 @@ const ChurchServices = () => {
                         <Sparkles className="w-3 h-3 mr-1" /> Reprocessar
                       </Button>
                     )}
-                    {(service.ai_status === 'processing' || service.ai_status === 'completed' || service.ai_status === 'error') && (
+                    {isAdmin && (service.ai_status === 'processing' || service.ai_status === 'completed' || service.ai_status === 'error') && (
                       <Button size="sm" variant="outline" className="rounded-lg" onClick={() => openLogs(service.id)}>
                         <FileText className="w-3 h-3 mr-1" /> Logs
+                      </Button>
+                    )}
+                    {isAdmin && (
+                      <Button size="sm" variant="outline" className="rounded-lg" onClick={() => handleEdit(service)}>
+                        <Pencil className="w-3 h-3 mr-1" /> Editar
                       </Button>
                     )}
                     <Button size="sm" variant="outline" className="rounded-lg" asChild>
@@ -339,7 +365,7 @@ const ChurchServices = () => {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="rounded-xl max-w-lg" aria-describedby={undefined}>
           <DialogHeader>
-            <DialogTitle>Novo Culto</DialogTitle>
+            <DialogTitle>{editingService ? 'Editar Culto' : 'Novo Culto'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -381,9 +407,9 @@ const ChurchServices = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)} className="rounded-xl">Cancelar</Button>
+            <Button variant="outline" onClick={() => { setOpen(false); setEditingService(null); setForm({ ...defaultForm }); }} className="rounded-xl">Cancelar</Button>
             <Button onClick={handleCreate} disabled={loading} className="rounded-xl bg-primary hover:bg-primary/90 border-0 text-primary-foreground">
-              {loading ? 'Salvando...' : 'Adicionar'}
+              {loading ? 'Salvando...' : editingService ? 'Salvar' : 'Adicionar'}
             </Button>
           </DialogFooter>
         </DialogContent>
