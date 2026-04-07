@@ -160,12 +160,55 @@ export interface AIProvider {
   model: string;
   is_active: boolean;
   cost_per_1k_tokens: number;
+  api_keys?: string[];
+  api_key_count?: number;
 }
 
 export function useAIProviders() {
   return useQuery({
     queryKey: ['ai-providers'],
     queryFn: () => api.get<AIProvider[]>('/api/ai/providers'),
+  });
+}
+
+export function useCreateAIProvider() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name: string; provider: string; model: string; api_keys: string[]; is_active: boolean; cost_per_1k_tokens: number }) =>
+      api.post<AIProvider>('/api/ai/providers', data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['ai-providers'] }); toast.success('Provedor criado'); },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useUpdateAIProvider() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; name?: string; provider?: string; model?: string; api_keys?: string[]; is_active?: boolean; cost_per_1k_tokens?: number }) =>
+      api.put<AIProvider>(`/api/ai/providers/${id}`, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['ai-providers'] }); toast.success('Provedor atualizado'); },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useDeleteAIProvider() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/api/ai/providers/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['ai-providers'] }); toast.success('Provedor removido'); },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useToggleAIProvider() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.put<AIProvider>(`/api/ai/providers/${id}/toggle`, {}),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['ai-providers'] });
+      toast.success(data.is_active ? 'Provedor ativado' : 'Provedor desativado');
+    },
+    onError: (err: Error) => toast.error(err.message),
   });
 }
 
