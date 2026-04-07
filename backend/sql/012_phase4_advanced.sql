@@ -76,8 +76,8 @@ CREATE TABLE IF NOT EXISTS media_progress (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   service_id UUID NOT NULL REFERENCES services(id) ON DELETE CASCADE,
-  current_time REAL DEFAULT 0, -- seconds
-  duration REAL DEFAULT 0,
+  progress_seconds REAL DEFAULT 0,
+  duration_seconds REAL DEFAULT 0,
   completed BOOLEAN DEFAULT false,
   last_played_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(user_id, service_id)
