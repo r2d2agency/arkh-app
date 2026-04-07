@@ -5,7 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Plus, Trash2, Key } from "lucide-react";
+import { Loader2, Plus, Trash2, Key, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { api } from "@/lib/api";
 import type { AIProvider } from "@/hooks/useApi";
 
 interface Props {
