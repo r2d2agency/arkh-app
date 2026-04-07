@@ -228,7 +228,7 @@ const ChurchServices = () => {
           </p>
         </div>
         {isAdmin && (
-          <Button className="rounded-xl bg-primary hover:bg-primary/90 border-0 text-primary-foreground" onClick={() => setOpen(true)}>
+          <Button className="rounded-xl bg-primary hover:bg-primary/90 border-0 text-primary-foreground" onClick={() => { setEditingService(null); setForm({ ...defaultForm }); setOpen(true); }}>
             <Plus className="w-4 h-4 mr-2" /> Novo culto
           </Button>
         )}
@@ -253,7 +253,7 @@ const ChurchServices = () => {
             {isAdmin ? 'Adicione seu primeiro culto colando o link do YouTube.' : 'Nenhum culto disponível ainda.'}
           </p>
           {isAdmin && (
-            <Button className="rounded-xl bg-primary hover:bg-primary/90 border-0 text-primary-foreground" onClick={() => setOpen(true)}>
+            <Button className="rounded-xl bg-primary hover:bg-primary/90 border-0 text-primary-foreground" onClick={() => { setEditingService(null); setForm({ ...defaultForm }); setOpen(true); }}>
               <Plus className="w-4 h-4 mr-2" /> Adicionar primeiro culto
             </Button>
           )}
@@ -333,9 +333,14 @@ const ChurchServices = () => {
                         <Sparkles className="w-3 h-3 mr-1" /> Reprocessar
                       </Button>
                     )}
-                    {(service.ai_status === 'processing' || service.ai_status === 'completed' || service.ai_status === 'error') && (
+                    {isAdmin && (service.ai_status === 'processing' || service.ai_status === 'completed' || service.ai_status === 'error') && (
                       <Button size="sm" variant="outline" className="rounded-lg" onClick={() => openLogs(service.id)}>
                         <FileText className="w-3 h-3 mr-1" /> Logs
+                      </Button>
+                    )}
+                    {isAdmin && (
+                      <Button size="sm" variant="outline" className="rounded-lg" onClick={() => handleEdit(service)}>
+                        <Pencil className="w-3 h-3 mr-1" /> Editar
                       </Button>
                     )}
                     <Button size="sm" variant="outline" className="rounded-lg" asChild>
@@ -360,7 +365,7 @@ const ChurchServices = () => {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="rounded-xl max-w-lg" aria-describedby={undefined}>
           <DialogHeader>
-            <DialogTitle>Novo Culto</DialogTitle>
+            <DialogTitle>{editingService ? 'Editar Culto' : 'Novo Culto'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -402,9 +407,9 @@ const ChurchServices = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)} className="rounded-xl">Cancelar</Button>
+            <Button variant="outline" onClick={() => { setOpen(false); setEditingService(null); setForm({ ...defaultForm }); }} className="rounded-xl">Cancelar</Button>
             <Button onClick={handleCreate} disabled={loading} className="rounded-xl bg-primary hover:bg-primary/90 border-0 text-primary-foreground">
-              {loading ? 'Salvando...' : 'Adicionar'}
+              {loading ? 'Salvando...' : editingService ? 'Salvar' : 'Adicionar'}
             </Button>
           </DialogFooter>
         </DialogContent>
