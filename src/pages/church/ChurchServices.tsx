@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Video, Plus, Search, Trash2, ExternalLink, Clock, User, Calendar, Sparkles, Loader2, FileText, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
@@ -55,6 +56,17 @@ const logIcons: Record<string, typeof Info> = {
   success: CheckCircle,
 };
 
+const PROCESSING_STEPS = ['init', 'provider', 'transcript', 'ai', 'parse', 'save', 'done'];
+
+function getProcessingProgress(logs: ProcessingLog[]): number {
+  if (!logs || logs.length === 0) return 0;
+  const lastStep = logs[logs.length - 1]?.step;
+  if (lastStep === 'done' || lastStep === 'error') return 100;
+  const idx = PROCESSING_STEPS.indexOf(lastStep);
+  if (idx < 0) return 5;
+  return Math.round(((idx + 1) / PROCESSING_STEPS.length) * 100);
+}
+
 const ChurchServices = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -97,10 +109,13 @@ const ChurchServices = () => {
           status: data.ai_status,
           error: data.processing_error,
         });
-        // Update service in list
-        if (data.ai_status === 'completed' || data.ai_status === 'error') {
-          setServices(prev => prev.map(s => s.id === selectedServiceId ? { ...s, ai_status: data.ai_status } : s));
-        }
+        // Update service in list with logs for card progress
+        setServices(prev => prev.map(s => s.id === selectedServiceId ? { 
+          ...s, 
+          ai_status: data.ai_status,
+          processing_logs: data.processing_logs || [],
+          processing_error: data.processing_error,
+        } : s));
       } catch (e) { /* ignore */ }
     };
 
@@ -266,6 +281,15 @@ const ChurchServices = () => {
                       </span>
                     )}
                   </div>
+                  {isProcessing && (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                        <span>Processando IA...</span>
+                        <span>{getProcessingProgress(service.processing_logs || [])}%</span>
+                      </div>
+                      <Progress value={getProcessingProgress(service.processing_logs || [])} className="h-1.5" />
+                    </div>
+                  )}
                   <div className="flex gap-2 pt-1 flex-wrap">
                     {isAdmin && service.ai_status === 'pending' && (
                       <Button
@@ -377,6 +401,24 @@ const ChurchServices = () => {
               Acompanhe o progresso do processamento com IA em tempo real.
             </DialogDescription>
           </DialogHeader>
+          {logData && logData.status === 'processing' && (
+            <div className="space-y-1 px-1">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Progresso</span>
+                <span className="font-medium text-foreground">{getProcessingProgress(logData.logs)}%</span>
+              </div>
+              <Progress value={getProcessingProgress(logData.logs)} className="h-2" />
+            </div>
+          )}
+          {logData && logData.status === 'completed' && (
+            <div className="space-y-1 px-1">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Concluído</span>
+                <span className="font-medium text-green-500">100%</span>
+              </div>
+              <Progress value={100} className="h-2" />
+            </div>
+          )}
           <div className="flex-1 overflow-y-auto space-y-2 py-2">
             {!logData ? (
               <div className="flex justify-center py-8">
