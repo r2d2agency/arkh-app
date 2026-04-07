@@ -15,13 +15,13 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 const menuItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-  { icon: Church, label: "Igrejas", path: "/churches" },
-  { icon: Users, label: "Usuários", path: "/users" },
-  { icon: Brain, label: "IA", path: "/ai" },
-  { icon: CreditCard, label: "Planos", path: "/plans" },
-  { icon: Settings, label: "Configurações", path: "/settings" },
-  { icon: ScrollText, label: "Logs", path: "/logs" },
+  { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
+  { icon: Church, label: "Igrejas", path: "/admin/churches" },
+  { icon: Users, label: "Usuários", path: "/admin/users" },
+  { icon: Brain, label: "IA", path: "/admin/ai" },
+  { icon: CreditCard, label: "Planos", path: "/admin/plans" },
+  { icon: Settings, label: "Configurações", path: "/admin/settings" },
+  { icon: ScrollText, label: "Logs", path: "/admin/logs" },
 ];
 
 const AdminSidebar = () => {

@@ -6,12 +6,13 @@ interface User {
   name: string;
   email: string;
   role: string;
+  church_id?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
   logout: () => void;
 }
 
@@ -27,7 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
         if (payload.exp * 1000 > Date.now()) {
-          setUser({ id: payload.id, name: '', email: payload.email, role: payload.role });
+          setUser({ id: payload.id, name: payload.name || '', email: payload.email, role: payload.role, church_id: payload.church_id });
         }
       } catch {}
     }
@@ -37,6 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     const u = await api.login(email, password);
     setUser(u);
+    return u;
   };
 
   const logout = () => {

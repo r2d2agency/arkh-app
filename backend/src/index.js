@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const authRoutes = require('./routes/auth');
+const registerRoutes = require('./routes/register');
 const churchRoutes = require('./routes/churches');
 const usersRoutes = require('./routes/users');
 const dashboardRoutes = require('./routes/dashboard');
@@ -22,6 +23,7 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Dat
 
 // Public routes
 app.use('/api/auth', authRoutes);
+app.use('/api/register', registerRoutes);
 
 // Protected routes (Super Admin)
 app.use('/api/dashboard', authenticate, requireRole('super_admin'), dashboardRoutes);

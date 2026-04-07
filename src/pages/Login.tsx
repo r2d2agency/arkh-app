@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,8 +19,12 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      await login(email, password);
-      navigate('/');
+      const user = await login(email, password);
+      if (user.role === 'super_admin') {
+        navigate('/admin');
+      } else {
+        navigate('/church');
+      }
     } catch (err: any) {
       toast.error(err.message || 'Erro ao fazer login');
     } finally {
@@ -33,7 +37,7 @@ const Login = () => {
       <Card className="w-full max-w-md p-8 rounded-2xl space-y-6">
         <div className="text-center space-y-2">
           <h1 className="font-heading text-3xl font-bold tracking-tight">ARKHÉ</h1>
-          <p className="text-muted-foreground text-sm">Painel Administrativo</p>
+          <p className="text-muted-foreground text-sm">Acesse sua conta</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -42,7 +46,7 @@ const Login = () => {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@arkhe.app"
+              placeholder="seu@email.com"
               className="rounded-xl"
               required
             />
@@ -66,6 +70,12 @@ const Login = () => {
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Entrar'}
           </Button>
         </form>
+        <p className="text-center text-sm text-muted-foreground">
+          Sua igreja ainda não está cadastrada?{' '}
+          <Link to="/register" className="text-primary hover:underline font-medium">
+            Cadastre gratuitamente
+          </Link>
+        </p>
       </Card>
     </div>
   );
