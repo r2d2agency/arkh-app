@@ -579,7 +579,7 @@ const ChurchServices = () => {
                   <SelectValue placeholder="Usar provedor padrão" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Provedor padrão (automático)</SelectItem>
+                  <SelectItem value="__default">Provedor padrão (automático)</SelectItem>
                   {aiProviders.map(p => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.name} ({p.provider}/{p.model})
