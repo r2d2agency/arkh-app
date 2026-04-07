@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import logoImg from '@/assets/logo.png';
@@ -12,6 +13,7 @@ import logoImg from '@/assets/logo.png';
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -20,7 +22,7 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const user = await login(email, password);
+      const user = await login(email, password, remember);
       if (user.role === 'super_admin') {
         navigate('/admin');
       } else {
@@ -62,6 +64,16 @@ const Login = () => {
               className="rounded-xl"
               required
             />
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="remember"
+              checked={remember}
+              onCheckedChange={(v) => setRemember(!!v)}
+            />
+            <label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer">
+              Manter conectado
+            </label>
           </div>
           <Button
             type="submit"
