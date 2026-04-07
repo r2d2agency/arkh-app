@@ -39,6 +39,11 @@ import GroupsPage from "@/pages/church/GroupsPage";
 import GroupDetailPage from "@/pages/church/GroupDetailPage";
 import PollsPage from "@/pages/church/PollsPage";
 import AgendaPage from "@/pages/church/AgendaPage";
+import SchoolPage from "@/pages/church/SchoolPage";
+import SchoolClassDetail from "@/pages/church/SchoolClassDetail";
+import SchoolAdmin from "@/pages/church/SchoolAdmin";
+import OnboardingPage from "@/pages/church/OnboardingPage";
+import FavoritesPage from "@/pages/church/FavoritesPage";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
