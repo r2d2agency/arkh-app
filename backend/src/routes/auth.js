@@ -16,10 +16,11 @@ router.post('/login', async (req, res) => {
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
 
+    const remember = req.body.remember || false;
     const accessToken = jwt.sign(
-      { id: user.id, email: user.email, role: user.role, church_id: user.church_id },
+      { id: user.id, email: user.email, name: user.name, role: user.role, church_id: user.church_id },
       process.env.JWT_SECRET,
-      { expiresIn: '15m' }
+      { expiresIn: remember ? '30d' : '7d' }
     );
 
     const refreshToken = uuidv4();
