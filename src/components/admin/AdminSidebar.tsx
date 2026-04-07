@@ -4,6 +4,7 @@ import {
   Church,
   Users,
   Brain,
+  Bot,
   CreditCard,
   Settings,
   ScrollText,
