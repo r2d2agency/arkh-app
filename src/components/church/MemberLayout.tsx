@@ -26,13 +26,14 @@ import logoImg from '@/assets/logo.png';
 const memberBottomNav = [
   { path: '/church', label: 'Início', icon: Home },
   { path: '/church/services', label: 'Cultos', icon: Video },
+  { path: '/church/studies', label: 'Estudar', icon: BookOpen },
   { path: '/church/explore', label: 'Explorar', icon: Search },
-  { path: '/church/notebook', label: 'Caderno', icon: BookOpen },
   { path: '/church/profile', label: 'Perfil', icon: User },
 ];
 
 const adminSidebarItems = [
   { path: '/church/manage-services', label: 'Gerenciar Cultos', icon: Video },
+  { path: '/church/manage-studies', label: 'Estudos Bíblicos', icon: BookOpen },
   { path: '/church/groups', label: 'Grupos', icon: UsersRound },
   { path: '/church/members', label: 'Membros', icon: Users },
   { path: '/church/customize', label: 'Personalizar', icon: Palette },

@@ -38,9 +38,10 @@ app.use('/api/ai', authenticate, requireRole('super_admin'), aiRoutes);
 app.use('/api/agents', authenticate, requireRole('super_admin'), agentsRoutes);
 app.use('/api/settings', authenticate, requireRole('super_admin'), settingsRoutes);
 
-// Protected routes (Church Admin / Leader)
+// Protected routes (Church — all roles)
 app.use('/api/church', authenticate, churchPanelRoutes);
 app.use('/api/church/groups', authenticate, require('./routes/groups'));
+app.use('/api/church/studies', authenticate, require('./routes/studies'));
 
 app.use((err, req, res, next) => {
   console.error('Error:', err.message);

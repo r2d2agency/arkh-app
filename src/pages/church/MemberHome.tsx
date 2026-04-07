@@ -125,29 +125,37 @@ const MemberHome = () => {
       </Card>
 
       {/* Quick actions */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-2.5">
         <Link to="/church/services">
-          <Card className="p-4 rounded-2xl card-hover text-center space-y-2 h-full border-primary/15">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mx-auto">
-              <Video className="w-5 h-5 text-primary" />
+          <Card className="p-3 rounded-2xl card-hover text-center space-y-1.5 h-full border-primary/15">
+            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center mx-auto">
+              <Video className="w-4.5 h-4.5 text-primary" />
             </div>
-            <p className="font-heading font-semibold text-xs">Cultos</p>
+            <p className="font-heading font-semibold text-[10px]">Cultos</p>
+          </Card>
+        </Link>
+        <Link to="/church/studies">
+          <Card className="p-3 rounded-2xl card-hover text-center space-y-1.5 h-full border-gold/15">
+            <div className="w-9 h-9 rounded-xl bg-gold/10 flex items-center justify-center mx-auto">
+              <BookOpen className="w-4.5 h-4.5 text-gold" />
+            </div>
+            <p className="font-heading font-semibold text-[10px]">Estudar</p>
           </Card>
         </Link>
         <Link to="/church/explore">
-          <Card className="p-4 rounded-2xl card-hover text-center space-y-2 h-full border-gold/15">
-            <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center mx-auto">
-              <Sparkles className="w-5 h-5 text-gold" />
+          <Card className="p-3 rounded-2xl card-hover text-center space-y-1.5 h-full border-primary/15">
+            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center mx-auto">
+              <Sparkles className="w-4.5 h-4.5 text-primary" />
             </div>
-            <p className="font-heading font-semibold text-xs">Explorar</p>
+            <p className="font-heading font-semibold text-[10px]">Explorar</p>
           </Card>
         </Link>
         <Link to="/church/notebook">
-          <Card className="p-4 rounded-2xl card-hover text-center space-y-2 h-full border-primary/15">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mx-auto">
-              <BookOpen className="w-5 h-5 text-primary" />
+          <Card className="p-3 rounded-2xl card-hover text-center space-y-1.5 h-full border-primary/15">
+            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center mx-auto">
+              <BookOpen className="w-4.5 h-4.5 text-primary" />
             </div>
-            <p className="font-heading font-semibold text-xs">Caderno</p>
+            <p className="font-heading font-semibold text-[10px]">Caderno</p>
           </Card>
         </Link>
       </div>

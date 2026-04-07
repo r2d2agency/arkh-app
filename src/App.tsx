@@ -21,6 +21,9 @@ import JoinChurch from "@/pages/JoinChurch";
 import MemberHome from "@/pages/church/MemberHome";
 import MemberServices from "@/pages/church/MemberServices";
 import ServiceDetail from "@/pages/church/ServiceDetail";
+import MemberStudies from "@/pages/church/MemberStudies";
+import StudyDetail from "@/pages/church/StudyDetail";
+import MemberTrails from "@/pages/church/MemberTrails";
 import ExplorePage from "@/pages/church/ExplorePage";
 import NotebookPage from "@/pages/church/NotebookPage";
 import ProfilePage from "@/pages/church/ProfilePage";
@@ -31,6 +34,7 @@ import ChurchMembers from "@/pages/church/ChurchMembers";
 import ChurchCustomize from "@/pages/church/ChurchCustomize";
 import ChurchSettings from "@/pages/church/ChurchSettings";
 import ChurchServices from "@/pages/church/ChurchServices";
+import ChurchStudiesAdmin from "@/pages/church/ChurchStudiesAdmin";
 import GroupsPage from "@/pages/church/GroupsPage";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -80,6 +84,9 @@ const AppRoutes = () => (
         <Route path="/church" element={<MemberHome />} />
         <Route path="/church/services" element={<MemberServices />} />
         <Route path="/church/services/:id" element={<ServiceDetail />} />
+        <Route path="/church/studies" element={<MemberStudies />} />
+        <Route path="/church/studies/:id" element={<StudyDetail />} />
+        <Route path="/church/trails" element={<MemberTrails />} />
         <Route path="/church/explore" element={<ExplorePage />} />
         <Route path="/church/notebook" element={<NotebookPage />} />
         <Route path="/church/profile" element={<ProfilePage />} />
@@ -94,6 +101,7 @@ const AppRoutes = () => (
         <Route path="/church/customize" element={<ChurchCustomize />} />
         <Route path="/church/settings" element={<ChurchSettings />} />
         <Route path="/church/manage-services" element={<ChurchServices />} />
+        <Route path="/church/manage-studies" element={<ChurchStudiesAdmin />} />
         <Route path="/church/groups" element={<GroupsPage />} />
       </Route>
 
