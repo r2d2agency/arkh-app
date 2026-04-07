@@ -1,29 +1,257 @@
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, Plus } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Users, Plus, Search, Trash2, Copy, Link2, Loader2, Check, Mail } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { api } from '@/lib/api';
 
-const ChurchMembers = () => (
-  <div className="space-y-6 animate-fade-in">
-    <div className="flex items-center justify-between">
-      <div>
-        <h1 className="font-heading text-2xl font-bold">Membros</h1>
-        <p className="text-sm text-muted-foreground">Gerencie os membros e líderes da sua igreja</p>
+interface Member {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  is_active: boolean;
+  last_login: string | null;
+  created_at: string;
+}
+
+const roleLabels: Record<string, string> = {
+  admin_church: 'Administrador',
+  leader: 'Líder',
+  member: 'Membro',
+};
+
+const ChurchMembers = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [members, setMembers] = useState<Member[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteResult, setInviteResult] = useState<{ email: string; temp_password: string } | null>(null);
+  const [churchSlug, setChurchSlug] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [inviteForm, setInviteForm] = useState({ name: '', email: '', role: 'member' });
+
+  useEffect(() => {
+    fetchMembers();
+    fetchSlug();
+  }, []);
+
+  const fetchMembers = async () => {
+    try {
+      const data = await api.get<Member[]>('/api/church/members');
+      setMembers(data);
+    } catch (err) {
+      console.error('Failed to fetch members:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchSlug = async () => {
+    try {
+      const data = await api.get<{ slug: string }>('/api/church/invite-link');
+      setChurchSlug(data.slug);
+    } catch {}
+  };
+
+  const handleInvite = async () => {
+    if (!inviteForm.name || !inviteForm.email) {
+      toast({ title: 'Preencha nome e email', variant: 'destructive' });
+      return;
+    }
+    setInviteLoading(true);
+    try {
+      const data = await api.post<Member & { temp_password: string }>('/api/church/members/invite', inviteForm);
+      setMembers(prev => [data, ...prev]);
+      setInviteResult({ email: data.email, temp_password: data.temp_password });
+      toast({ title: 'Membro convidado com sucesso!' });
+    } catch (err: any) {
+      toast({ title: err.message || 'Erro ao convidar', variant: 'destructive' });
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await api.delete(`/api/church/members/${id}`);
+      setMembers(prev => prev.filter(m => m.id !== id));
+      toast({ title: 'Membro removido' });
+    } catch (err: any) {
+      toast({ title: err.message || 'Erro ao remover', variant: 'destructive' });
+    }
+  };
+
+  const inviteLink = churchSlug
+    ? `${window.location.origin}/join/${churchSlug}`
+    : '';
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(inviteLink);
+    setCopied(true);
+    toast({ title: 'Link copiado!' });
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const filtered = members.filter(m =>
+    m.name.toLowerCase().includes(search.toLowerCase()) ||
+    m.email.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="font-heading text-2xl font-bold">Membros</h1>
+          <p className="text-sm text-muted-foreground">Gerencie os membros e líderes da sua igreja</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" className="rounded-xl" onClick={() => setLinkOpen(true)}>
+            <Link2 className="w-4 h-4 mr-2" /> Link de convite
+          </Button>
+          <Button className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => { setInviteOpen(true); setInviteResult(null); setInviteForm({ name: '', email: '', role: 'member' }); }}>
+            <Plus className="w-4 h-4 mr-2" /> Convidar membro
+          </Button>
+        </div>
       </div>
-      <Button className="rounded-xl gradient-primary border-0">
-        <Plus className="w-4 h-4 mr-2" /> Convidar membro
-      </Button>
+
+      {members.length > 0 && (
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input placeholder="Buscar membros..." className="pl-9 rounded-xl" value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : filtered.length === 0 && !search ? (
+        <Card className="p-12 rounded-xl text-center space-y-4">
+          <Users className="w-12 h-12 mx-auto text-muted-foreground/40" />
+          <h3 className="font-heading font-semibold text-lg">Nenhum membro ainda</h3>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
+            Compartilhe o link de convite ou adicione membros manualmente.
+          </p>
+          <div className="flex gap-2 justify-center">
+            <Button variant="outline" className="rounded-xl" onClick={() => setLinkOpen(true)}>
+              <Link2 className="w-4 h-4 mr-2" /> Link de convite
+            </Button>
+            <Button className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => { setInviteOpen(true); setInviteResult(null); }}>
+              <Plus className="w-4 h-4 mr-2" /> Convidar primeiro membro
+            </Button>
+          </div>
+        </Card>
+      ) : (
+        <div className="grid gap-3">
+          {filtered.map(member => (
+            <Card key={member.id} className="p-4 rounded-xl flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0">
+                {member.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm truncate">{member.name}</p>
+                <p className="text-xs text-muted-foreground truncate">{member.email}</p>
+              </div>
+              <Badge variant="outline" className="text-[10px] shrink-0">
+                {roleLabels[member.role] || member.role}
+              </Badge>
+              {member.id !== user?.id && (
+                <Button size="sm" variant="ghost" className="text-destructive shrink-0" onClick={() => handleDelete(member.id)}>
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              )}
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Invite Dialog */}
+      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+        <DialogContent className="rounded-xl max-w-md">
+          <DialogHeader>
+            <DialogTitle>Convidar Membro</DialogTitle>
+            <DialogDescription>Adicione um membro com email e senha temporária.</DialogDescription>
+          </DialogHeader>
+          {inviteResult ? (
+            <div className="space-y-4">
+              <div className="p-4 rounded-xl bg-success/10 border border-success/20 space-y-2">
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <Check className="w-4 h-4 text-success" /> Membro convidado!
+                </p>
+                <p className="text-xs text-muted-foreground">Envie estas credenciais para o membro:</p>
+                <div className="bg-card p-3 rounded-lg space-y-1 text-sm">
+                  <p><span className="text-muted-foreground">Email:</span> {inviteResult.email}</p>
+                  <p><span className="text-muted-foreground">Senha temporária:</span> <code className="bg-muted px-1 rounded">{inviteResult.temp_password}</code></p>
+                </div>
+              </div>
+              <Button onClick={() => setInviteOpen(false)} className="w-full rounded-xl">Fechar</Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Nome</Label>
+                <Input placeholder="Nome completo" value={inviteForm.name} onChange={e => setInviteForm(f => ({ ...f, name: e.target.value }))} className="rounded-xl" />
+              </div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input type="email" placeholder="email@exemplo.com" value={inviteForm.email} onChange={e => setInviteForm(f => ({ ...f, email: e.target.value }))} className="rounded-xl" />
+              </div>
+              <div className="space-y-2">
+                <Label>Função</Label>
+                <Select value={inviteForm.role} onValueChange={v => setInviteForm(f => ({ ...f, role: v }))}>
+                  <SelectTrigger className="rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="member">Membro</SelectItem>
+                    <SelectItem value="leader">Líder</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setInviteOpen(false)} className="rounded-xl">Cancelar</Button>
+                <Button onClick={handleInvite} disabled={inviteLoading} className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground">
+                  {inviteLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Mail className="w-4 h-4 mr-2" /> Convidar</>}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Invite Link Dialog */}
+      <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
+        <DialogContent className="rounded-xl max-w-md">
+          <DialogHeader>
+            <DialogTitle>Link de Convite</DialogTitle>
+            <DialogDescription>Compartilhe este link para membros se cadastrarem na sua igreja.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <Input value={inviteLink} readOnly className="rounded-xl text-sm" />
+              <Button variant="outline" className="rounded-xl shrink-0" onClick={copyLink}>
+                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Qualquer pessoa com este link poderá criar uma conta como membro da sua igreja.
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
-    <Card className="p-12 rounded-xl text-center space-y-4">
-      <Users className="w-12 h-12 mx-auto text-muted-foreground/40" />
-      <h3 className="font-heading font-semibold text-lg">Nenhum membro ainda</h3>
-      <p className="text-sm text-muted-foreground max-w-md mx-auto">
-        Convide membros da sua igreja para começar a usar a plataforma.
-      </p>
-      <Button className="rounded-xl gradient-primary border-0">
-        <Plus className="w-4 h-4 mr-2" /> Convidar primeiro membro
-      </Button>
-    </Card>
-  </div>
-);
+  );
+};
 
 export default ChurchMembers;
