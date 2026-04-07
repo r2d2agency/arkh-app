@@ -19,7 +19,7 @@ router.get('/providers', async (req, res) => {
         k.length > 8 ? k.slice(0, 4) + '••••' + k.slice(-4) : '••••••••'
       ),
     }));
-    result.forEach((r: any) => delete r.api_keys_encrypted);
+    result.forEach(r => delete r.api_keys_encrypted);
     res.json(result);
   } catch (err) {
     console.error(err);
