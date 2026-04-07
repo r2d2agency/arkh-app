@@ -10,6 +10,7 @@ import Dashboard from "@/pages/admin/Dashboard";
 import Churches from "@/pages/admin/Churches";
 import UsersPage from "@/pages/admin/UsersPage";
 import AIManagement from "@/pages/admin/AIManagement";
+import AgentsPage from "@/pages/admin/AgentsPage";
 import Plans from "@/pages/admin/Plans";
 import SettingsPage from "@/pages/admin/SettingsPage";
 import Logs from "@/pages/admin/Logs";
@@ -58,6 +59,7 @@ const AppRoutes = () => (
         <Route path="/admin/churches" element={<Churches />} />
         <Route path="/admin/users" element={<UsersPage />} />
         <Route path="/admin/ai" element={<AIManagement />} />
+        <Route path="/admin/agents" element={<AgentsPage />} />
         <Route path="/admin/plans" element={<Plans />} />
         <Route path="/admin/settings" element={<SettingsPage />} />
         <Route path="/admin/logs" element={<Logs />} />

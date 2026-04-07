@@ -219,6 +219,71 @@ export function useAIUsage() {
   });
 }
 
+// ── Agents ──
+export interface AIAgent {
+  id: string;
+  name: string;
+  description: string | null;
+  role: string;
+  provider_id: string | null;
+  provider_name: string | null;
+  provider_type: string | null;
+  provider_model: string | null;
+  system_prompt: string | null;
+  temperature: number;
+  max_tokens: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export function useAgents() {
+  return useQuery({
+    queryKey: ['agents'],
+    queryFn: () => api.get<AIAgent[]>('/api/agents'),
+  });
+}
+
+export function useCreateAgent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name: string; description: string; role: string; provider_id: string | null; system_prompt: string; temperature: number; max_tokens: number; is_active: boolean }) =>
+      api.post<AIAgent>('/api/agents', data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['agents'] }); toast.success('Agente criado'); },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useUpdateAgent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; [key: string]: unknown }) =>
+      api.put<AIAgent>(`/api/agents/${id}`, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['agents'] }); toast.success('Agente atualizado'); },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useDeleteAgent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/api/agents/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['agents'] }); toast.success('Agente removido'); },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useToggleAgent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.put<AIAgent>(`/api/agents/${id}/toggle`, {}),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['agents'] });
+      toast.success(data.is_active ? 'Agente ativado' : 'Agente desativado');
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
 // ── Settings ──
 export function useSettings() {
   return useQuery({

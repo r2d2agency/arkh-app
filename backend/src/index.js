@@ -9,6 +9,7 @@ const dashboardRoutes = require('./routes/dashboard');
 const plansRoutes = require('./routes/plans');
 const logsRoutes = require('./routes/logs');
 const aiRoutes = require('./routes/ai');
+const agentsRoutes = require('./routes/agents');
 const settingsRoutes = require('./routes/settings');
 const { authenticate, requireRole } = require('./middleware/auth');
 
@@ -32,6 +33,7 @@ app.use('/api/users', authenticate, requireRole('super_admin'), usersRoutes);
 app.use('/api/plans', authenticate, requireRole('super_admin'), plansRoutes);
 app.use('/api/logs', authenticate, requireRole('super_admin'), logsRoutes);
 app.use('/api/ai', authenticate, requireRole('super_admin'), aiRoutes);
+app.use('/api/agents', authenticate, requireRole('super_admin'), agentsRoutes);
 app.use('/api/settings', authenticate, requireRole('super_admin'), settingsRoutes);
 
 app.use((err, req, res, next) => {
