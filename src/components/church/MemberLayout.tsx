@@ -31,6 +31,8 @@ const memberBottomNav = [
 ];
 
 const adminSidebarItems = [
+  { path: '/church/manage-services', label: 'Gerenciar Cultos', icon: Video },
+  { path: '/church/groups', label: 'Grupos', icon: Users },
   { path: '/church/members', label: 'Membros', icon: Users },
   { path: '/church/customize', label: 'Personalizar', icon: Palette },
   { path: '/church/settings', label: 'Configurações', icon: Settings },
