@@ -5,7 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Plus, Trash2, Key } from "lucide-react";
+import { Loader2, Plus, Trash2, Key, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { api } from "@/lib/api";
 import type { AIProvider } from "@/hooks/useApi";
 
 interface Props {
@@ -76,6 +78,7 @@ export default function AIProviderDialog({ open, onOpenChange, provider, onSave,
   const [apiKeys, setApiKeys] = useState<string[]>([""]);
   const [isActive, setIsActive] = useState(true);
   const [costPer1k, setCostPer1k] = useState("0");
+  const [keyStatuses, setKeyStatuses] = useState<Record<number, 'idle' | 'validating' | 'valid' | 'invalid'>>({});
 
   const models = MODELS_BY_PROVIDER[providerType] || [];
   const useCustomInput = providerType === "custom" || models.length === 0;
@@ -120,6 +123,23 @@ export default function AIProviderDialog({ open, onOpenChange, provider, onSave,
     const copy = [...apiKeys];
     copy[i] = val;
     setApiKeys(copy);
+    setKeyStatuses(prev => ({ ...prev, [i]: 'idle' }));
+  };
+
+  const validateKey = async (i: number) => {
+    const key = apiKeys[i]?.trim();
+    if (!key) return;
+    setKeyStatuses(prev => ({ ...prev, [i]: 'validating' }));
+    try {
+      const res = await api.post<{ valid: boolean; message: string }>('/api/ai/providers/validate-key', {
+        provider: providerType,
+        model: model === 'custom' ? customModel : model,
+        api_key: key,
+      });
+      setKeyStatuses(prev => ({ ...prev, [i]: res.valid ? 'valid' : 'invalid' }));
+    } catch {
+      setKeyStatuses(prev => ({ ...prev, [i]: 'invalid' }));
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -199,14 +219,28 @@ export default function AIProviderDialog({ open, onOpenChange, provider, onSave,
             </div>
             <div className="space-y-2">
               {apiKeys.map((key, i) => (
-                <div key={i} className="flex gap-2">
-                  <Input
-                    type="password"
-                    value={key}
-                    onChange={e => updateKey(i, e.target.value)}
-                    placeholder={`Token ${i + 1}`}
-                    className="rounded-xl font-mono text-xs"
-                  />
+                <div key={i} className="flex gap-2 items-center">
+                  <div className="relative flex-1">
+                    <Input
+                      type="password"
+                      value={key}
+                      onChange={e => updateKey(i, e.target.value)}
+                      placeholder={`Token ${i + 1}`}
+                      className="rounded-xl font-mono text-xs pr-10"
+                    />
+                    {keyStatuses[i] === 'valid' && <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-success" />}
+                    {keyStatuses[i] === 'invalid' && <XCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-destructive" />}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => validateKey(i)}
+                    disabled={!key.trim() || keyStatuses[i] === 'validating'}
+                    className="shrink-0 rounded-lg text-xs gap-1 h-10"
+                  >
+                    {keyStatuses[i] === 'validating' ? <RefreshCw className="w-3 h-3 animate-spin" /> : 'Validar'}
+                  </Button>
                   {apiKeys.length > 1 && (
                     <Button type="button" variant="ghost" size="icon" onClick={() => removeKey(i)} className="shrink-0 h-10 w-10 rounded-lg text-destructive hover:text-destructive">
                       <Trash2 className="w-4 h-4" />
