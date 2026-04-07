@@ -6,7 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users, Plus, Search, Trash2, Copy, Link2, Loader2, Check, Mail } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Users, Plus, Search, Trash2, Copy, Link2, Loader2, Check, Mail, MoreVertical, Shield, ShieldCheck, User } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
@@ -27,6 +28,12 @@ const roleLabels: Record<string, string> = {
   member: 'Membro',
 };
 
+const roleIcons: Record<string, typeof Shield> = {
+  admin_church: ShieldCheck,
+  leader: Shield,
+  member: User,
+};
+
 const ChurchMembers = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -40,6 +47,8 @@ const ChurchMembers = () => {
   const [churchSlug, setChurchSlug] = useState('');
   const [copied, setCopied] = useState(false);
   const [inviteForm, setInviteForm] = useState({ name: '', email: '', role: 'member' });
+
+  const isAdmin = user?.role === 'admin_church';
 
   useEffect(() => {
     fetchMembers();
@@ -92,9 +101,17 @@ const ChurchMembers = () => {
     }
   };
 
-  const inviteLink = churchSlug
-    ? `${window.location.origin}/join/${churchSlug}`
-    : '';
+  const handleRoleChange = async (memberId: string, newRole: string) => {
+    try {
+      const updated = await api.put<Member>(`/api/church/members/${memberId}/role`, { role: newRole });
+      setMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: updated.role } : m));
+      toast({ title: `Função alterada para ${roleLabels[newRole]}` });
+    } catch (err: any) {
+      toast({ title: err.message || 'Erro ao alterar função', variant: 'destructive' });
+    }
+  };
+
+  const inviteLink = churchSlug ? `${window.location.origin}/join/${churchSlug}` : '';
 
   const copyLink = () => {
     navigator.clipboard.writeText(inviteLink);
@@ -119,9 +136,11 @@ const ChurchMembers = () => {
           <Button variant="outline" className="rounded-xl" onClick={() => setLinkOpen(true)}>
             <Link2 className="w-4 h-4 mr-2" /> Link de convite
           </Button>
-          <Button className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => { setInviteOpen(true); setInviteResult(null); setInviteForm({ name: '', email: '', role: 'member' }); }}>
-            <Plus className="w-4 h-4 mr-2" /> Convidar membro
-          </Button>
+          {isAdmin && (
+            <Button className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => { setInviteOpen(true); setInviteResult(null); setInviteForm({ name: '', email: '', role: 'member' }); }}>
+              <Plus className="w-4 h-4 mr-2" /> Convidar
+            </Button>
+          )}
         </div>
       </div>
 
@@ -141,38 +160,61 @@ const ChurchMembers = () => {
           <Users className="w-12 h-12 mx-auto text-muted-foreground/40" />
           <h3 className="font-heading font-semibold text-lg">Nenhum membro ainda</h3>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            Compartilhe o link de convite ou adicione membros manualmente.
+            Compartilhe o link de convite para membros se cadastrarem.
           </p>
-          <div className="flex gap-2 justify-center">
-            <Button variant="outline" className="rounded-xl" onClick={() => setLinkOpen(true)}>
-              <Link2 className="w-4 h-4 mr-2" /> Link de convite
-            </Button>
-            <Button className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => { setInviteOpen(true); setInviteResult(null); }}>
-              <Plus className="w-4 h-4 mr-2" /> Convidar primeiro membro
-            </Button>
-          </div>
+          <Button variant="outline" className="rounded-xl" onClick={() => setLinkOpen(true)}>
+            <Link2 className="w-4 h-4 mr-2" /> Copiar link de convite
+          </Button>
         </Card>
       ) : (
         <div className="grid gap-3">
-          {filtered.map(member => (
-            <Card key={member.id} className="p-4 rounded-xl flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0">
-                {member.name.charAt(0).toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{member.name}</p>
-                <p className="text-xs text-muted-foreground truncate">{member.email}</p>
-              </div>
-              <Badge variant="outline" className="text-[10px] shrink-0">
-                {roleLabels[member.role] || member.role}
-              </Badge>
-              {member.id !== user?.id && (
-                <Button size="sm" variant="ghost" className="text-destructive shrink-0" onClick={() => handleDelete(member.id)}>
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
-              )}
-            </Card>
-          ))}
+          {filtered.map(member => {
+            const RoleIcon = roleIcons[member.role] || User;
+            return (
+              <Card key={member.id} className="p-4 rounded-xl flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0">
+                  {member.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{member.name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{member.email}</p>
+                </div>
+                <Badge variant="outline" className="text-[10px] shrink-0 gap-1">
+                  <RoleIcon className="w-3 h-3" />
+                  {roleLabels[member.role] || member.role}
+                </Badge>
+                {isAdmin && member.id !== user?.id && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="ghost" className="shrink-0 h-8 w-8 p-0">
+                        <MoreVertical className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="rounded-xl">
+                      {member.role !== 'admin_church' && (
+                        <DropdownMenuItem onClick={() => handleRoleChange(member.id, 'admin_church')} className="gap-2 rounded-lg">
+                          <ShieldCheck className="w-4 h-4" /> Promover a Admin
+                        </DropdownMenuItem>
+                      )}
+                      {member.role !== 'leader' && (
+                        <DropdownMenuItem onClick={() => handleRoleChange(member.id, 'leader')} className="gap-2 rounded-lg">
+                          <Shield className="w-4 h-4" /> Tornar Líder
+                        </DropdownMenuItem>
+                      )}
+                      {member.role !== 'member' && (
+                        <DropdownMenuItem onClick={() => handleRoleChange(member.id, 'member')} className="gap-2 rounded-lg">
+                          <User className="w-4 h-4" /> Tornar Membro
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onClick={() => handleDelete(member.id)} className="gap-2 rounded-lg text-destructive">
+                        <Trash2 className="w-4 h-4" /> Remover
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -207,18 +249,6 @@ const ChurchMembers = () => {
                 <Label>Email</Label>
                 <Input type="email" placeholder="email@exemplo.com" value={inviteForm.email} onChange={e => setInviteForm(f => ({ ...f, email: e.target.value }))} className="rounded-xl" />
               </div>
-              <div className="space-y-2">
-                <Label>Função</Label>
-                <Select value={inviteForm.role} onValueChange={v => setInviteForm(f => ({ ...f, role: v }))}>
-                  <SelectTrigger className="rounded-xl">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="member">Membro</SelectItem>
-                    <SelectItem value="leader">Líder</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setInviteOpen(false)} className="rounded-xl">Cancelar</Button>
                 <Button onClick={handleInvite} disabled={inviteLoading} className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground">
@@ -235,7 +265,7 @@ const ChurchMembers = () => {
         <DialogContent className="rounded-xl max-w-md">
           <DialogHeader>
             <DialogTitle>Link de Convite</DialogTitle>
-            <DialogDescription>Compartilhe este link para membros se cadastrarem na sua igreja.</DialogDescription>
+            <DialogDescription>Compartilhe este link para membros se cadastrarem como membro da sua igreja.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="flex gap-2">
@@ -245,7 +275,7 @@ const ChurchMembers = () => {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Qualquer pessoa com este link poderá criar uma conta como membro da sua igreja.
+              Todos entram como <strong>Membro</strong>. Você pode promover para Líder ou Admin depois.
             </p>
           </div>
         </DialogContent>

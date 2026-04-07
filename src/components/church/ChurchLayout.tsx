@@ -12,11 +12,12 @@ import {
   X,
   Palette,
   Lock,
+  Home,
 } from 'lucide-react';
 import { useState } from 'react';
 import logoImg from '@/assets/logo.png';
 
-const navItems = [
+const adminNavItems = [
   { path: '/church', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/church/services', label: 'Cultos', icon: Video },
   { path: '/church/studies', label: 'Estudos', icon: BookOpen },
@@ -25,11 +26,20 @@ const navItems = [
   { path: '/church/settings', label: 'Config', icon: Settings },
 ];
 
+const memberNavItems = [
+  { path: '/church', label: 'Início', icon: Home },
+  { path: '/church/services', label: 'Cultos', icon: Video },
+  { path: '/church/studies', label: 'Estudos', icon: BookOpen },
+];
+
 const ChurchLayout = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const isAdmin = user?.role === 'admin_church' || user?.role === 'leader';
+  const navItems = isAdmin ? adminNavItems : memberNavItems;
 
   const handleLogout = () => {
     logout();
@@ -55,8 +65,10 @@ const ChurchLayout = () => {
               <div className="flex items-center gap-3">
                 <img src={logoImg} alt="ARKHÉ" className="w-9 h-9 rounded-lg object-contain" />
                 <div>
-                  <h2 className="font-heading text-sm font-bold text-sidebar-accent-foreground">Minha Igreja</h2>
-                  <p className="text-xs text-gold">Painel da Igreja</p>
+                  <h2 className="font-heading text-sm font-bold text-sidebar-accent-foreground">
+                    {isAdmin ? 'Painel da Igreja' : 'Minha Igreja'}
+                  </h2>
+                  <p className="text-xs text-gold">{isAdmin ? 'Administração' : 'Área do Membro'}</p>
                 </div>
               </div>
               <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-sidebar-foreground">
