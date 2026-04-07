@@ -20,6 +20,7 @@ import {
   Calendar,
   Heart,
   BarChart3,
+  GraduationCap,
 } from 'lucide-react';
 import { useState } from 'react';
 import logoImg from '@/assets/logo.png';
@@ -35,6 +36,7 @@ const memberBottomNav = [
 const adminSidebarItems = [
   { path: '/church/manage-services', label: 'Gerenciar Cultos', icon: Video },
   { path: '/church/manage-studies', label: 'Estudos Bíblicos', icon: BookOpen },
+  { path: '/church/manage-school', label: 'Escola Bíblica', icon: GraduationCap },
   { path: '/church/groups', label: 'Grupos', icon: UsersRound },
   { path: '/church/polls', label: 'Enquetes', icon: BarChart3 },
   { path: '/church/members', label: 'Membros', icon: Users },
