@@ -109,10 +109,13 @@ const ChurchServices = () => {
           status: data.ai_status,
           error: data.processing_error,
         });
-        // Update service in list
-        if (data.ai_status === 'completed' || data.ai_status === 'error') {
-          setServices(prev => prev.map(s => s.id === selectedServiceId ? { ...s, ai_status: data.ai_status } : s));
-        }
+        // Update service in list with logs for card progress
+        setServices(prev => prev.map(s => s.id === selectedServiceId ? { 
+          ...s, 
+          ai_status: data.ai_status,
+          processing_logs: data.processing_logs || [],
+          processing_error: data.processing_error,
+        } : s));
       } catch (e) { /* ignore */ }
     };
 
