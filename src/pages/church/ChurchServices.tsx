@@ -5,11 +5,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Video, Plus, Search, Trash2, ExternalLink, Clock, User, Calendar, Sparkles, Loader2, FileText, CheckCircle, AlertCircle, Info, Pencil } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Video, Plus, Search, Trash2, ExternalLink, Clock, User, Calendar, Sparkles, Loader2, FileText, CheckCircle, AlertCircle, Info, Pencil, Brain } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
+
+interface AIProviderOption {
+  id: string;
+  name: string;
+  provider: string;
+  model: string;
+}
 
 interface Service {
   id: string;
@@ -81,8 +89,18 @@ const ChurchServices = () => {
   const [fetching, setFetching] = useState(true);
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
   const [form, setForm] = useState({ ...defaultForm });
+  const [aiProviders, setAiProviders] = useState<AIProviderOption[]>([]);
+  const [processDialogOpen, setProcessDialogOpen] = useState(false);
+  const [processServiceId, setProcessServiceId] = useState<string | null>(null);
+  const [selectedProviderId, setSelectedProviderId] = useState<string>('');
 
   const isAdmin = user?.role === 'admin_church' || user?.role === 'leader';
+
+  useEffect(() => {
+    if (isAdmin) {
+      api.get<AIProviderOption[]>('/api/church/ai-providers').then(setAiProviders).catch(() => {});
+    }
+  }, [isAdmin]);
 
   useEffect(() => {
     const fetchServices = async () => {
@@ -198,14 +216,24 @@ const ChurchServices = () => {
     }
   };
 
-  const handleProcess = async (id: string) => {
-    setProcessingIds(prev => new Set(prev).add(id));
+  const openProcessDialog = (id: string) => {
+    setProcessServiceId(id);
+    setSelectedProviderId('');
+    setProcessDialogOpen(true);
+  };
+
+  const handleProcess = async (id?: string) => {
+    const serviceId = id || processServiceId;
+    if (!serviceId) return;
+    setProcessDialogOpen(false);
+    setProcessingIds(prev => new Set(prev).add(serviceId));
     try {
-      await api.post(`/api/church/services/${id}/process`, {});
-      setServices(prev => prev.map(s => s.id === id ? { ...s, ai_status: 'processing' } : s));
+      await api.post(`/api/church/services/${serviceId}/process`, { 
+        provider_id: selectedProviderId || undefined 
+      });
+      setServices(prev => prev.map(s => s.id === serviceId ? { ...s, ai_status: 'processing' } : s));
       toast({ title: 'Processamento IA iniciado!' });
-      // Open log dialog
-      setSelectedServiceId(id);
+      setSelectedServiceId(serviceId);
       setLogData({ logs: [], status: 'processing' });
       setLogDialogOpen(true);
     } catch (err: any) {
@@ -213,7 +241,7 @@ const ChurchServices = () => {
     } finally {
       setProcessingIds(prev => {
         const n = new Set(prev);
-        n.delete(id);
+        n.delete(serviceId);
         return n;
       });
     }
