@@ -173,7 +173,9 @@ router.put('/members/:id/role', async (req, res) => {
   try {
     const churchId = req.user.church_id;
     const { role } = req.body;
-    if (!['member', 'leader'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
+    if (!['member', 'leader', 'admin_church'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
+    // Only admin_church can promote
+    if (req.user.role !== 'admin_church') return res.status(403).json({ error: 'Only admins can change roles' });
     const { rows } = await pool.query(
       'UPDATE users SET role = $1 WHERE id = $2 AND church_id = $3 RETURNING id, name, email, role',
       [role, req.params.id, churchId]
