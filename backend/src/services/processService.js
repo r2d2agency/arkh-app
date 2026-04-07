@@ -174,7 +174,7 @@ async function fetchYouTubeTranscript(videoId, startTime, endTime) {
   for (const lang of langCodes) {
     try {
       const url = `https://www.youtube.com/api/timedtext?lang=${lang}&v=${videoId}&fmt=json3`;
-      const res = await fetch(url);
+      const res = await fetchWithTimeout(url);
       if (res.ok) {
         const data = await res.json();
         if (data.events && data.events.length > 0) {
@@ -203,7 +203,7 @@ async function fetchYouTubeTranscript(videoId, startTime, endTime) {
 
   // Fallback: try to get auto-generated captions
   try {
-    const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`);
+    const pageRes = await fetchWithTimeout(`https://www.youtube.com/watch?v=${videoId}`, 20000);
     const html = await pageRes.text();
     
     // Extract caption track URLs from the page
@@ -218,7 +218,7 @@ async function fetchYouTubeTranscript(videoId, startTime, endTime) {
                      tracks.find(t => t.languageCode === 'en') || 
                      tracks[0];
         
-        const captionRes = await fetch(track.baseUrl + '&fmt=json3');
+        const captionRes = await fetchWithTimeout(track.baseUrl + '&fmt=json3');
         if (captionRes.ok) {
           const data = await captionRes.json();
           if (data.events) {
