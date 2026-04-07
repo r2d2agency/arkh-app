@@ -38,8 +38,6 @@ const AdminSidebar = () => {
         collapsed ? "w-[72px]" : "w-[264px]"
       )}
     >
-      <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
-
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 h-[72px] border-b border-sidebar-border relative z-10">
         <img src={logoImg} alt="ARKHÉ" className="w-9 h-9 rounded-xl object-contain shrink-0" />
@@ -66,12 +64,12 @@ const AdminSidebar = () => {
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group relative",
                 isActive
-                  ? "bg-sidebar-accent text-white shadow-sm"
+                  ? "bg-sidebar-accent text-white"
                   : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
               )}
             >
               {isActive && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full gradient-blue-gold" />
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-gold" />
               )}
               <item.icon className={cn(
                 "w-[18px] h-[18px] shrink-0 transition-colors",
