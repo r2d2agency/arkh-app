@@ -104,6 +104,10 @@ const AppRoutes = () => (
         <Route path="/church/polls" element={<PollsPage />} />
         <Route path="/church/agenda" element={<AgendaPage />} />
         <Route path="/church/groups/:id" element={<GroupDetailPage />} />
+        <Route path="/church/school" element={<SchoolPage />} />
+        <Route path="/church/school/:id" element={<SchoolClassDetail />} />
+        <Route path="/church/favorites" element={<FavoritesPage />} />
+        <Route path="/church/onboarding" element={<OnboardingPage />} />
       </Route>
 
       {/* Admin-only management pages (with sidebar layout) */}
@@ -114,6 +118,7 @@ const AppRoutes = () => (
         <Route path="/church/manage-services" element={<ChurchServices />} />
         <Route path="/church/manage-studies" element={<ChurchStudiesAdmin />} />
         <Route path="/church/groups" element={<GroupsPage />} />
+        <Route path="/church/manage-school" element={<SchoolAdmin />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />
