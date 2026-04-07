@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Video, Plus, Search, Trash2, ExternalLink, Clock, User, Calendar } from 'lucide-react';
+import { Video, Plus, Search, Trash2, ExternalLink, Clock, User, Calendar, Sparkles, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
@@ -17,7 +18,7 @@ interface Service {
   service_date: string;
   ai_start_time: string;
   ai_end_time: string;
-  status: string;
+  ai_status: string;
   created_at: string;
 }
 
@@ -30,6 +31,13 @@ const defaultForm = {
   ai_end_time: '',
 };
 
+const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
+  pending: { label: 'Aguardando', variant: 'secondary' },
+  processing: { label: 'Processando...', variant: 'default' },
+  completed: { label: 'Concluído', variant: 'outline' },
+  error: { label: 'Erro', variant: 'destructive' },
+};
+
 const ChurchServices = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -37,7 +45,24 @@ const ChurchServices = () => {
   const [services, setServices] = useState<Service[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
+  const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
   const [form, setForm] = useState({ ...defaultForm });
+
+  // Fetch services on mount
+  useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        const data = await api.get<Service[]>('/api/church/services');
+        setServices(data);
+      } catch (err) {
+        console.error('Failed to fetch services:', err);
+      } finally {
+        setFetching(false);
+      }
+    };
+    fetchServices();
+  }, []);
 
   const handleCreate = async () => {
     if (!form.title || !form.youtube_url) {
@@ -46,30 +71,44 @@ const ChurchServices = () => {
     }
     setLoading(true);
     try {
-      const res = await api.post('/churches/services', form) as any;
-      setServices(prev => [res.data, ...prev]);
-      setForm({ ...defaultForm });
-      setOpen(false);
-      toast({ title: 'Culto adicionado com sucesso!' });
-    } catch {
-      const newService: Service = {
-        id: crypto.randomUUID(),
-        ...form,
-        status: 'pending',
-        created_at: new Date().toISOString(),
-      };
+      const newService = await api.post<Service>('/api/church/services', form);
       setServices(prev => [newService, ...prev]);
       setForm({ ...defaultForm });
       setOpen(false);
-      toast({ title: 'Culto adicionado localmente' });
+      toast({ title: 'Culto adicionado com sucesso!' });
+    } catch (err: any) {
+      toast({ title: err.message || 'Erro ao salvar culto', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = (id: string) => {
-    setServices(prev => prev.filter(s => s.id !== id));
-    toast({ title: 'Culto removido' });
+  const handleDelete = async (id: string) => {
+    try {
+      await api.delete(`/api/church/services/${id}`);
+      setServices(prev => prev.filter(s => s.id !== id));
+      toast({ title: 'Culto removido' });
+    } catch {
+      setServices(prev => prev.filter(s => s.id !== id));
+      toast({ title: 'Culto removido localmente' });
+    }
+  };
+
+  const handleProcess = async (id: string) => {
+    setProcessingIds(prev => new Set(prev).add(id));
+    try {
+      await api.post(`/api/church/services/${id}/process`, {});
+      setServices(prev => prev.map(s => s.id === id ? { ...s, ai_status: 'processing' } : s));
+      toast({ title: 'Processamento IA iniciado!' });
+    } catch (err: any) {
+      toast({ title: err.message || 'Erro ao processar', variant: 'destructive' });
+    } finally {
+      setProcessingIds(prev => {
+        const n = new Set(prev);
+        n.delete(id);
+        return n;
+      });
+    }
   };
 
   const filtered = services.filter(s =>
@@ -96,7 +135,7 @@ const ChurchServices = () => {
           <h1 className="font-heading text-2xl font-bold">Cultos</h1>
           <p className="text-sm text-muted-foreground">Adicione links do YouTube para transcrição e estudo com IA</p>
         </div>
-        <Button className="rounded-xl gradient-primary border-0" onClick={() => setOpen(true)}>
+        <Button className="rounded-xl bg-primary hover:bg-primary/90 border-0 text-primary-foreground" onClick={() => setOpen(true)}>
           <Plus className="w-4 h-4 mr-2" /> Novo culto
         </Button>
       </div>
@@ -106,14 +145,18 @@ const ChurchServices = () => {
         <Input placeholder="Buscar cultos..." className="pl-9 rounded-xl" value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
-      {filtered.length === 0 ? (
+      {fetching ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : filtered.length === 0 ? (
         <Card className="p-12 rounded-xl text-center space-y-4">
           <Video className="w-12 h-12 mx-auto text-muted-foreground/40" />
           <h3 className="font-heading font-semibold text-lg">Nenhum culto adicionado</h3>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
             Adicione seu primeiro culto colando o link do YouTube. A IA vai transcrever e gerar estudos automaticamente.
           </p>
-          <Button className="rounded-xl gradient-primary border-0" onClick={() => setOpen(true)}>
+          <Button className="rounded-xl bg-primary hover:bg-primary/90 border-0 text-primary-foreground" onClick={() => setOpen(true)}>
             <Plus className="w-4 h-4 mr-2" /> Adicionar primeiro culto
           </Button>
         </Card>
@@ -121,8 +164,10 @@ const ChurchServices = () => {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filtered.map(service => {
             const ytId = getYouTubeId(service.youtube_url);
+            const status = statusMap[service.ai_status] || statusMap.pending;
+            const isProcessing = processingIds.has(service.id) || service.ai_status === 'processing';
             return (
-              <Card key={service.id} className="rounded-xl overflow-hidden">
+              <Card key={service.id} className="rounded-xl overflow-hidden border-border/60">
                 {ytId && (
                   <img
                     src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`}
@@ -130,8 +175,13 @@ const ChurchServices = () => {
                     className="w-full h-40 object-cover"
                   />
                 )}
-                <div className="p-4 space-y-2">
-                  <h3 className="font-heading font-semibold truncate">{service.title}</h3>
+                <div className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-heading font-semibold truncate flex-1">{service.title}</h3>
+                    <Badge variant={status.variant} className="text-[10px] shrink-0">
+                      {status.label}
+                    </Badge>
+                  </div>
                   <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                     {service.preacher && (
                       <span className="flex items-center gap-1">
@@ -149,13 +199,28 @@ const ChurchServices = () => {
                       </span>
                     )}
                   </div>
-                  <div className="flex gap-2 pt-2">
+                  <div className="flex gap-2 pt-1">
+                    {service.ai_status === 'pending' && (
+                      <Button
+                        size="sm"
+                        className="rounded-lg bg-gold hover:bg-gold-dark text-foreground font-medium"
+                        onClick={() => handleProcess(service.id)}
+                        disabled={isProcessing}
+                      >
+                        {isProcessing ? (
+                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        ) : (
+                          <Sparkles className="w-3 h-3 mr-1" />
+                        )}
+                        Processar IA
+                      </Button>
+                    )}
                     <Button size="sm" variant="outline" className="rounded-lg" asChild>
                       <a href={service.youtube_url} target="_blank" rel="noopener noreferrer">
                         <ExternalLink className="w-3 h-3 mr-1" /> Assistir
                       </a>
                     </Button>
-                    <Button size="sm" variant="ghost" className="rounded-lg text-destructive" onClick={() => handleDelete(service.id)}>
+                    <Button size="sm" variant="ghost" className="rounded-lg text-destructive ml-auto" onClick={() => handleDelete(service.id)}>
                       <Trash2 className="w-3 h-3" />
                     </Button>
                   </div>
@@ -212,7 +277,7 @@ const ChurchServices = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)} className="rounded-xl">Cancelar</Button>
-            <Button onClick={handleCreate} disabled={loading} className="rounded-xl gradient-primary border-0">
+            <Button onClick={handleCreate} disabled={loading} className="rounded-xl bg-primary hover:bg-primary/90 border-0 text-primary-foreground">
               {loading ? 'Salvando...' : 'Adicionar'}
             </Button>
           </DialogFooter>

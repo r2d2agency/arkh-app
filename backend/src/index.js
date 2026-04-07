@@ -11,6 +11,7 @@ const logsRoutes = require('./routes/logs');
 const aiRoutes = require('./routes/ai');
 const agentsRoutes = require('./routes/agents');
 const settingsRoutes = require('./routes/settings');
+const churchPanelRoutes = require('./routes/church');
 const { authenticate, requireRole } = require('./middleware/auth');
 
 const app = express();
@@ -35,6 +36,9 @@ app.use('/api/logs', authenticate, requireRole('super_admin'), logsRoutes);
 app.use('/api/ai', authenticate, requireRole('super_admin'), aiRoutes);
 app.use('/api/agents', authenticate, requireRole('super_admin'), agentsRoutes);
 app.use('/api/settings', authenticate, requireRole('super_admin'), settingsRoutes);
+
+// Protected routes (Church Admin / Leader)
+app.use('/api/church', authenticate, churchPanelRoutes);
 
 app.use((err, req, res, next) => {
   console.error('Error:', err.message);
