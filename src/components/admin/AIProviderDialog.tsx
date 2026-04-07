@@ -25,38 +25,94 @@ interface Props {
 
 const PROVIDERS = [
   { value: "openai", label: "OpenAI" },
-  { value: "google", label: "Google AI" },
+  { value: "google", label: "Google AI (Gemini)" },
   { value: "anthropic", label: "Anthropic" },
   { value: "groq", label: "Groq" },
   { value: "deepseek", label: "DeepSeek" },
   { value: "custom", label: "Custom" },
 ];
 
+const MODELS_BY_PROVIDER: Record<string, { value: string; label: string }[]> = {
+  openai: [
+    { value: "gpt-4o", label: "GPT-4o" },
+    { value: "gpt-4o-mini", label: "GPT-4o Mini" },
+    { value: "gpt-4-turbo", label: "GPT-4 Turbo" },
+    { value: "gpt-4", label: "GPT-4" },
+    { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo" },
+    { value: "o1", label: "O1" },
+    { value: "o1-mini", label: "O1 Mini" },
+    { value: "o1-preview", label: "O1 Preview" },
+  ],
+  google: [
+    { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+    { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+    { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
+    { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro" },
+    { value: "gemini-1.5-flash", label: "Gemini 1.5 Flash" },
+  ],
+  anthropic: [
+    { value: "claude-4-sonnet", label: "Claude 4 Sonnet" },
+    { value: "claude-4-opus", label: "Claude 4 Opus" },
+    { value: "claude-3.5-sonnet", label: "Claude 3.5 Sonnet" },
+    { value: "claude-3-opus", label: "Claude 3 Opus" },
+    { value: "claude-3-haiku", label: "Claude 3 Haiku" },
+  ],
+  groq: [
+    { value: "llama-3.3-70b-versatile", label: "LLaMA 3.3 70B" },
+    { value: "llama-3.1-8b-instant", label: "LLaMA 3.1 8B" },
+    { value: "mixtral-8x7b-32768", label: "Mixtral 8x7B" },
+  ],
+  deepseek: [
+    { value: "deepseek-chat", label: "DeepSeek Chat" },
+    { value: "deepseek-reasoner", label: "DeepSeek Reasoner" },
+  ],
+};
+
 export default function AIProviderDialog({ open, onOpenChange, provider, onSave, loading }: Props) {
   const [name, setName] = useState("");
   const [providerType, setProviderType] = useState("openai");
   const [model, setModel] = useState("");
+  const [customModel, setCustomModel] = useState("");
   const [apiKeys, setApiKeys] = useState<string[]>([""]);
   const [isActive, setIsActive] = useState(true);
   const [costPer1k, setCostPer1k] = useState("0");
+
+  const models = MODELS_BY_PROVIDER[providerType] || [];
+  const useCustomInput = providerType === "custom" || models.length === 0;
 
   useEffect(() => {
     if (provider) {
       setName(provider.name);
       setProviderType(provider.provider);
-      setModel(provider.model);
+      const providerModels = MODELS_BY_PROVIDER[provider.provider] || [];
+      if (providerModels.find(m => m.value === provider.model)) {
+        setModel(provider.model);
+        setCustomModel("");
+      } else {
+        setModel("custom");
+        setCustomModel(provider.model);
+      }
       setApiKeys(provider.api_keys?.length ? provider.api_keys : [""]);
       setIsActive(provider.is_active);
       setCostPer1k(String(provider.cost_per_1k_tokens));
     } else {
       setName("");
       setProviderType("openai");
-      setModel("");
+      setModel("gpt-4o");
+      setCustomModel("");
       setApiKeys([""]);
       setIsActive(true);
       setCostPer1k("0");
     }
   }, [provider, open]);
+
+  useEffect(() => {
+    if (!provider) {
+      const firstModel = MODELS_BY_PROVIDER[providerType]?.[0]?.value;
+      setModel(firstModel || "");
+      setCustomModel("");
+    }
+  }, [providerType]);
 
   const addKey = () => setApiKeys([...apiKeys, ""]);
   const removeKey = (i: number) => setApiKeys(apiKeys.filter((_, idx) => idx !== i));
@@ -68,10 +124,11 @@ export default function AIProviderDialog({ open, onOpenChange, provider, onSave,
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const finalModel = useCustomInput ? customModel : (model === "custom" ? customModel : model);
     onSave({
       name,
       provider: providerType,
-      model,
+      model: finalModel,
       api_keys: apiKeys.filter(k => k.trim() !== ""),
       is_active: isActive,
       cost_per_1k_tokens: parseFloat(costPer1k) || 0,
@@ -107,7 +164,24 @@ export default function AIProviderDialog({ open, onOpenChange, provider, onSave,
             </div>
             <div className="space-y-2">
               <Label>Modelo</Label>
-              <Input value={model} onChange={e => setModel(e.target.value)} placeholder="gpt-4o" required className="rounded-xl" />
+              {useCustomInput ? (
+                <Input value={customModel} onChange={e => setCustomModel(e.target.value)} placeholder="nome-do-modelo" required className="rounded-xl" />
+              ) : (
+                <>
+                  <Select value={model} onValueChange={setModel}>
+                    <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      {models.map(m => (
+                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                      ))}
+                      <SelectItem value="custom">Outro (digitar)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {model === "custom" && (
+                    <Input value={customModel} onChange={e => setCustomModel(e.target.value)} placeholder="nome-do-modelo" required className="rounded-xl mt-2" />
+                  )}
+                </>
+              )}
             </div>
           </div>
 
