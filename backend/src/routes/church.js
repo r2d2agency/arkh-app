@@ -323,4 +323,83 @@ router.get('/info', async (req, res) => {
   }
 });
 
+// ========== NOTES (CADERNO) ==========
+
+// GET /api/church/notes — get user notes
+router.get('/notes', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT sn.*, s.title as service_title 
+       FROM study_notes sn 
+       LEFT JOIN services s ON sn.service_id = s.id
+       WHERE sn.user_id = $1 
+       ORDER BY sn.created_at DESC`,
+      [req.user.id]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('GET notes error:', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// POST /api/church/notes — create note
+router.post('/notes', async (req, res) => {
+  try {
+    const { service_id, title, content, note_type, verse_reference } = req.body;
+    if (!content && !title) return res.status(400).json({ error: 'Content required' });
+    const { rows } = await pool.query(
+      `INSERT INTO study_notes (user_id, service_id, title, content, note_type, verse_reference)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [req.user.id, service_id || null, title || null, content || '', note_type || 'note', verse_reference || null]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    console.error('POST notes error:', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// DELETE /api/church/notes/:id — delete note
+router.delete('/notes/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM study_notes WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
+    res.json({ message: 'Deleted' });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// ========== SEARCH ==========
+
+// GET /api/church/search?q=query — search services
+router.get('/search', async (req, res) => {
+  try {
+    const churchId = req.user.church_id;
+    if (!churchId) return res.status(400).json({ error: 'No church' });
+    const q = req.query.q;
+    if (!q || q.length < 2) return res.json([]);
+
+    const searchTerm = `%${q}%`;
+    const { rows } = await pool.query(
+      `SELECT id, title, preacher, service_date, ai_status, ai_summary, ai_topics, ai_key_verses, youtube_url, created_at
+       FROM services 
+       WHERE church_id = $1 AND ai_status = 'completed' AND (
+         title ILIKE $2 OR 
+         preacher ILIKE $2 OR 
+         ai_summary ILIKE $2 OR 
+         CAST(ai_topics AS TEXT) ILIKE $2 OR 
+         CAST(ai_key_verses AS TEXT) ILIKE $2
+       )
+       ORDER BY service_date DESC NULLS LAST
+       LIMIT 20`,
+      [churchId, searchTerm]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('Search error:', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
 module.exports = router;
