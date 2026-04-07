@@ -15,7 +15,7 @@ router.get('/providers', async (req, res) => {
     const result = rows.map(r => ({
       ...r,
       api_keys: r.api_keys_encrypted || [],
-      api_keys_masked: (r.api_keys_encrypted || []).map((k: string) =>
+      api_keys_masked: (r.api_keys_encrypted || []).map(k =>
         k.length > 8 ? k.slice(0, 4) + '••••' + k.slice(-4) : '••••••••'
       ),
     }));
