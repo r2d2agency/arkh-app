@@ -132,16 +132,36 @@ const ChurchServices = () => {
     }
     setLoading(true);
     try {
-      const newService = await api.post<Service>('/api/church/services', form);
-      setServices(prev => [newService, ...prev]);
+      if (editingService) {
+        const updated = await api.put<Service>(`/api/church/services/${editingService.id}`, form);
+        setServices(prev => prev.map(s => s.id === editingService.id ? { ...s, ...updated } : s));
+        toast({ title: 'Culto atualizado com sucesso!' });
+      } else {
+        const newService = await api.post<Service>('/api/church/services', form);
+        setServices(prev => [newService, ...prev]);
+        toast({ title: 'Culto adicionado com sucesso!' });
+      }
       setForm({ ...defaultForm });
+      setEditingService(null);
       setOpen(false);
-      toast({ title: 'Culto adicionado com sucesso!' });
     } catch (err: any) {
       toast({ title: err.message || 'Erro ao salvar culto', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEdit = (service: Service) => {
+    setEditingService(service);
+    setForm({
+      title: service.title || '',
+      youtube_url: service.youtube_url || '',
+      preacher: service.preacher || '',
+      service_date: service.service_date ? service.service_date.split('T')[0] : '',
+      ai_start_time: service.ai_start_time || '00:00:00',
+      ai_end_time: service.ai_end_time || '',
+    });
+    setOpen(true);
   };
 
   const handleDelete = async (id: string) => {
