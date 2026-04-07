@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Loader2, Church, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Loader2, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { api } from '@/lib/api';
+import logoImg from '@/assets/logo.png';
 
 const Register = () => {
   const [step, setStep] = useState(1);
@@ -92,12 +93,13 @@ const Register = () => {
   return (
     <div className="min-h-screen flex bg-background">
       {/* Left - Info */}
-      <div className="hidden lg:flex lg:w-1/2 gradient-primary items-center justify-center p-12 relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 gradient-blue-gold items-center justify-center p-12 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-20 left-20 w-72 h-72 rounded-full bg-white/20 blur-3xl" />
           <div className="absolute bottom-20 right-20 w-96 h-96 rounded-full bg-white/10 blur-3xl" />
         </div>
         <div className="relative z-10 max-w-lg text-white space-y-8">
+          <img src={logoImg} alt="ARKHÉ" className="w-24 h-24 object-contain" />
           <h2 className="font-heading text-4xl font-bold leading-tight">
             Transforme a experiência digital da sua igreja
           </h2>
@@ -117,12 +119,10 @@ const Register = () => {
 
       {/* Right - Form */}
       <div className="flex-1 flex items-center justify-center p-6">
-        <Card className="w-full max-w-md p-8 rounded-2xl space-y-6">
+        <Card className="w-full max-w-md p-8 rounded-2xl space-y-6 border-gold/20">
           <div className="text-center space-y-2">
-            <div className="mx-auto w-12 h-12 rounded-xl gradient-primary flex items-center justify-center mb-4">
-              <Church className="w-6 h-6 text-primary-foreground" />
-            </div>
-            <h1 className="font-heading text-2xl font-bold tracking-tight">
+            <img src={logoImg} alt="ARKHÉ" className="mx-auto w-16 h-16 object-contain lg:hidden" />
+            <h1 className="font-heading text-2xl font-bold tracking-tight gradient-text">
               {step === 1 ? 'Cadastre sua Igreja' : 'Seus dados de acesso'}
             </h1>
             <p className="text-muted-foreground text-sm">
@@ -134,8 +134,8 @@ const Register = () => {
 
           {/* Steps indicator */}
           <div className="flex items-center gap-2 justify-center">
-            <div className={`h-2 w-12 rounded-full transition-colors ${step >= 1 ? 'bg-primary' : 'bg-muted'}`} />
-            <div className={`h-2 w-12 rounded-full transition-colors ${step >= 2 ? 'bg-primary' : 'bg-muted'}`} />
+            <div className={`h-2 w-12 rounded-full transition-colors ${step >= 1 ? 'gradient-blue-gold' : 'bg-muted'}`} />
+            <div className={`h-2 w-12 rounded-full transition-colors ${step >= 2 ? 'gradient-blue-gold' : 'bg-muted'}`} />
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -165,7 +165,7 @@ const Register = () => {
                   </div>
                   <p className="text-xs text-muted-foreground">Esse será o endereço único da sua igreja</p>
                 </div>
-                <Button type="submit" className="w-full rounded-xl gradient-primary border-0 shadow-md shadow-primary/20">
+                <Button type="submit" className="w-full rounded-xl gradient-blue-gold border-0 shadow-md shadow-primary/20 text-primary-foreground">
                   Continuar <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </>
@@ -221,7 +221,7 @@ const Register = () => {
                   </Button>
                   <Button
                     type="submit"
-                    className="flex-1 rounded-xl gradient-primary border-0 shadow-md shadow-primary/20"
+                    className="flex-1 rounded-xl gradient-blue-gold border-0 shadow-md shadow-primary/20 text-primary-foreground"
                     disabled={loading}
                   >
                     {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Criar minha igreja'}

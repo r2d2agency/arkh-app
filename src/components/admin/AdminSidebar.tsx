@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import logoImg from "@/assets/logo.png";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
@@ -37,20 +38,17 @@ const AdminSidebar = () => {
         collapsed ? "w-[72px]" : "w-[264px]"
       )}
     >
-      {/* Subtle glow accent */}
       <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
 
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 h-[72px] border-b border-sidebar-border relative z-10">
-        <div className="w-9 h-9 rounded-xl gradient-primary flex items-center justify-center text-white font-heading font-bold text-sm shrink-0 shadow-lg shadow-primary/20">
-          A
-        </div>
+        <img src={logoImg} alt="ARKHÉ" className="w-9 h-9 rounded-xl object-contain shrink-0" />
         {!collapsed && (
           <div className="flex flex-col">
             <span className="font-heading font-bold text-base text-white tracking-tight leading-tight">
               ARKHÉ
             </span>
-            <span className="text-[10px] text-sidebar-foreground/60 tracking-widest uppercase">
+            <span className="text-[10px] text-gold tracking-widest uppercase">
               Super Admin
             </span>
           </div>
@@ -73,11 +71,11 @@ const AdminSidebar = () => {
               )}
             >
               {isActive && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full gradient-primary" />
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full gradient-blue-gold" />
               )}
               <item.icon className={cn(
                 "w-[18px] h-[18px] shrink-0 transition-colors",
-                isActive ? "text-primary" : "text-sidebar-foreground group-hover:text-sidebar-accent-foreground"
+                isActive ? "text-gold" : "text-sidebar-foreground group-hover:text-sidebar-accent-foreground"
               )} />
               {!collapsed && <span>{item.label}</span>}
             </NavLink>
