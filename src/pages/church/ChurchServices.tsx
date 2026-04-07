@@ -98,10 +98,44 @@ const ChurchServices = () => {
     fetchServices();
   }, []);
 
-  // Poll processing status
+  // Auto-poll ALL services that are in "processing" state
+  useEffect(() => {
+    const processingServices = services.filter(s => s.ai_status === 'processing');
+    if (processingServices.length === 0) return;
+
+    const poll = async () => {
+      for (const svc of processingServices) {
+        try {
+          const data = await api.get<any>(`/api/church/services/${svc.id}/status`);
+          setServices(prev => prev.map(s => s.id === svc.id ? {
+            ...s,
+            ai_status: data.ai_status,
+            processing_logs: data.processing_logs || [],
+            processing_error: data.processing_error,
+            ai_summary: data.ai_summary || s.ai_summary,
+          } : s));
+          if (selectedServiceId === svc.id && logDialogOpen) {
+            setLogData({
+              logs: data.processing_logs || [],
+              status: data.ai_status,
+              error: data.processing_error,
+            });
+          }
+        } catch (e) { /* ignore */ }
+      }
+    };
+
+    poll();
+    const interval = setInterval(poll, 3000);
+    return () => clearInterval(interval);
+  }, [services.filter(s => s.ai_status === 'processing').map(s => s.id).join(','), selectedServiceId, logDialogOpen]);
+
+  // Poll when log dialog is open for non-processing services (to load logs)
   useEffect(() => {
     if (!selectedServiceId || !logDialogOpen) return;
-    
+    const svc = services.find(s => s.id === selectedServiceId);
+    if (svc?.ai_status === 'processing') return; // already handled above
+
     const poll = async () => {
       try {
         const data = await api.get<any>(`/api/church/services/${selectedServiceId}/status`);
@@ -110,19 +144,9 @@ const ChurchServices = () => {
           status: data.ai_status,
           error: data.processing_error,
         });
-        // Update service in list with logs for card progress
-        setServices(prev => prev.map(s => s.id === selectedServiceId ? { 
-          ...s, 
-          ai_status: data.ai_status,
-          processing_logs: data.processing_logs || [],
-          processing_error: data.processing_error,
-        } : s));
       } catch (e) { /* ignore */ }
     };
-
     poll();
-    const interval = setInterval(poll, 2000);
-    return () => clearInterval(interval);
   }, [selectedServiceId, logDialogOpen]);
 
   const handleCreate = async () => {
@@ -323,12 +347,13 @@ const ChurchServices = () => {
                         Processar IA
                       </Button>
                     )}
-                    {isAdmin && service.ai_status === 'error' && (
+                    {isAdmin && (service.ai_status === 'error' || service.ai_status === 'processing') && (
                       <Button
                         size="sm"
                         variant="outline"
                         className="rounded-lg border-destructive text-destructive"
                         onClick={() => handleProcess(service.id)}
+                        disabled={processingIds.has(service.id)}
                       >
                         <Sparkles className="w-3 h-3 mr-1" /> Reprocessar
                       </Button>
