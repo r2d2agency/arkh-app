@@ -63,12 +63,12 @@ class ApiClient {
   put<T>(path: string, body: unknown) { return this.request<T>(path, { method: 'PUT', body: JSON.stringify(body) }); }
   delete<T>(path: string) { return this.request<T>(path, { method: 'DELETE' }); }
 
-  async login(email: string, password: string) {
+  async login(email: string, password: string, remember = true) {
     const data = await this.post<{
       access_token: string;
       refresh_token: string;
       user: { id: string; name: string; email: string; role: string; church_id?: string };
-    }>('/api/auth/login', { email, password });
+    }>('/api/auth/login', { email, password, remember });
     localStorage.setItem('access_token', data.access_token);
     localStorage.setItem('refresh_token', data.refresh_token);
     return data.user;

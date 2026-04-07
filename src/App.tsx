@@ -16,12 +16,14 @@ import SettingsPage from "@/pages/admin/SettingsPage";
 import Logs from "@/pages/admin/Logs";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
+import JoinChurch from "@/pages/JoinChurch";
 import ChurchDashboard from "@/pages/church/ChurchDashboard";
 import ChurchServices from "@/pages/church/ChurchServices";
 import ChurchStudies from "@/pages/church/ChurchStudies";
 import ChurchMembers from "@/pages/church/ChurchMembers";
 import ChurchCustomize from "@/pages/church/ChurchCustomize";
 import ChurchSettings from "@/pages/church/ChurchSettings";
+import ChangePassword from "@/pages/church/ChangePassword";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -31,7 +33,6 @@ function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles?
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
   if (roles && !roles.includes(user.role)) {
-    // Redirect based on role
     if (user.role === 'super_admin') return <Navigate to="/" replace />;
     return <Navigate to="/church" replace />;
   }
@@ -51,6 +52,7 @@ const AppRoutes = () => (
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/join/:slug" element={<JoinChurch />} />
       <Route path="/" element={<RedirectByRole />} />
 
       {/* Super Admin */}
@@ -65,14 +67,15 @@ const AppRoutes = () => (
         <Route path="/admin/logs" element={<Logs />} />
       </Route>
 
-      {/* Church Admin */}
-      <Route element={<ProtectedRoute roles={['admin_church', 'leader']}><ChurchLayout /></ProtectedRoute>}>
+      {/* Church Admin / Leader / Member */}
+      <Route element={<ProtectedRoute roles={['admin_church', 'leader', 'member']}><ChurchLayout /></ProtectedRoute>}>
         <Route path="/church" element={<ChurchDashboard />} />
         <Route path="/church/services" element={<ChurchServices />} />
         <Route path="/church/studies" element={<ChurchStudies />} />
         <Route path="/church/members" element={<ChurchMembers />} />
         <Route path="/church/customize" element={<ChurchCustomize />} />
         <Route path="/church/settings" element={<ChurchSettings />} />
+        <Route path="/church/password" element={<ChangePassword />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />

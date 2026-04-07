@@ -11,6 +11,7 @@ import {
   Menu,
   X,
   Palette,
+  Lock,
 } from 'lucide-react';
 import { useState } from 'react';
 import logoImg from '@/assets/logo.png';
@@ -42,14 +43,13 @@ const ChurchLayout = () => {
         <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/* Sidebar - desktop only */}
+      {/* Sidebar - desktop */}
       <aside
         className={`fixed inset-y-0 left-0 z-50 w-64 glass-sidebar text-sidebar-foreground transform transition-transform duration-200 lg:relative lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         <div className="flex flex-col h-full">
-          {/* Header */}
           <div className="p-5 border-b border-sidebar-border">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -65,7 +65,6 @@ const ChurchLayout = () => {
             </div>
           </div>
 
-          {/* Nav */}
           <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
             {navItems.map(item => {
               const isActive = location.pathname === item.path;
@@ -87,7 +86,6 @@ const ChurchLayout = () => {
             })}
           </nav>
 
-          {/* Footer */}
           <div className="p-4 border-t border-sidebar-border">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-8 h-8 rounded-full bg-gold/20 flex items-center justify-center text-xs font-bold text-gold">
@@ -98,35 +96,44 @@ const ChurchLayout = () => {
                 <p className="text-xs text-sidebar-foreground truncate">{user?.email}</p>
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLogout}
-              className="w-full justify-start text-sidebar-foreground hover:text-destructive hover:bg-sidebar-accent"
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              Sair
-            </Button>
+            <div className="flex gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { navigate('/church/password'); setSidebarOpen(false); }}
+                className="flex-1 justify-start text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent text-xs"
+              >
+                <Lock className="w-3.5 h-3.5 mr-1.5" />
+                Alterar senha
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLogout}
+                className="justify-start text-sidebar-foreground hover:text-destructive hover:bg-sidebar-accent"
+              >
+                <LogOut className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
         </div>
       </aside>
 
       {/* Main */}
       <main className="flex-1 flex flex-col min-h-screen">
-        {/* Mobile header */}
         <header className="lg:hidden sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border px-4 py-3 flex items-center gap-3">
           <button onClick={() => setSidebarOpen(true)}>
             <Menu className="w-5 h-5" />
           </button>
           <img src={logoImg} alt="ARKHÉ" className="w-7 h-7 object-contain" />
-          <h1 className="font-heading text-lg font-bold gradient-text">ARKHÉ</h1>
+          <h1 className="font-heading text-lg font-bold text-primary">ARKHÉ</h1>
         </header>
 
         <div className="flex-1 p-4 lg:p-8 overflow-auto pb-20 lg:pb-8">
           <Outlet />
         </div>
 
-        {/* Mobile bottom nav - PWA style */}
+        {/* Mobile bottom nav */}
         <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-card/95 backdrop-blur-xl border-t border-border safe-bottom">
           <div className="flex items-center justify-around py-2">
             {navItems.slice(0, 5).map(item => {
@@ -136,9 +143,7 @@ const ChurchLayout = () => {
                   key={item.path}
                   to={item.path}
                   className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg transition-colors min-w-[56px] ${
-                    isActive
-                      ? 'text-primary'
-                      : 'text-muted-foreground'
+                    isActive ? 'text-primary' : 'text-muted-foreground'
                   }`}
                 >
                   <item.icon className={`w-5 h-5 ${isActive ? 'text-gold' : ''}`} />
