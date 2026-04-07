@@ -5,8 +5,21 @@
 - Anote: host interno, porta (5432), user, password, database
 
 ## 2. Criar Serviço Backend (App)
+
+### Opção recomendada: usar este mesmo repositório
 - Tipo: **Github**
-- Repositório: `r2d2agency/arkhe-backend` (crie este repo no GitHub)
+- Repositório: **o mesmo repo já conectado no Lovable**
+- Branch: `main`
+- Caminho de Build: `/backend`
+
+Assim o Easypanel vai usar a pasta `backend/`, onde já estão:
+- `Dockerfile`
+- `package.json`
+- `src/`
+- `sql/`
+
+### Opção alternativa: repositório separado só para o backend
+- Repositório: `r2d2agency/arkhe-backend`
 - Branch: `main`
 - Caminho de Build: `/`
 
@@ -22,9 +35,13 @@ PORT=3001
 ### Porta: `3001`
 
 ## 3. Frontend (Vite)
-O frontend roda aqui no Lovable. Configure a variável de ambiente:
+O frontend permanece neste repositório, na raiz do projeto.
 
-No código frontend, crie um arquivo `.env`:
+No serviço do frontend no Easypanel, use:
+- **Caminho de Build**: `/`
+- **Porta**: a padrão do serviço Vite/Nginx que você configurar
+
+Variável de ambiente do frontend:
 ```
 VITE_API_URL=https://url-publica-do-backend-easypanel.com/api
 ```
@@ -35,26 +52,42 @@ VITE_API_URL=https://url-publica-do-backend-easypanel.com/api
 
 ## 5. Estrutura de Repos
 
-Você precisa de **2 repositórios** no GitHub:
+### Estrutura atual deste projeto
+- **Frontend**: raiz do repositório
+- **Backend**: pasta `backend/`
 
-1. **arkhe-backend** — este projeto backend (pasta `backend/`)
-2. **arkhe-app** — o frontend (já no Lovable, conecte via GitHub)
+### IMPORTANTE
+Se você for subir **o mesmo repositório** no Easypanel:
+- backend usa **Caminho de Build `/backend`**
+- frontend usa **Caminho de Build `/`**
 
-### IMPORTANTE:
-No Easypanel, o **Caminho de Build** deve ser `/` (raiz) porque o Dockerfile está na raiz do repo backend.
+Se configurar o backend com build path `/`, o Easypanel não vai achar os arquivos corretos do backend, porque o `Dockerfile` dele está dentro de `backend/`.
 
-O erro "Repository not found" que você viu acontece porque o repo ainda não existe no GitHub. 
-Crie o repo `arkhe-backend` no GitHub primeiro, depois faça push dos arquivos desta pasta `backend/`.
+## 6. Resumo do que colocar no Easypanel
 
-## 6. Como subir o backend
+### Serviço Backend
+- Tipo: **Github**
+- Repositório: **este repositório atual**
+- Branch: `main`
+- Caminho de Build: `/backend`
+- Porta: `3001`
 
-```bash
-cd backend
-git init
-git remote add origin https://github.com/r2d2agency/arkhe-backend.git
-git add .
-git commit -m "Initial backend setup"
-git push -u origin main
+### Variáveis do Backend
+```
+DATABASE_URL=postgresql://postgres:SENHA@NOME-DO-SERVICO-PG:5432/arkhe
+JWT_SECRET=gere-uma-chave-segura-com-64-caracteres
+JWT_REFRESH_SECRET=gere-outra-chave-segura-com-64-caracteres
+CORS_ORIGIN=https://url-do-frontend.com
+PORT=3001
 ```
 
-Depois configure no Easypanel apontando para `r2d2agency/arkhe-backend`.
+### Serviço Frontend
+- Tipo: **Github**
+- Repositório: **este repositório atual**
+- Branch: `main`
+- Caminho de Build: `/`
+
+### Variável do Frontend
+```
+VITE_API_URL=https://url-publica-do-backend-easypanel.com/api
+```
