@@ -2,17 +2,46 @@
   "name": "ARKHÉ - Princípio · Palavra · Comunidade",
   "short_name": "ARKHÉ",
   "description": "Plataforma SaaS para igrejas - Transforme cultos em estudos bíblicos com IA",
-  "start_url": "/",
+  "start_url": "/church",
   "display": "standalone",
   "background_color": "#0a1628",
   "theme_color": "#1a3a6b",
   "orientation": "portrait-primary",
+  "categories": ["education", "lifestyle"],
+  "lang": "pt-BR",
   "icons": [
     {
       "src": "/logo.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Cultos",
+      "short_name": "Cultos",
+      "url": "/church/services",
+      "icons": [{ "src": "/logo.png", "sizes": "512x512" }]
+    },
+    {
+      "name": "Estudos",
+      "short_name": "Estudos",
+      "url": "/church/studies",
+      "icons": [{ "src": "/logo.png", "sizes": "512x512" }]
+    },
+    {
+      "name": "Escola Bíblica",
+      "short_name": "Escola",
+      "url": "/church/school",
+      "icons": [{ "src": "/logo.png", "sizes": "512x512" }]
     }
   ]
 }
