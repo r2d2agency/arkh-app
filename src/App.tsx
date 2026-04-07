@@ -72,10 +72,14 @@ const AppRoutes = () => (
         <Route path="/church" element={<ChurchDashboard />} />
         <Route path="/church/services" element={<ChurchServices />} />
         <Route path="/church/studies" element={<ChurchStudies />} />
+        <Route path="/church/password" element={<ChangePassword />} />
+      </Route>
+
+      {/* Church Admin only */}
+      <Route element={<ProtectedRoute roles={['admin_church', 'leader']}><ChurchLayout /></ProtectedRoute>}>
         <Route path="/church/members" element={<ChurchMembers />} />
         <Route path="/church/customize" element={<ChurchCustomize />} />
         <Route path="/church/settings" element={<ChurchSettings />} />
-        <Route path="/church/password" element={<ChangePassword />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />
