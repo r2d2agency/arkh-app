@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Video, Plus, Search, Trash2, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import api from '@/lib/api';
+import { api } from '@/lib/api';
 
 interface Service {
   id: string;
