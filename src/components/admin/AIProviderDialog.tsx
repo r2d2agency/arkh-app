@@ -123,6 +123,23 @@ export default function AIProviderDialog({ open, onOpenChange, provider, onSave,
     const copy = [...apiKeys];
     copy[i] = val;
     setApiKeys(copy);
+    setKeyStatuses(prev => ({ ...prev, [i]: 'idle' }));
+  };
+
+  const validateKey = async (i: number) => {
+    const key = apiKeys[i]?.trim();
+    if (!key) return;
+    setKeyStatuses(prev => ({ ...prev, [i]: 'validating' }));
+    try {
+      const res = await api.post<{ valid: boolean; message: string }>('/api/ai/providers/validate-key', {
+        provider: providerType,
+        model: model === 'custom' ? customModel : model,
+        api_key: key,
+      });
+      setKeyStatuses(prev => ({ ...prev, [i]: res.valid ? 'valid' : 'invalid' }));
+    } catch {
+      setKeyStatuses(prev => ({ ...prev, [i]: 'invalid' }));
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
