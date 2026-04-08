@@ -45,6 +45,18 @@ interface ContinueWatching {
   progress_pct: number;
 }
 
+interface SchoolClassPreview {
+  id: string;
+  title: string;
+  description: string | null;
+  teacher_name: string | null;
+  schedule: string | null;
+  lesson_count: number;
+  student_count: number;
+  is_enrolled: boolean;
+  is_pending: boolean;
+}
+
 const moodOptions = [
   { key: 'grateful', label: 'Grato', icon: Heart, color: 'text-pink-500' },
   { key: 'peaceful', label: 'Em paz', icon: Sun, color: 'text-gold' },
@@ -73,6 +85,7 @@ const MemberHome = () => {
   const [churchInfo, setChurchInfo] = useState<ChurchInfo | null>(null);
   const [devotional, setDevotional] = useState<Devotional | null>(null);
   const [continueWatching, setContinueWatching] = useState<ContinueWatching[]>([]);
+  const [schoolClasses, setSchoolClasses] = useState<SchoolClassPreview[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
 
@@ -82,11 +95,13 @@ const MemberHome = () => {
       api.get<ChurchInfo>('/api/church/info').catch(() => null),
       api.get<Devotional>('/api/church/devotional').catch(() => null),
       api.get<ContinueWatching[]>('/api/church/suggestions/continue-watching').catch(() => []),
-    ]).then(([svc, info, dev, cw]) => {
+      api.get<SchoolClassPreview[]>('/api/church/school/classes').catch(() => []),
+    ]).then(([svc, info, dev, cw, school]) => {
       setServices(svc || []);
       setChurchInfo(info);
       setDevotional(dev);
       setContinueWatching(cw || []);
+      setSchoolClasses(school || []);
     }).finally(() => setLoading(false));
   }, []);
 
@@ -99,7 +114,6 @@ const MemberHome = () => {
 
   return (
     <div className="space-y-6 animate-fade-in p-4">
-      {/* Greeting */}
       <div className="space-y-1 pt-1">
         <p className="text-sm text-muted-foreground">{churchInfo?.name || 'Minha Igreja'}</p>
         <h1 className="font-heading text-2xl font-bold">
@@ -107,7 +121,6 @@ const MemberHome = () => {
         </h1>
       </div>
 
-      {/* How are you today */}
       <Card className="p-4 rounded-2xl border-primary/10 space-y-3">
         <div className="flex items-center gap-2">
           <Heart className="w-4 h-4 text-primary" />
@@ -142,7 +155,6 @@ const MemberHome = () => {
         )}
       </Card>
 
-      {/* Devotional (dynamic) */}
       <Card className="p-4 rounded-2xl border-gold/20 bg-gold/5 space-y-3">
         <div className="flex items-center gap-2">
           <BookOpen className="w-4 h-4 text-gold" />
@@ -160,7 +172,6 @@ const MemberHome = () => {
         )}
       </Card>
 
-      {/* Continue Watching */}
       {continueWatching.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3">
@@ -198,7 +209,6 @@ const MemberHome = () => {
         </div>
       )}
 
-      {/* Quick actions */}
       <div className="grid grid-cols-4 gap-2.5">
         <Link to="/church/services">
           <Card className="p-3 rounded-2xl card-hover text-center space-y-1.5 h-full border-primary/15">
@@ -217,9 +227,9 @@ const MemberHome = () => {
           </Card>
         </Link>
         <Link to="/church/school">
-          <Card className="p-3 rounded-2xl card-hover text-center space-y-1.5 h-full border-emerald-500/15">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center mx-auto">
-              <GraduationCap className="w-4.5 h-4.5 text-emerald-500" />
+          <Card className="p-3 rounded-2xl card-hover text-center space-y-1.5 h-full border-primary/15">
+            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center mx-auto">
+              <GraduationCap className="w-4.5 h-4.5 text-primary" />
             </div>
             <p className="font-heading font-semibold text-[10px]">Escola</p>
           </Card>
@@ -234,7 +244,68 @@ const MemberHome = () => {
         </Link>
       </div>
 
-      {/* Recent Services */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-heading text-lg font-semibold">Escola Bíblica</h2>
+          <Link to="/church/school" className="text-xs text-primary font-medium flex items-center gap-1">
+            Ver turmas <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
+        {schoolClasses.length === 0 ? (
+          <Card className="p-5 rounded-2xl border-dashed">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-muted/60 flex items-center justify-center shrink-0">
+                <GraduationCap className="w-5 h-5 text-muted-foreground" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Nenhuma turma aberta no momento</p>
+                <p className="text-xs text-muted-foreground">
+                  Quando sua igreja publicar uma turma da EBD, ela aparecerá aqui para solicitação de matrícula.
+                </p>
+              </div>
+            </div>
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {schoolClasses.slice(0, 2).map(cls => (
+              <Card key={cls.id} className="p-4 rounded-2xl space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-medium text-sm text-foreground">{cls.title}</h3>
+                      {cls.is_enrolled ? (
+                        <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">Matriculado</span>
+                      ) : cls.is_pending ? (
+                        <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-medium">Aguardando aprovação</span>
+                      ) : (
+                        <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">Inscrições abertas</span>
+                      )}
+                    </div>
+                    {cls.description && (
+                      <p className="text-xs text-muted-foreground line-clamp-2">{cls.description}</p>
+                    )}
+                  </div>
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                    <GraduationCap className="w-5 h-5 text-primary" />
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                  {cls.teacher_name && <span>Prof. {cls.teacher_name}</span>}
+                  <span>{cls.lesson_count} aulas</span>
+                  <span>{cls.student_count} alunos</span>
+                  {cls.schedule && <span>{cls.schedule}</span>}
+                </div>
+                <Link to={`/church/school/${cls.id}`}>
+                  <Button size="sm" variant={cls.is_enrolled ? 'default' : 'outline'} className="w-full rounded-xl">
+                    {cls.is_enrolled ? 'Abrir classe' : cls.is_pending ? 'Ver solicitação' : 'Solicitar matrícula'}
+                  </Button>
+                </Link>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-heading text-lg font-semibold">Últimos Cultos</h2>
