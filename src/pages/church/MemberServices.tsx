@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Video, Search, Clock, User, Calendar, Play, Loader2, Sparkles } from 'lucide-react';
+import { Video, Search, Clock, User, Calendar, Play, Loader2, Sparkles, Heart } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 
 interface Service {
   id: string;
