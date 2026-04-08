@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Gamepad2, Plus, Pencil, Trash2, Eye, ChevronDown, ChevronUp } from 'lucide-react';
+import { Gamepad2, Plus, Pencil, Trash2, ChevronDown, ChevronUp, Sparkles, Loader2, Zap } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -34,6 +34,7 @@ interface Quiz {
   cover_emoji: string;
   time_limit_seconds: number;
   is_active: boolean;
+  is_auto_generated: boolean;
   question_count: number;
   attempt_count: number;
 }
@@ -50,6 +51,9 @@ const QuizAdminPage = () => {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [questionDialog, setQuestionDialog] = useState(false);
   const [qForm, setQForm] = useState({ question_text: '', bible_reference: '', options: [{ option_text: '', is_correct: true }, { option_text: '', is_correct: false }, { option_text: '', is_correct: false }, { option_text: '', is_correct: false }] as QuizOption[] });
+  const [autoEnabled, setAutoEnabled] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [generatingInitial, setGeneratingInitial] = useState(false);
 
   const fetchQuizzes = () => {
     api.get<Quiz[]>('/api/church/quizzes')
@@ -58,7 +62,44 @@ const QuizAdminPage = () => {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchQuizzes(); }, []);
+  useEffect(() => {
+    fetchQuizzes();
+    api.get<{ auto_quiz_enabled: boolean }>('/api/church/quizzes/auto-settings')
+      .then(r => setAutoEnabled(r.auto_quiz_enabled))
+      .catch(() => {});
+  }, []);
+
+  const toggleAuto = async (val: boolean) => {
+    setAutoEnabled(val);
+    try {
+      await api.put('/api/church/quizzes/auto-settings', { auto_quiz_enabled: val });
+      toast.success(val ? 'Geração automática ativada' : 'Geração automática desativada');
+    } catch { toast.error('Erro'); }
+  };
+
+  const handleGenerateInitial = async () => {
+    setGeneratingInitial(true);
+    try {
+      const result = await api.post<{ generated: number }>('/api/church/quizzes/generate', { count: 3 });
+      toast.success(`${result.generated} quizzes gerados com IA!`);
+      fetchQuizzes();
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao gerar');
+    }
+    setGeneratingInitial(false);
+  };
+
+  const handleGenerateOne = async (category?: string) => {
+    setGenerating(true);
+    try {
+      const result = await api.post<{ generated: number }>('/api/church/quizzes/generate', { count: 1, category });
+      toast.success(`${result.generated} quiz gerado!`);
+      fetchQuizzes();
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao gerar');
+    }
+    setGenerating(false);
+  };
 
   const handleSave = async () => {
     try {
@@ -151,6 +192,49 @@ const QuizAdminPage = () => {
         </Button>
       </div>
 
+      {/* Auto-generate controls */}
+      <Card className="p-4 rounded-2xl space-y-4 border-primary/20 bg-primary/5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-primary" />
+            <div>
+              <h3 className="font-heading text-sm font-semibold">Quizzes Automáticos (IA)</h3>
+              <p className="text-[11px] text-muted-foreground">Gera quizzes semanais automaticamente</p>
+            </div>
+          </div>
+          <Switch checked={autoEnabled} onCheckedChange={toggleAuto} />
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="rounded-xl text-xs"
+            onClick={handleGenerateInitial}
+            disabled={generatingInitial}
+          >
+            {generatingInitial ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Zap className="w-3 h-3 mr-1" />}
+            Gerar 3 por categoria
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="rounded-xl text-xs"
+            onClick={() => handleGenerateOne()}
+            disabled={generating}
+          >
+            {generating ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Sparkles className="w-3 h-3 mr-1" />}
+            Gerar 1 quiz
+          </Button>
+        </div>
+
+        {autoEnabled && (
+          <p className="text-[10px] text-muted-foreground">
+            ✅ Toda semana, 1 novo quiz será gerado para cada categoria (Crianças, Jovens, Adultos)
+          </p>
+        )}
+      </Card>
+
       {loading ? (
         <div className="space-y-3">
           {[1, 2].map(i => <Card key={i} className="h-20 animate-pulse bg-muted/50 rounded-2xl" />)}
@@ -159,7 +243,13 @@ const QuizAdminPage = () => {
         <Card className="p-8 rounded-2xl text-center">
           <Gamepad2 className="w-10 h-10 mx-auto text-muted-foreground/40 mb-3" />
           <p className="text-sm text-muted-foreground">Nenhum quiz criado ainda</p>
-          <Button size="sm" className="mt-3 rounded-xl" onClick={openNew}>Criar primeiro quiz</Button>
+          <div className="flex gap-2 justify-center mt-3">
+            <Button size="sm" className="rounded-xl" onClick={openNew}>Criar manualmente</Button>
+            <Button size="sm" variant="outline" className="rounded-xl" onClick={handleGenerateInitial} disabled={generatingInitial}>
+              {generatingInitial ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Sparkles className="w-3 h-3 mr-1" />}
+              Gerar com IA
+            </Button>
+          </div>
         </Card>
       ) : (
         <div className="space-y-3">
@@ -169,12 +259,17 @@ const QuizAdminPage = () => {
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">{quiz.cover_emoji}</span>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-semibold text-sm truncate">{quiz.title}</h3>
                       {quiz.is_active ? (
                         <Badge variant="default" className="text-[10px]">Ativo</Badge>
                       ) : (
                         <Badge variant="secondary" className="text-[10px]">Inativo</Badge>
+                      )}
+                      {quiz.is_auto_generated && (
+                        <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
+                          <Sparkles className="w-2.5 h-2.5 mr-0.5" /> IA
+                        </Badge>
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground">{quiz.question_count} perguntas · {quiz.attempt_count} tentativas</p>

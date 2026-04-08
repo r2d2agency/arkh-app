@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Gamepad2, Trophy, Star, Clock, Users, ArrowRight } from 'lucide-react';
+import { Gamepad2, Trophy, Star, Clock, Users, ArrowRight, Medal, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
 
@@ -19,13 +19,18 @@ interface Quiz {
   attempt_count: number;
   best_score: number | null;
   best_total: number | null;
+  is_auto_generated: boolean;
+}
+
+interface MyScores {
+  total_points: number;
+  quizzes_played: number;
+  total_possible: number;
+  leaderboard: { name: string; avatar_url: string; total_points: number; quizzes_played: number }[];
 }
 
 const categoryLabels: Record<string, string> = {
-  general: 'Geral',
-  kids: 'Crianças',
-  youth: 'Jovens',
-  adults: 'Adultos',
+  general: 'Geral', kids: 'Crianças', youth: 'Jovens', adults: 'Adultos',
 };
 
 const difficultyConfig: Record<string, { label: string; color: string }> = {
@@ -36,17 +41,19 @@ const difficultyConfig: Record<string, { label: string; color: string }> = {
 
 const QuizListPage = () => {
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [scores, setScores] = useState<MyScores | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('all');
 
   useEffect(() => {
-    api.get<Quiz[]>('/api/church/quizzes')
-      .then(setQuizzes)
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    Promise.all([
+      api.get<Quiz[]>('/api/church/quizzes').then(setQuizzes).catch(() => {}),
+      api.get<MyScores>('/api/church/quizzes/my-scores').then(setScores).catch(() => {}),
+    ]).finally(() => setLoading(false));
   }, []);
 
   const filtered = tab === 'all' ? quizzes : quizzes.filter(q => q.category === tab);
+  const pct = scores && scores.total_possible > 0 ? Math.round((scores.total_points / scores.total_possible) * 100) : 0;
 
   return (
     <div className="p-4 space-y-5 animate-fade-in">
@@ -57,6 +64,48 @@ const QuizListPage = () => {
         </div>
         <p className="text-sm text-muted-foreground">Teste seus conhecimentos de forma divertida!</p>
       </div>
+
+      {/* Score Card */}
+      {scores && scores.quizzes_played > 0 && (
+        <Card className="p-4 rounded-2xl bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-xl bg-primary/20 flex items-center justify-center">
+              <Trophy className="w-7 h-7 text-primary" />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs text-muted-foreground">Sua pontuação total</p>
+              <p className="text-2xl font-bold text-foreground">{scores.total_points} <span className="text-sm font-normal text-muted-foreground">pts</span></p>
+              <p className="text-[11px] text-muted-foreground">{scores.quizzes_played} quiz{Number(scores.quizzes_played) > 1 ? 'zes' : ''} · {pct}% de acerto</p>
+            </div>
+            <div className="text-center">
+              <Zap className="w-5 h-5 text-primary mx-auto" />
+              <p className="text-xs text-muted-foreground mt-0.5">{pct}%</p>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Leaderboard mini */}
+      {scores && scores.leaderboard && scores.leaderboard.length > 1 && (
+        <Card className="p-4 rounded-2xl space-y-3">
+          <h3 className="font-heading text-sm font-semibold flex items-center gap-1.5">
+            <Medal className="w-4 h-4 text-gold" /> Ranking Geral
+          </h3>
+          <div className="space-y-2">
+            {scores.leaderboard.slice(0, 5).map((r, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                  i === 0 ? 'bg-gold/20 text-gold' : i === 1 ? 'bg-gray-300/20 text-gray-400' : i === 2 ? 'bg-amber-700/20 text-amber-600' : 'bg-muted text-muted-foreground'
+                }`}>
+                  {i + 1}
+                </span>
+                <span className="text-sm flex-1 truncate">{r.name}</span>
+                <span className="text-xs font-semibold text-primary">{r.total_points} pts</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="w-full grid grid-cols-4 h-9">
@@ -91,7 +140,12 @@ const QuizListPage = () => {
                       {quiz.cover_emoji}
                     </div>
                     <div className="flex-1 min-w-0 space-y-1">
-                      <h3 className="font-heading font-semibold text-sm">{quiz.title}</h3>
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="font-heading font-semibold text-sm">{quiz.title}</h3>
+                        {quiz.is_auto_generated && (
+                          <Badge variant="secondary" className="text-[9px] px-1">IA</Badge>
+                        )}
+                      </div>
                       {quiz.description && (
                         <p className="text-xs text-muted-foreground line-clamp-2">{quiz.description}</p>
                       )}
@@ -105,7 +159,7 @@ const QuizListPage = () => {
                         <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
                           <Clock className="w-3 h-3" /> {quiz.time_limit_seconds}s
                         </span>
-                        <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                        <span className="text-[10px] text-muted-foreground">
                           {quiz.question_count} perguntas
                         </span>
                       </div>
