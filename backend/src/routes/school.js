@@ -15,14 +15,20 @@ router.get('/classes', async (req, res) => {
     const { rows } = await pool.query(
       `SELECT sc.*, u.name as teacher_name,
         (SELECT COUNT(*) FROM school_enrollments se WHERE se.class_id = sc.id AND se.status = 'enrolled') as student_count,
+        (SELECT COUNT(*) FROM school_enrollments se WHERE se.class_id = sc.id AND se.status = 'pending') as pending_count,
         (SELECT COUNT(*) FROM school_lessons sl WHERE sl.class_id = sc.id) as lesson_count,
-        EXISTS(SELECT 1 FROM school_enrollments se2 WHERE se2.class_id = sc.id AND se2.user_id = $2) as is_enrolled
+        (SELECT status FROM school_enrollments se2 WHERE se2.class_id = sc.id AND se2.user_id = $2) as enrollment_status
        FROM school_classes sc
        LEFT JOIN users u ON sc.teacher_id = u.id
        WHERE sc.church_id = $1 ${activeFilter}
        ORDER BY sc.created_at DESC`,
       [churchId, req.user.id]
     );
+    // Add computed is_enrolled for backward compat
+    rows.forEach(r => {
+      r.is_enrolled = r.enrollment_status === 'enrolled';
+      r.is_pending = r.enrollment_status === 'pending';
+    });
     res.json(rows);
   } catch (err) {
     console.error('GET classes error:', err);
@@ -54,18 +60,26 @@ router.get('/classes/:id', async (req, res) => {
     );
     cls.lessons = lessons;
     
-    // Get enrolled students
+    // Get enrolled students (include pending for admins)
+    const isAdmin = req.user.role === 'admin_church' || req.user.role === 'leader' || req.user.id === cls.teacher_id;
+    const statusFilter = isAdmin ? "IN ('enrolled','pending')" : "= 'enrolled'";
     const { rows: students } = await pool.query(
-      `SELECT u.id, u.name, u.email, u.avatar_url, se.enrolled_at, se.status
+      `SELECT u.id, u.name, u.email, u.avatar_url, se.enrolled_at, se.status, se.requested_at, se.id as enrollment_id
        FROM school_enrollments se
        JOIN users u ON se.user_id = u.id
-       WHERE se.class_id = $1 ORDER BY u.name`,
+       WHERE se.class_id = $1 AND se.status ${statusFilter} ORDER BY se.status, u.name`,
       [req.params.id]
     );
     cls.students = students;
     
-    // Check if current user is enrolled
-    cls.is_enrolled = students.some(s => s.id === req.user.id);
+    // Check current user enrollment status
+    const myEnrollment = students.find(s => s.id === req.user.id);
+    cls.is_enrolled = myEnrollment?.status === 'enrolled';
+    cls.is_pending = myEnrollment?.status === 'pending';
+    cls.enrollment_status = myEnrollment?.status || null;
+    
+    // Is admin or teacher
+    cls.can_manage = isAdmin;
     
     // Get user attendance
     const { rows: attendance } = await pool.query(
@@ -149,7 +163,6 @@ router.delete('/classes/:id', async (req, res) => {
 
 // ========== LESSONS ==========
 
-// POST /api/church/school/classes/:classId/lessons
 router.post('/classes/:classId/lessons', async (req, res) => {
   try {
     if (req.user.role !== 'admin_church' && req.user.role !== 'leader') {
@@ -171,7 +184,6 @@ router.post('/classes/:classId/lessons', async (req, res) => {
   }
 });
 
-// PUT /api/church/school/lessons/:id
 router.put('/lessons/:id', async (req, res) => {
   try {
     if (req.user.role !== 'admin_church' && req.user.role !== 'leader') {
@@ -195,7 +207,6 @@ router.put('/lessons/:id', async (req, res) => {
   }
 });
 
-// DELETE /api/church/school/lessons/:id
 router.delete('/lessons/:id', async (req, res) => {
   try {
     if (req.user.role !== 'admin_church' && req.user.role !== 'leader') {
@@ -208,12 +219,11 @@ router.delete('/lessons/:id', async (req, res) => {
   }
 });
 
-// ========== ENROLLMENT ==========
+// ========== ENROLLMENT (with approval) ==========
 
-// POST /api/church/school/classes/:id/enroll
+// POST /api/church/school/classes/:id/enroll — REQUEST enrollment (pending)
 router.post('/classes/:id/enroll', async (req, res) => {
   try {
-    // Check max_students
     const { rows: cls } = await pool.query('SELECT max_students FROM school_classes WHERE id = $1', [req.params.id]);
     if (!cls.length) return res.status(404).json({ error: 'Class not found' });
     
@@ -227,26 +237,117 @@ router.post('/classes/:id/enroll', async (req, res) => {
       }
     }
     
+    // Insert as PENDING (teacher/admin must approve)
     const { rows } = await pool.query(
-      `INSERT INTO school_enrollments (class_id, user_id) VALUES ($1, $2)
-       ON CONFLICT (class_id, user_id) DO UPDATE SET status = 'enrolled' RETURNING *`,
+      `INSERT INTO school_enrollments (class_id, user_id, status, requested_at)
+       VALUES ($1, $2, 'pending', NOW())
+       ON CONFLICT (class_id, user_id) DO UPDATE SET status = 'pending', requested_at = NOW()
+       RETURNING *`,
       [req.params.id, req.user.id]
     );
-    res.json(rows[0]);
+    res.json({ ...rows[0], message: 'Solicitação enviada. Aguarde aprovação.' });
   } catch (err) {
     console.error('Enroll error:', err);
     res.status(500).json({ error: 'Internal error' });
   }
 });
 
-// DELETE /api/church/school/classes/:id/enroll
+// PUT /api/church/school/enrollments/:id/approve — approve enrollment
+router.put('/enrollments/:id/approve', async (req, res) => {
+  try {
+    const isAdmin = req.user.role === 'admin_church' || req.user.role === 'leader';
+    // Also allow teacher of the class
+    const { rows: enrollment } = await pool.query(
+      `SELECT se.*, sc.teacher_id FROM school_enrollments se
+       JOIN school_classes sc ON se.class_id = sc.id
+       WHERE se.id = $1`, [req.params.id]
+    );
+    if (!enrollment.length) return res.status(404).json({ error: 'Not found' });
+    if (!isAdmin && enrollment[0].teacher_id !== req.user.id) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+    
+    const { rows } = await pool.query(
+      `UPDATE school_enrollments SET status = 'enrolled', approved_by = $1, approved_at = NOW(), enrolled_at = NOW()
+       WHERE id = $2 RETURNING *`,
+      [req.user.id, req.params.id]
+    );
+    res.json(rows[0]);
+  } catch (err) {
+    console.error('Approve enrollment error:', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// PUT /api/church/school/enrollments/:id/reject — reject enrollment
+router.put('/enrollments/:id/reject', async (req, res) => {
+  try {
+    const isAdmin = req.user.role === 'admin_church' || req.user.role === 'leader';
+    const { rows: enrollment } = await pool.query(
+      `SELECT se.*, sc.teacher_id FROM school_enrollments se
+       JOIN school_classes sc ON se.class_id = sc.id
+       WHERE se.id = $1`, [req.params.id]
+    );
+    if (!enrollment.length) return res.status(404).json({ error: 'Not found' });
+    if (!isAdmin && enrollment[0].teacher_id !== req.user.id) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+    
+    const { rows } = await pool.query(
+      `UPDATE school_enrollments SET status = 'rejected' WHERE id = $1 RETURNING *`,
+      [req.params.id]
+    );
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// DELETE /api/church/school/classes/:id/enroll — cancel enrollment request
 router.delete('/classes/:id/enroll', async (req, res) => {
   try {
     await pool.query(
-      `UPDATE school_enrollments SET status = 'dropped' WHERE class_id = $1 AND user_id = $2`,
+      `DELETE FROM school_enrollments WHERE class_id = $1 AND user_id = $2 AND status = 'pending'`,
       [req.params.id, req.user.id]
     );
-    res.json({ message: 'Unenrolled' });
+    res.json({ message: 'Cancelled' });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// GET /api/church/school/pending — get all pending enrollments for admin/teacher
+router.get('/pending', async (req, res) => {
+  try {
+    const churchId = req.user.church_id;
+    const isAdmin = req.user.role === 'admin_church' || req.user.role === 'leader';
+    
+    let query, params;
+    if (isAdmin) {
+      query = `SELECT se.id as enrollment_id, se.status, se.requested_at, se.class_id,
+                 u.id as user_id, u.name as user_name, u.email as user_email, u.avatar_url,
+                 sc.title as class_title
+               FROM school_enrollments se
+               JOIN users u ON se.user_id = u.id
+               JOIN school_classes sc ON se.class_id = sc.id
+               WHERE sc.church_id = $1 AND se.status = 'pending'
+               ORDER BY se.requested_at DESC`;
+      params = [churchId];
+    } else {
+      // Teacher sees only their classes
+      query = `SELECT se.id as enrollment_id, se.status, se.requested_at, se.class_id,
+                 u.id as user_id, u.name as user_name, u.email as user_email, u.avatar_url,
+                 sc.title as class_title
+               FROM school_enrollments se
+               JOIN users u ON se.user_id = u.id
+               JOIN school_classes sc ON se.class_id = sc.id
+               WHERE sc.teacher_id = $1 AND se.status = 'pending'
+               ORDER BY se.requested_at DESC`;
+      params = [req.user.id];
+    }
+    
+    const { rows } = await pool.query(query, params);
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ error: 'Internal error' });
   }
@@ -254,19 +355,16 @@ router.delete('/classes/:id/enroll', async (req, res) => {
 
 // ========== ATTENDANCE ==========
 
-// POST /api/church/school/lessons/:id/attendance
 router.post('/lessons/:id/attendance', async (req, res) => {
   try {
     if (req.user.role !== 'admin_church' && req.user.role !== 'leader') {
       return res.status(403).json({ error: 'Admin only' });
     }
-    const { user_ids } = req.body; // array of user IDs that were present
+    const { user_ids } = req.body;
     if (!user_ids || !Array.isArray(user_ids)) return res.status(400).json({ error: 'user_ids required' });
     
-    // Clear existing
     await pool.query('DELETE FROM school_attendance WHERE lesson_id = $1', [req.params.id]);
     
-    // Insert new
     for (const uid of user_ids) {
       await pool.query(
         'INSERT INTO school_attendance (lesson_id, user_id, present) VALUES ($1, $2, true)',
