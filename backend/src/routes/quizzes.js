@@ -132,13 +132,21 @@ Retorne APENAS um JSON válido no formato:
 }`;
 
         try {
-          // Use AI Gateway
-          const fetch = require('node-fetch') || global.fetch;
-          const aiResp = await fetch(process.env.AI_GATEWAY_URL || 'https://ai-gateway.lovable.dev/v1/chat/completions', {
+          // Use AI Gateway (Node 18+ has global fetch)
+          const fetchFn = typeof fetch !== 'undefined' ? fetch : require('node-fetch');
+          const aiGatewayUrl = process.env.AI_GATEWAY_URL || 'https://ai.gateway.lovable.dev/v1/chat/completions';
+          const aiApiKey = process.env.AI_API_KEY || process.env.LOVABLE_API_KEY || '';
+
+          if (!aiApiKey) {
+            console.error('AI API key not configured (AI_API_KEY or LOVABLE_API_KEY)');
+            continue;
+          }
+
+          const aiResp = await fetchFn(aiGatewayUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${process.env.AI_API_KEY || process.env.LOVABLE_API_KEY || ''}`,
+              'Authorization': `Bearer ${aiApiKey}`,
             },
             body: JSON.stringify({
               model: process.env.AI_MODEL || 'google/gemini-2.0-flash-001',
@@ -151,7 +159,8 @@ Retorne APENAS um JSON válido no formato:
           });
 
           if (!aiResp.ok) {
-            console.error('AI error:', aiResp.status);
+            const errBody = await aiResp.text().catch(() => '');
+            console.error('AI error:', aiResp.status, errBody);
             continue;
           }
 
