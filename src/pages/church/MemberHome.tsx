@@ -331,6 +331,53 @@ const MemberHome = () => {
         )}
       </div>
 
+      {/* Upcoming Events */}
+      {upcomingEvents.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-heading text-lg font-semibold flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-primary" /> Próximos Eventos
+            </h2>
+            <Link to="/church/agenda" className="text-xs text-primary font-medium flex items-center gap-1">
+              Ver agenda <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {upcomingEvents.map(ev => (
+              <Link key={ev.id} to="/church/agenda">
+                <Card className="p-3 rounded-xl flex items-center gap-3 card-hover">
+                  <div className="text-center shrink-0 w-12 py-1">
+                    <p className="text-[10px] text-muted-foreground uppercase">
+                      {new Date(ev.starts_at).toLocaleDateString('pt-BR', { month: 'short' })}
+                    </p>
+                    <p className="text-lg font-bold leading-tight">{new Date(ev.starts_at).getDate()}</p>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{ev.title}</p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded-full text-[10px] font-medium">
+                        {eventTypeLabels[ev.event_type] || ev.event_type}
+                      </span>
+                      {!ev.all_day && (
+                        <span className="flex items-center gap-0.5">
+                          <Clock className="w-3 h-3" />
+                          {new Date(ev.starts_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      )}
+                      {ev.location && (
+                        <span className="flex items-center gap-0.5 truncate">
+                          <MapPin className="w-3 h-3" />{ev.location}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-heading text-lg font-semibold">Últimos Cultos</h2>
