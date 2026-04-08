@@ -55,6 +55,7 @@ const MemberLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [churchName, setChurchName] = useState<string>('');
   const [churchLogo, setChurchLogo] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const isAdmin = user?.role === 'admin_church' || user?.role === 'leader';
   const isSchoolRoute = location.pathname.startsWith('/church/school');
@@ -66,6 +67,18 @@ const MemberLayout = () => {
         setChurchLogo(info.logo_url || null);
       })
       .catch(() => {});
+    
+    api.get<{ count: number }>('/api/church/notifications/unread-count')
+      .then(r => setUnreadCount(r.count))
+      .catch(() => {});
+    
+    // Poll every 30s
+    const interval = setInterval(() => {
+      api.get<{ count: number }>('/api/church/notifications/unread-count')
+        .then(r => setUnreadCount(r.count))
+        .catch(() => {});
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleLogout = () => {
