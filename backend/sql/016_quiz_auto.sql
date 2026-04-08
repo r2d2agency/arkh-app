@@ -1,6 +1,6 @@
 -- Quiz auto-generation support
 ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS is_auto_generated BOOLEAN DEFAULT false;
-ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS generated_week DATE; -- week the quiz was generated for
+ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS generated_week DATE;
 
--- Church setting for auto quiz generation
-INSERT INTO settings (key, value) VALUES ('auto_quiz_enabled', 'true') ON CONFLICT (key) DO NOTHING;
+-- Per-church setting for auto quiz generation
+ALTER TABLE churches ADD COLUMN IF NOT EXISTS auto_quiz_enabled BOOLEAN DEFAULT true;
