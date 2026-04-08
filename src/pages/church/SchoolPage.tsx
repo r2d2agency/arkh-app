@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { GraduationCap, Users, BookOpen, Calendar, Loader2, ArrowRight, CheckCircle } from 'lucide-react';
+import { GraduationCap, Users, BookOpen, Calendar, Loader2, ArrowRight, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 
 interface SchoolClass {
   id: string;
@@ -17,8 +17,11 @@ interface SchoolClass {
   schedule: string;
   max_students: number | null;
   student_count: number;
+  pending_count: number;
   lesson_count: number;
   is_enrolled: boolean;
+  is_pending: boolean;
+  enrollment_status: string | null;
   is_active: boolean;
   starts_at: string;
   ends_at: string;
@@ -52,10 +55,21 @@ const SchoolPage = () => {
   const handleEnroll = async (classId: string) => {
     setEnrolling(classId);
     try {
-      await api.post(`/api/church/school/classes/${classId}/enroll`, {});
+      const result = await api.post<{ message?: string }>(`/api/church/school/classes/${classId}/enroll`, {});
+      toast.success(result.message || 'Solicitação enviada! Aguarde aprovação.');
+      loadClasses();
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao solicitar matrícula');
+    }
+    setEnrolling(null);
+  };
+
+  const handleCancelRequest = async (classId: string) => {
+    try {
+      await api.delete(`/api/church/school/classes/${classId}/enroll`);
+      toast.success('Solicitação cancelada');
       loadClasses();
     } catch {}
-    setEnrolling(null);
   };
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
@@ -83,11 +97,16 @@ const SchoolPage = () => {
             <Card key={cls.id} className="p-4 hover:border-primary/30 transition-colors">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <h3 className="font-heading font-semibold text-foreground">{cls.title}</h3>
                     {cls.is_enrolled && (
                       <Badge variant="outline" className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px]">
                         <CheckCircle className="w-3 h-3 mr-1" /> Matriculado
+                      </Badge>
+                    )}
+                    {cls.is_pending && (
+                      <Badge variant="outline" className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[10px]">
+                        <Clock className="w-3 h-3 mr-1" /> Aguardando aprovação
                       </Badge>
                     )}
                   </div>
@@ -128,6 +147,15 @@ const SchoolPage = () => {
                       Acessar Classe <ArrowRight className="w-4 h-4 ml-1" />
                     </Button>
                   </Link>
+                ) : cls.is_pending ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 rounded-xl border-amber-500/30 text-amber-400"
+                    onClick={() => handleCancelRequest(cls.id)}
+                  >
+                    <Clock className="w-4 h-4 mr-1" /> Cancelar Solicitação
+                  </Button>
                 ) : (
                   <Button
                     size="sm"
@@ -137,7 +165,7 @@ const SchoolPage = () => {
                     disabled={enrolling === cls.id || (cls.max_students !== null && cls.student_count >= cls.max_students)}
                   >
                     {enrolling === cls.id ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
-                    {cls.max_students !== null && cls.student_count >= cls.max_students ? 'Turma Lotada' : 'Matricular-se'}
+                    {cls.max_students !== null && cls.student_count >= cls.max_students ? 'Turma Lotada' : 'Solicitar Matrícula'}
                   </Button>
                 )}
                 <Link to={`/church/school/${cls.id}`}>
