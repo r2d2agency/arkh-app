@@ -73,9 +73,11 @@ const MemberLayout = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="sticky top-0 z-30 bg-card/95 backdrop-blur-xl border-b border-border px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <img src={logoImg} alt="ARKHÉ" className="w-8 h-8 object-contain" />
-          <h1 className="font-heading text-lg font-bold text-foreground">ARKHÉ</h1>
+        <div className="flex items-center gap-2.5 min-w-0">
+          <img src={churchLogo || logoImg} alt={churchName || 'ARKHÉ'} className="w-8 h-8 rounded-lg object-contain shrink-0" />
+          <h1 className="font-heading text-base font-bold text-foreground truncate max-w-[160px]">
+            {churchName || 'ARKHÉ'}
+          </h1>
         </div>
         <div className="flex items-center gap-2">
           <Link
