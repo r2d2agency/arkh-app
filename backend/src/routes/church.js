@@ -10,7 +10,7 @@ router.get('/services', async (req, res) => {
     const churchId = req.user.church_id;
     if (!churchId) return res.status(400).json({ error: 'No church associated' });
     const { rows } = await pool.query(
-      `SELECT * FROM services WHERE church_id = $1 ORDER BY created_at DESC`,
+      `SELECT * FROM services WHERE church_id = $1 ORDER BY COALESCE(service_date, created_at::date) DESC, created_at DESC`,
       [churchId]
     );
     res.json(rows);

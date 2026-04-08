@@ -33,7 +33,12 @@ const ChurchDashboard = () => {
       api.get<Service[]>('/api/church/services').catch(() => []),
       api.get<ChurchInfo>('/api/church/info').catch(() => null),
     ]).then(([svc, info]) => {
-      setServices(svc || []);
+      const sorted = (svc || []).sort((a: Service, b: Service) => {
+        const dateA = new Date(a.service_date || a.created_at).getTime();
+        const dateB = new Date(b.service_date || b.created_at).getTime();
+        return dateB - dateA;
+      });
+      setServices(sorted);
       setChurchInfo(info);
     }).finally(() => setLoading(false));
   }, []);

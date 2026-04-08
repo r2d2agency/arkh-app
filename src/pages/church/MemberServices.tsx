@@ -33,10 +33,16 @@ const MemberServices = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered = services.filter(s =>
-    s.title.toLowerCase().includes(search.toLowerCase()) ||
-    s.preacher?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = services
+    .filter(s =>
+      s.title.toLowerCase().includes(search.toLowerCase()) ||
+      s.preacher?.toLowerCase().includes(search.toLowerCase())
+    )
+    .sort((a, b) => {
+      const dateA = new Date(a.service_date || a.created_at).getTime();
+      const dateB = new Date(b.service_date || b.created_at).getTime();
+      return dateB - dateA;
+    });
 
   return (
     <div className="space-y-5 animate-fade-in p-4">
