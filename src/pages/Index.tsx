@@ -1,12 +1,16 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, MapPin, Phone, Users, ChevronRight, X, Filter, Navigation, Church, ExternalLink } from "lucide-react";
+import { Search, MapPin, Phone, Users, ChevronRight, X, Filter, Navigation, Church, ExternalLink, Loader2, Shield, Lock, UserPlus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Separator } from "@/components/ui/separator";
+import { toast } from "sonner";
 import { api } from "@/lib/api";
 
 interface ChurchItem {
@@ -45,6 +49,10 @@ export default function Index() {
   const [nearbyMode, setNearbyMode] = useState(false);
   const [selected, setSelected] = useState<ChurchItem | null>(null);
   const [photoIdx, setPhotoIdx] = useState(0);
+  const [showJoinForm, setShowJoinForm] = useState(false);
+  const [joinForm, setJoinForm] = useState({ name: "", email: "", password: "", password_confirm: "" });
+  const [acceptLgpd, setAcceptLgpd] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     loadChurches();
@@ -220,7 +228,7 @@ export default function Index() {
               <Card
                 key={church.id}
                 className="group cursor-pointer hover:shadow-lg transition-all duration-300 overflow-hidden border-border/60"
-                onClick={() => { setSelected(church); setPhotoIdx(0); }}
+                onClick={() => { setSelected(church); setPhotoIdx(0); setShowJoinForm(false); setAcceptLgpd(false); setJoinForm({ name: "", email: "", password: "", password_confirm: "" }); }}
               >
                 <div className="relative h-48 bg-muted overflow-hidden">
                   {church.cover_url || church.logo_url ? (
@@ -384,14 +392,169 @@ export default function Index() {
                 </div>
               )}
 
-              <div className="flex gap-3 pt-2">
-                <Button className="flex-1" onClick={() => navigate(`/join/${selected.slug}`)}>
-                  Participar desta igreja
-                </Button>
-                <Button variant="outline" onClick={() => setSelected(null)}>
-                  Fechar
-                </Button>
-              </div>
+              <Separator />
+
+              {!showJoinForm ? (
+                <div className="flex gap-3 pt-2">
+                  <Button className="flex-1 gap-2" onClick={() => setShowJoinForm(true)}>
+                    <UserPlus className="h-4 w-4" />
+                    Seja membro desta igreja
+                  </Button>
+                  <Button variant="outline" onClick={() => setSelected(null)}>
+                    Fechar
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-primary">
+                    <UserPlus className="h-5 w-5" />
+                    <h3 className="font-semibold text-lg">Cadastre-se como membro</h3>
+                  </div>
+
+                  <div className="flex items-start gap-2 rounded-lg bg-muted/50 border border-border p-3">
+                    <Shield className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Seus dados são protegidos conforme a <strong>Lei Geral de Proteção de Dados (LGPD)</strong>.
+                      Utilizamos suas informações exclusivamente para o vínculo com a igreja e comunicação interna.
+                      Seus dados não serão compartilhados com terceiros.
+                    </p>
+                  </div>
+
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      if (!selected) return;
+                      if (joinForm.password !== joinForm.password_confirm) {
+                        toast.error("As senhas não coincidem");
+                        return;
+                      }
+                      if (joinForm.password.length < 6) {
+                        toast.error("A senha deve ter no mínimo 6 caracteres");
+                        return;
+                      }
+                      if (!acceptLgpd) {
+                        toast.error("Você precisa aceitar a política de privacidade");
+                        return;
+                      }
+                      setSubmitting(true);
+                      try {
+                        const data = await api.post<{
+                          access_token: string;
+                          refresh_token: string;
+                          user: any;
+                          church: any;
+                        }>(`/api/join/${selected.slug}`, {
+                          name: joinForm.name.trim(),
+                          email: joinForm.email.trim(),
+                          password: joinForm.password,
+                        });
+                        localStorage.setItem("access_token", data.access_token);
+                        localStorage.setItem("refresh_token", data.refresh_token);
+                        toast.success(`Bem-vindo à ${data.church.name}!`);
+                        window.location.href = "/church";
+                      } catch (err: any) {
+                        toast.error(err.message || "Erro ao cadastrar");
+                      } finally {
+                        setSubmitting(false);
+                      }
+                    }}
+                    className="space-y-3"
+                  >
+                    <div className="space-y-1.5">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Nome completo</Label>
+                      <Input
+                        value={joinForm.name}
+                        onChange={(e) => setJoinForm((f) => ({ ...f, name: e.target.value }))}
+                        placeholder="Seu nome completo"
+                        className="rounded-xl"
+                        required
+                        maxLength={100}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Email</Label>
+                      <Input
+                        type="email"
+                        value={joinForm.email}
+                        onChange={(e) => setJoinForm((f) => ({ ...f, email: e.target.value }))}
+                        placeholder="seu@email.com"
+                        className="rounded-xl"
+                        required
+                        maxLength={255}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Senha</Label>
+                        <Input
+                          type="password"
+                          value={joinForm.password}
+                          onChange={(e) => setJoinForm((f) => ({ ...f, password: e.target.value }))}
+                          placeholder="••••••••"
+                          className="rounded-xl"
+                          required
+                          minLength={6}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Confirmar</Label>
+                        <Input
+                          type="password"
+                          value={joinForm.password_confirm}
+                          onChange={(e) => setJoinForm((f) => ({ ...f, password_confirm: e.target.value }))}
+                          placeholder="••••••••"
+                          className="rounded-xl"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2 pt-1">
+                      <Checkbox
+                        id="lgpd"
+                        checked={acceptLgpd}
+                        onCheckedChange={(v) => setAcceptLgpd(v === true)}
+                        className="mt-0.5"
+                      />
+                      <label htmlFor="lgpd" className="text-xs text-muted-foreground leading-relaxed cursor-pointer">
+                        Declaro que li e concordo com a <strong>política de privacidade</strong> e o tratamento dos meus dados
+                        pessoais conforme a <strong>LGPD (Lei nº 13.709/2018)</strong>, para fins de registro e participação
+                        nesta comunidade eclesiástica.
+                      </label>
+                    </div>
+
+                    <div className="flex items-start gap-2 rounded-lg bg-primary/5 border border-primary/10 p-3">
+                      <Lock className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                      <p className="text-xs text-muted-foreground">
+                        Garantimos total sigilo dos seus dados. Sua senha é criptografada e nunca armazenada em texto.
+                      </p>
+                    </div>
+
+                    <div className="flex gap-3 pt-1">
+                      <Button type="submit" className="flex-1 gap-2" disabled={submitting || !acceptLgpd}>
+                        {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                        {submitting ? "Cadastrando..." : "Criar minha conta"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => {
+                          setShowJoinForm(false);
+                          setJoinForm({ name: "", email: "", password: "", password_confirm: "" });
+                          setAcceptLgpd(false);
+                        }}
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </form>
+
+                  <p className="text-center text-xs text-muted-foreground">
+                    Já tem uma conta?{" "}
+                    <a href="/login" className="text-primary hover:underline font-medium">Fazer login</a>
+                  </p>
+                </div>
+              )}
             </>
           )}
         </DialogContent>
