@@ -16,7 +16,7 @@ import { api } from '@/lib/api';
 interface SchoolClass {
   id: string; title: string; description: string; teacher_id: string | null;
   teacher_name: string; category: string; schedule: string; max_students: number | null;
-  student_count: number; lesson_count: number; is_active: boolean;
+  student_count: number; pending_count: number; lesson_count: number; is_active: boolean;
 }
 interface Member { id: string; name: string; email: string; role: string; }
 
@@ -142,6 +142,11 @@ const SchoolAdmin = () => {
                   <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
                     {cls.teacher_name && <span>Prof. {cls.teacher_name}</span>}
                     <span><Users className="w-3 h-3 inline mr-1" />{cls.student_count} alunos</span>
+                    {cls.pending_count > 0 && (
+                      <Badge className="bg-amber-500/20 text-amber-400 text-[10px]">
+                        {cls.pending_count} pendente{cls.pending_count > 1 ? 's' : ''}
+                      </Badge>
+                    )}
                     <span><BookOpen className="w-3 h-3 inline mr-1" />{cls.lesson_count} aulas</span>
                   </div>
                 </div>
