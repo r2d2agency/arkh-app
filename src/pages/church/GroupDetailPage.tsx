@@ -9,16 +9,44 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Users, Megaphone, BookOpen, Video, Plus, Trash2, UserPlus, Shield, Loader2, Send } from 'lucide-react';
+import { ArrowLeft, Users, Megaphone, BookOpen, Video, Plus, Trash2, UserPlus, Shield, Loader2, Send, Sparkles, Zap, Clock, UsersRound, MessageCircle, Star } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
+import { toast as sonnerToast } from 'sonner';
 
 interface Group { id: string; name: string; description: string; member_count?: number; }
 interface GroupMember { id: string; user_id: string; name: string; email: string; role: string; }
 interface Announcement { id: string; content: string; author_name: string; created_at: string; author_id: string; }
 interface GroupContent { id: string; content_type: string; content_id: string; content_title: string; created_at: string; }
 interface ChurchMember { id: string; name: string; email: string; }
+interface Dynamic {
+  id: string;
+  title: string;
+  description: string;
+  instructions: string;
+  category: string;
+  emoji: string;
+  min_participants: number;
+  max_participants: number | null;
+  duration_minutes: number;
+  is_auto_generated: boolean;
+  is_global: boolean;
+}
+interface DynamicResponse {
+  id: string;
+  user_name: string;
+  response: string;
+  created_at: string;
+}
+
+const categoryLabels: Record<string, string> = {
+  icebreaker: 'Quebra-gelo',
+  spiritual: 'Espiritual',
+  reflection: 'Reflexão',
+  game: 'Jogo',
+  creative: 'Criativo',
+};
 
 const GroupDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -43,6 +71,15 @@ const GroupDetailPage = () => {
   const [selectedContentId, setSelectedContentId] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // Dynamics state
+  const [dynamics, setDynamics] = useState<Dynamic[]>([]);
+  const [selectedDynamic, setSelectedDynamic] = useState<Dynamic | null>(null);
+  const [dynamicDetailOpen, setDynamicDetailOpen] = useState(false);
+  const [dynamicResponses, setDynamicResponses] = useState<DynamicResponse[]>([]);
+  const [myResponse, setMyResponse] = useState('');
+  const [generatingDynamic, setGeneratingDynamic] = useState(false);
+  const [respondingDynamic, setRespondingDynamic] = useState(false);
+
   const isAdmin = user?.role === 'admin_church' || user?.role === 'leader';
 
   useEffect(() => {
@@ -53,16 +90,19 @@ const GroupDetailPage = () => {
       api.get<GroupContent[]>(`/api/church/groups/${id}/content`).catch(() => []),
       api.get<ChurchMember[]>('/api/church/members').catch(() => []),
       api.get<Group[]>('/api/church/groups').catch(() => []),
-    ]).then(([m, a, c, cm, groups]) => {
+      api.get<Dynamic[]>('/api/church/groups/dynamics/available').catch(() => []),
+    ]).then(([m, a, c, cm, groups, dyn]) => {
       setMembers(m || []);
       setAnnouncements(a || []);
       setContents(c || []);
       setChurchMembers(cm || []);
       const g = (groups || []).find((g: Group) => g.id === id);
       setGroup(g || null);
+      setDynamics(dyn || []);
     }).finally(() => setLoading(false));
   }, [id]);
 
+  // --- Announcements ---
   const handlePostAnnouncement = async () => {
     if (!newAnnouncement.trim() || !id) return;
     setSubmitting(true);
@@ -81,6 +121,7 @@ const GroupDetailPage = () => {
     } catch { toast({ title: 'Erro', variant: 'destructive' }); }
   };
 
+  // --- Members ---
   const handleAddMember = async () => {
     if (!selectedUserId || !id) return;
     setSubmitting(true);
@@ -109,6 +150,7 @@ const GroupDetailPage = () => {
     } catch { toast({ title: 'Erro', variant: 'destructive' }); }
   };
 
+  // --- Content ---
   const openAddContent = async (type: string) => {
     setContentType(type);
     setSelectedContentId('');
@@ -144,6 +186,50 @@ const GroupDetailPage = () => {
     } catch { toast({ title: 'Erro', variant: 'destructive' }); }
   };
 
+  // --- Dynamics ---
+  const openDynamic = async (dyn: Dynamic) => {
+    setSelectedDynamic(dyn);
+    setDynamicDetailOpen(true);
+    setMyResponse('');
+    try {
+      const responses = await api.get<DynamicResponse[]>(`/api/church/groups/${id}/dynamics/${dyn.id}/responses`);
+      setDynamicResponses(responses || []);
+    } catch { setDynamicResponses([]); }
+  };
+
+  const handleUseDynamic = async () => {
+    if (!selectedDynamic || !id) return;
+    try {
+      await api.post(`/api/church/groups/${id}/dynamics/${selectedDynamic.id}/use`, {});
+      sonnerToast.success('Dinâmica marcada como usada!');
+    } catch { sonnerToast.error('Erro ao marcar'); }
+  };
+
+  const handleRespondDynamic = async () => {
+    if (!myResponse.trim() || !selectedDynamic || !id) return;
+    setRespondingDynamic(true);
+    try {
+      await api.post(`/api/church/groups/${id}/dynamics/${selectedDynamic.id}/respond`, { response: myResponse });
+      const responses = await api.get<DynamicResponse[]>(`/api/church/groups/${id}/dynamics/${selectedDynamic.id}/responses`);
+      setDynamicResponses(responses || []);
+      setMyResponse('');
+      sonnerToast.success('Resposta enviada!');
+    } catch { sonnerToast.error('Erro ao responder'); }
+    finally { setRespondingDynamic(false); }
+  };
+
+  const handleGenerateDynamic = async () => {
+    setGeneratingDynamic(true);
+    try {
+      const newDyn = await api.post<Dynamic>('/api/church/groups/dynamics/generate', {});
+      setDynamics(prev => [newDyn, ...prev]);
+      sonnerToast.success(`Nova dinâmica criada: ${newDyn.title}`);
+    } catch (err: any) {
+      sonnerToast.error(err.message || 'Erro ao gerar dinâmica');
+    }
+    setGeneratingDynamic(false);
+  };
+
   const availableMembersToAdd = churchMembers.filter(cm => !members.some(m => m.user_id === cm.id));
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
@@ -162,15 +248,18 @@ const GroupDetailPage = () => {
       </div>
 
       <Tabs defaultValue="announcements" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 rounded-xl">
+        <TabsList className="grid w-full grid-cols-4 rounded-xl">
           <TabsTrigger value="announcements" className="rounded-xl text-xs">
-            <Megaphone className="w-3.5 h-3.5 mr-1.5" /> Recados
+            <Megaphone className="w-3.5 h-3.5 mr-1" /> Recados
+          </TabsTrigger>
+          <TabsTrigger value="dynamics" className="rounded-xl text-xs">
+            <Zap className="w-3.5 h-3.5 mr-1" /> Dinâmicas
           </TabsTrigger>
           <TabsTrigger value="content" className="rounded-xl text-xs">
-            <BookOpen className="w-3.5 h-3.5 mr-1.5" /> Conteúdos
+            <BookOpen className="w-3.5 h-3.5 mr-1" /> Conteúdos
           </TabsTrigger>
           <TabsTrigger value="members" className="rounded-xl text-xs">
-            <Users className="w-3.5 h-3.5 mr-1.5" /> Membros
+            <Users className="w-3.5 h-3.5 mr-1" /> Membros
           </TabsTrigger>
         </TabsList>
 
@@ -215,6 +304,73 @@ const GroupDetailPage = () => {
               <p className="text-sm whitespace-pre-wrap">{a.content}</p>
             </Card>
           ))}
+        </TabsContent>
+
+        {/* DINÂMICAS */}
+        <TabsContent value="dynamics" className="space-y-4 mt-4">
+          {isAdmin && (
+            <Card className="p-4 rounded-2xl border-primary/20 bg-primary/5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-primary" />
+                  <div>
+                    <h3 className="font-heading text-sm font-semibold">Gerar Dinâmica com IA</h3>
+                    <p className="text-[11px] text-muted-foreground">Crie novas dinâmicas automaticamente</p>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  className="rounded-xl text-xs"
+                  onClick={handleGenerateDynamic}
+                  disabled={generatingDynamic}
+                >
+                  {generatingDynamic ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Sparkles className="w-3 h-3 mr-1" />}
+                  Gerar nova
+                </Button>
+              </div>
+            </Card>
+          )}
+
+          {dynamics.length === 0 ? (
+            <Card className="p-8 rounded-xl text-center">
+              <Zap className="w-10 h-10 mx-auto text-muted-foreground/30 mb-2" />
+              <p className="text-sm text-muted-foreground">Nenhuma dinâmica disponível</p>
+            </Card>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {dynamics.map(dyn => (
+                <Card
+                  key={dyn.id}
+                  className="p-4 rounded-2xl cursor-pointer hover:border-primary/30 transition-all hover:shadow-md"
+                  onClick={() => openDynamic(dyn)}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">{dyn.emoji}</span>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-sm truncate">{dyn.title}</h3>
+                      <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{dyn.description}</p>
+                      <div className="flex items-center gap-3 mt-2 text-[10px] text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> {dyn.duration_minutes} min
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <UsersRound className="w-3 h-3" /> {dyn.min_participants}+ pessoas
+                        </span>
+                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">
+                          {categoryLabels[dyn.category] || dyn.category}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                  {dyn.is_auto_generated && (
+                    <Badge variant="outline" className="mt-2 text-[9px] border-primary/30 text-primary">
+                      <Sparkles className="w-2.5 h-2.5 mr-0.5" /> Gerada por IA
+                    </Badge>
+                  )}
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         {/* CONTEÚDOS */}
@@ -287,6 +443,86 @@ const GroupDetailPage = () => {
           ))}
         </TabsContent>
       </Tabs>
+
+      {/* Dynamic Detail Dialog */}
+      <Dialog open={dynamicDetailOpen} onOpenChange={setDynamicDetailOpen}>
+        <DialogContent className="rounded-2xl max-w-lg max-h-[90vh] overflow-y-auto">
+          {selectedDynamic && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <span className="text-2xl">{selectedDynamic.emoji}</span>
+                  {selectedDynamic.title}
+                </DialogTitle>
+                <DialogDescription>{selectedDynamic.description}</DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {selectedDynamic.duration_minutes} min</span>
+                  <span className="flex items-center gap-1"><UsersRound className="w-3.5 h-3.5" /> {selectedDynamic.min_participants}+ pessoas</span>
+                  <Badge variant="outline" className="text-xs">{categoryLabels[selectedDynamic.category] || selectedDynamic.category}</Badge>
+                </div>
+
+                <div className="bg-muted/50 rounded-xl p-4">
+                  <h4 className="font-heading text-sm font-semibold mb-2">📋 Como fazer</h4>
+                  <p className="text-sm whitespace-pre-wrap leading-relaxed">{selectedDynamic.instructions}</p>
+                </div>
+
+                {isAdmin && (
+                  <Button variant="outline" className="w-full rounded-xl" onClick={handleUseDynamic}>
+                    <Star className="w-4 h-4 mr-2" /> Marcar como usada neste grupo
+                  </Button>
+                )}
+
+                {/* Responses section */}
+                <div className="border-t pt-4 space-y-3">
+                  <h4 className="font-heading text-sm font-semibold flex items-center gap-2">
+                    <MessageCircle className="w-4 h-4" /> Respostas do grupo
+                  </h4>
+
+                  <div className="flex gap-2">
+                    <Textarea
+                      placeholder="Compartilhe sua resposta..."
+                      value={myResponse}
+                      onChange={e => setMyResponse(e.target.value)}
+                      className="rounded-xl min-h-[50px] flex-1 text-sm"
+                      rows={2}
+                    />
+                    <Button
+                      onClick={handleRespondDynamic}
+                      disabled={respondingDynamic || !myResponse.trim()}
+                      size="icon"
+                      className="rounded-xl shrink-0 self-end"
+                    >
+                      <Send className="w-4 h-4" />
+                    </Button>
+                  </div>
+
+                  {dynamicResponses.length > 0 && (
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {dynamicResponses.map(r => (
+                        <div key={r.id} className="bg-muted/40 rounded-xl p-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-bold text-primary">
+                              {r.user_name?.charAt(0)}
+                            </div>
+                            <span className="text-xs font-medium">{r.user_name}</span>
+                            <span className="text-[10px] text-muted-foreground ml-auto">
+                              {new Date(r.created_at).toLocaleDateString('pt-BR')}
+                            </span>
+                          </div>
+                          <p className="text-sm">{r.response}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Add Member Dialog */}
       <Dialog open={addMemberOpen} onOpenChange={setAddMemberOpen}>
