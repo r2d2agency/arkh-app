@@ -22,7 +22,8 @@ import {
   BarChart3,
   GraduationCap,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { api } from '@/lib/api';
 import logoImg from '@/assets/logo.png';
 
 const memberBottomNav = [
