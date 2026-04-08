@@ -1,9 +1,10 @@
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Video, BookOpen, ArrowRight, Play, Clock, Heart, Sparkles,
-  Sun, CloudRain, Smile, Frown, Flame, HelpCircle, ThumbsUp, Zap,
+  Sun, CloudRain, Smile, Frown, Flame, HelpCircle, Zap, GraduationCap,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
@@ -27,6 +28,23 @@ interface ChurchInfo {
   logo_url: string | null;
 }
 
+interface Devotional {
+  verse: string;
+  verse_reference: string;
+  reflection: string;
+  generated: boolean;
+}
+
+interface ContinueWatching {
+  id: string;
+  title: string;
+  thumbnail_url: string | null;
+  youtube_url: string;
+  progress_seconds: number;
+  duration_seconds: number;
+  progress_pct: number;
+}
+
 const moodOptions = [
   { key: 'grateful', label: 'Grato', icon: Heart, color: 'text-pink-500' },
   { key: 'peaceful', label: 'Em paz', icon: Sun, color: 'text-gold' },
@@ -43,10 +61,18 @@ const getYouTubeId = (url: string) => {
   return match?.[1];
 };
 
+const formatTime = (seconds: number) => {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+};
+
 const MemberHome = () => {
   const { user } = useAuth();
   const [services, setServices] = useState<Service[]>([]);
   const [churchInfo, setChurchInfo] = useState<ChurchInfo | null>(null);
+  const [devotional, setDevotional] = useState<Devotional | null>(null);
+  const [continueWatching, setContinueWatching] = useState<ContinueWatching[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
 
@@ -54,9 +80,13 @@ const MemberHome = () => {
     Promise.all([
       api.get<Service[]>('/api/church/services').catch(() => []),
       api.get<ChurchInfo>('/api/church/info').catch(() => null),
-    ]).then(([svc, info]) => {
+      api.get<Devotional>('/api/church/devotional').catch(() => null),
+      api.get<ContinueWatching[]>('/api/church/suggestions/continue-watching').catch(() => []),
+    ]).then(([svc, info, dev, cw]) => {
       setServices(svc || []);
       setChurchInfo(info);
+      setDevotional(dev);
+      setContinueWatching(cw || []);
     }).finally(() => setLoading(false));
   }, []);
 
@@ -112,17 +142,61 @@ const MemberHome = () => {
         )}
       </Card>
 
-      {/* Devotional */}
+      {/* Devotional (dynamic) */}
       <Card className="p-4 rounded-2xl border-gold/20 bg-gold/5 space-y-3">
         <div className="flex items-center gap-2">
           <BookOpen className="w-4 h-4 text-gold" />
           <h2 className="font-heading text-sm font-semibold">Devocional do dia</h2>
+          {devotional?.generated && (
+            <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">IA</span>
+          )}
         </div>
         <blockquote className="text-sm text-muted-foreground italic border-l-2 border-gold/40 pl-3">
-          "Porque Deus amou o mundo de tal maneira que deu o seu Filho unigênito, para que todo aquele que nele crê não pereça, mas tenha a vida eterna."
+          "{devotional?.verse || 'Porque Deus amou o mundo de tal maneira que deu o seu Filho unigênito, para que todo aquele que nele crê não pereça, mas tenha a vida eterna.'}"
         </blockquote>
-        <p className="text-xs text-gold font-semibold">João 3:16</p>
+        <p className="text-xs text-gold font-semibold">{devotional?.verse_reference || 'João 3:16'}</p>
+        {devotional?.reflection && (
+          <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">{devotional.reflection}</p>
+        )}
       </Card>
+
+      {/* Continue Watching */}
+      {continueWatching.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-heading text-lg font-semibold">Continuar Assistindo</h2>
+          </div>
+          <div className="space-y-2">
+            {continueWatching.map(item => {
+              const ytId = getYouTubeId(item.youtube_url);
+              return (
+                <Link key={item.id} to={`/church/services/${item.id}`}>
+                  <Card className="rounded-2xl overflow-hidden card-hover">
+                    <div className="flex gap-3 p-3">
+                      <div className="relative w-28 h-20 rounded-xl overflow-hidden bg-muted shrink-0">
+                        {ytId && (
+                          <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt={item.title} className="w-full h-full object-cover" />
+                        )}
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-xl">
+                          <Play className="w-6 h-6 text-white fill-white" />
+                        </div>
+                        <div className="absolute bottom-1 right-1 bg-black/70 text-white text-[9px] px-1 rounded">
+                          {formatTime(item.progress_seconds)} / {formatTime(item.duration_seconds)}
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0 space-y-1.5">
+                        <h3 className="font-medium text-sm truncate">{item.title}</h3>
+                        <Progress value={item.progress_pct || 0} className="h-1.5" />
+                        <p className="text-[10px] text-muted-foreground">{item.progress_pct || 0}% assistido</p>
+                      </div>
+                    </div>
+                  </Card>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Quick actions */}
       <div className="grid grid-cols-4 gap-2.5">
@@ -142,12 +216,12 @@ const MemberHome = () => {
             <p className="font-heading font-semibold text-[10px]">Estudar</p>
           </Card>
         </Link>
-        <Link to="/church/explore">
-          <Card className="p-3 rounded-2xl card-hover text-center space-y-1.5 h-full border-primary/15">
-            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center mx-auto">
-              <Sparkles className="w-4.5 h-4.5 text-primary" />
+        <Link to="/church/school">
+          <Card className="p-3 rounded-2xl card-hover text-center space-y-1.5 h-full border-emerald-500/15">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center mx-auto">
+              <GraduationCap className="w-4.5 h-4.5 text-emerald-500" />
             </div>
-            <p className="font-heading font-semibold text-[10px]">Explorar</p>
+            <p className="font-heading font-semibold text-[10px]">Escola</p>
           </Card>
         </Link>
         <Link to="/church/notebook">
