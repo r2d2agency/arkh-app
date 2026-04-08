@@ -107,6 +107,7 @@ const AppRoutes = () => (
         <Route path="/church/school" element={<SchoolPage />} />
         <Route path="/church/school/:id" element={<SchoolClassDetail />} />
         <Route path="/church/favorites" element={<FavoritesPage />} />
+        <Route path="/church/help" element={<HelpPage />} />
         <Route path="/church/onboarding" element={<OnboardingPage />} />
       </Route>
 
