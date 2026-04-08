@@ -231,6 +231,7 @@ const ServiceDetailPage = () => {
               Foco
             </Button>
           </div>
+        </div>
 
         {/* AI Generated content */}
         {hasAI ? (
