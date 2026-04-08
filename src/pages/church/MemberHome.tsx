@@ -4,7 +4,7 @@ import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Video, BookOpen, ArrowRight, Play, Clock, Heart, Sparkles,
-  Sun, CloudRain, Smile, Frown, Flame, HelpCircle, Zap, GraduationCap,
+  Sun, CloudRain, Smile, Frown, Flame, HelpCircle, Zap, GraduationCap, Gamepad2,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
@@ -209,7 +209,7 @@ const MemberHome = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-4 gap-2.5">
+      <div className="grid grid-cols-5 gap-2.5">
         <Link to="/church/services">
           <Card className="p-3 rounded-2xl card-hover text-center space-y-1.5 h-full border-primary/15">
             <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center mx-auto">
@@ -240,6 +240,14 @@ const MemberHome = () => {
               <BookOpen className="w-4.5 h-4.5 text-primary" />
             </div>
             <p className="font-heading font-semibold text-[10px]">Caderno</p>
+          </Card>
+        </Link>
+        <Link to="/church/quiz">
+          <Card className="p-3 rounded-2xl card-hover text-center space-y-1.5 h-full border-gold/15">
+            <div className="w-9 h-9 rounded-xl bg-gold/10 flex items-center justify-center mx-auto">
+              <Gamepad2 className="w-4.5 h-4.5 text-gold" />
+            </div>
+            <p className="font-heading font-semibold text-[10px]">Quiz</p>
           </Card>
         </Link>
       </div>
