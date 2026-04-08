@@ -228,7 +228,7 @@ export default function Index() {
               <Card
                 key={church.id}
                 className="group cursor-pointer hover:shadow-lg transition-all duration-300 overflow-hidden border-border/60"
-                onClick={() => { setSelected(church); setPhotoIdx(0); }}
+                onClick={() => { setSelected(church); setPhotoIdx(0); setShowJoinForm(false); setAcceptLgpd(false); setJoinForm({ name: "", email: "", password: "", password_confirm: "" }); }}
               >
                 <div className="relative h-48 bg-muted overflow-hidden">
                   {church.cover_url || church.logo_url ? (
