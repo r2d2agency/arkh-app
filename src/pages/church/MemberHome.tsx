@@ -4,7 +4,7 @@ import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Video, BookOpen, ArrowRight, Play, Clock, Heart, Sparkles,
-  Sun, CloudRain, Smile, Frown, Flame, HelpCircle, Zap, GraduationCap, Gamepad2,
+  Sun, CloudRain, Smile, Frown, Flame, HelpCircle, Zap, GraduationCap, Gamepad2, Calendar, MapPin,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
@@ -79,6 +79,17 @@ const formatTime = (seconds: number) => {
   return `${m}:${s.toString().padStart(2, '0')}`;
 };
 
+interface UpcomingEvent {
+  id: string; title: string; event_type: string;
+  starts_at: string; ends_at: string; location: string; all_day: boolean;
+}
+
+const eventTypeLabels: Record<string, string> = {
+  service: 'Culto', communion: 'Santa Ceia', prayer: 'Oração',
+  youth_service: 'Culto Jovem', worship: 'Louvor',
+  meeting: 'Reunião', event: 'Evento', group: 'Grupo', general: 'Geral',
+};
+
 const MemberHome = () => {
   const { user } = useAuth();
   const [services, setServices] = useState<Service[]>([]);
@@ -86,22 +97,28 @@ const MemberHome = () => {
   const [devotional, setDevotional] = useState<Devotional | null>(null);
   const [continueWatching, setContinueWatching] = useState<ContinueWatching[]>([]);
   const [schoolClasses, setSchoolClasses] = useState<SchoolClassPreview[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
 
   useEffect(() => {
+    const now = new Date();
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     Promise.all([
       api.get<Service[]>('/api/church/services').catch(() => []),
       api.get<ChurchInfo>('/api/church/info').catch(() => null),
       api.get<Devotional>('/api/church/devotional').catch(() => null),
       api.get<ContinueWatching[]>('/api/church/suggestions/continue-watching').catch(() => []),
       api.get<SchoolClassPreview[]>('/api/church/school/classes').catch(() => []),
-    ]).then(([svc, info, dev, cw, school]) => {
+      api.get<UpcomingEvent[]>(`/api/church/events?month=${month}`).catch(() => []),
+    ]).then(([svc, info, dev, cw, school, events]) => {
       setServices(svc || []);
       setChurchInfo(info);
       setDevotional(dev);
       setContinueWatching(cw || []);
       setSchoolClasses(school || []);
+      const futureEvents = (events || []).filter(e => new Date(e.starts_at) >= now);
+      setUpcomingEvents(futureEvents.slice(0, 5));
     }).finally(() => setLoading(false));
   }, []);
 
