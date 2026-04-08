@@ -159,7 +159,8 @@ Retorne APENAS um JSON válido no formato:
           });
 
           if (!aiResp.ok) {
-            console.error('AI error:', aiResp.status);
+            const errBody = await aiResp.text().catch(() => '');
+            console.error('AI error:', aiResp.status, errBody);
             continue;
           }
 
