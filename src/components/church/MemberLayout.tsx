@@ -22,7 +22,8 @@ import {
   BarChart3,
   GraduationCap,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { api } from '@/lib/api';
 import logoImg from '@/assets/logo.png';
 
 const memberBottomNav = [
@@ -49,9 +50,20 @@ const MemberLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [churchName, setChurchName] = useState<string>('');
+  const [churchLogo, setChurchLogo] = useState<string | null>(null);
 
   const isAdmin = user?.role === 'admin_church' || user?.role === 'leader';
   const isSchoolRoute = location.pathname.startsWith('/church/school');
+
+  useEffect(() => {
+    api.get<{ name: string; logo_url: string | null }>('/api/church/info')
+      .then(info => {
+        setChurchName(info.name || '');
+        setChurchLogo(info.logo_url || null);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -61,9 +73,11 @@ const MemberLayout = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="sticky top-0 z-30 bg-card/95 backdrop-blur-xl border-b border-border px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <img src={logoImg} alt="ARKHÉ" className="w-8 h-8 object-contain" />
-          <h1 className="font-heading text-lg font-bold text-foreground">ARKHÉ</h1>
+        <div className="flex items-center gap-2.5 min-w-0">
+          <img src={churchLogo || logoImg} alt={churchName || 'ARKHÉ'} className="w-8 h-8 rounded-lg object-contain shrink-0" />
+          <h1 className="font-heading text-base font-bold text-foreground truncate max-w-[160px]">
+            {churchName || 'ARKHÉ'}
+          </h1>
         </div>
         <div className="flex items-center gap-2">
           <Link
