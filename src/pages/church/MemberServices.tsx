@@ -132,13 +132,19 @@ const MemberServices = () => {
                           </span>
                         </div>
                       </div>
-                      {service.ai_status === 'completed' && (
-                        <div className="absolute top-3 right-3">
+                      <div className="absolute top-3 right-3 flex gap-1.5">
+                        {service.ai_status === 'completed' && (
                           <Badge className="bg-primary/90 text-primary-foreground border-0 text-[10px] gap-1">
                             <Sparkles className="w-3 h-3" /> Estudo disponível
                           </Badge>
-                        </div>
-                      )}
+                        )}
+                        <button
+                          onClick={(e) => toggleFav(e, service.id)}
+                          className="w-8 h-8 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center hover:bg-black/50 transition-colors"
+                        >
+                          <Heart className={`w-4 h-4 ${favIds.has(service.id) ? 'text-rose-500 fill-rose-500' : 'text-white'}`} />
+                        </button>
+                      </div>
                     </div>
                   )}
                   {!ytId && (
