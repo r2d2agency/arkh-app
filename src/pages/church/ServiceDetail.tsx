@@ -85,14 +85,40 @@ const ServiceDetailPage = () => {
   const [focusMode, setFocusMode] = useState(false);
   const [expandedSummary, setExpandedSummary] = useState(false);
   const [savingVerse, setSavingVerse] = useState<string | null>(null);
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [togglingFav, setTogglingFav] = useState(false);
 
   useEffect(() => {
     if (!id) return;
-    api.get<ServiceData>(`/api/church/services/${id}`)
-      .then(data => setService(data))
-      .catch(() => toast.error('Erro ao carregar culto'))
+    Promise.all([
+      api.get<ServiceData>(`/api/church/services/${id}`),
+      api.get<any[]>('/api/church/media/favorites').catch(() => []),
+    ]).then(([data, favs]) => {
+      setService(data);
+      setIsFavorited(favs.some((f: any) => f.content_type === 'service' && f.content_id === id));
+    }).catch(() => toast.error('Erro ao carregar culto'))
       .finally(() => setLoading(false));
   }, [id]);
+
+  const toggleFavorite = async () => {
+    if (!id || togglingFav) return;
+    setTogglingFav(true);
+    try {
+      if (isFavorited) {
+        await api.delete(`/api/church/media/favorites/service/${id}`);
+        setIsFavorited(false);
+        toast.success('Removido dos favoritos');
+      } else {
+        await api.post('/api/church/media/favorites', { content_type: 'service', content_id: id });
+        setIsFavorited(true);
+        toast.success('Adicionado aos favoritos!');
+      }
+    } catch {
+      toast.error('Erro ao atualizar favorito');
+    } finally {
+      setTogglingFav(false);
+    }
+  };
 
   const handleSaveNote = async () => {
     if (!note.trim() || !id) return;
@@ -184,16 +210,27 @@ const ServiceDetailPage = () => {
               <span>{new Date(service.service_date || '').toLocaleDateString('pt-BR')}</span>
             </div>
           </div>
-          <Button
-            size="sm"
-            variant={focusMode ? 'default' : 'outline'}
-            className="rounded-xl shrink-0"
-            onClick={() => setFocusMode(!focusMode)}
-          >
-            <Maximize2 className="w-3.5 h-3.5 mr-1" />
-            Foco
-          </Button>
-        </div>
+          <div className="flex gap-2 shrink-0">
+            <Button
+              size="sm"
+              variant="outline"
+              className={`rounded-xl ${isFavorited ? 'text-rose-500 border-rose-500/30 bg-rose-500/10' : ''}`}
+              onClick={toggleFavorite}
+              disabled={togglingFav}
+            >
+              <Heart className={`w-3.5 h-3.5 mr-1 ${isFavorited ? 'fill-rose-500' : ''}`} />
+              {isFavorited ? 'Favoritado' : 'Favoritar'}
+            </Button>
+            <Button
+              size="sm"
+              variant={focusMode ? 'default' : 'outline'}
+              className="rounded-xl"
+              onClick={() => setFocusMode(!focusMode)}
+            >
+              <Maximize2 className="w-3.5 h-3.5 mr-1" />
+              Foco
+            </Button>
+          </div>
 
         {/* AI Generated content */}
         {hasAI ? (
