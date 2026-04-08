@@ -51,6 +51,7 @@ const MemberLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const isAdmin = user?.role === 'admin_church' || user?.role === 'leader';
+  const isSchoolRoute = location.pathname.startsWith('/church/school');
 
   const handleLogout = () => {
     logout();
@@ -59,15 +60,26 @@ const MemberLayout = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Top header - mobile */}
       <header className="sticky top-0 z-30 bg-card/95 backdrop-blur-xl border-b border-border px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <img src={logoImg} alt="ARKHÉ" className="w-8 h-8 object-contain" />
           <h1 className="font-heading text-lg font-bold text-foreground">ARKHÉ</h1>
         </div>
         <div className="flex items-center gap-2">
-          <Link to="/church/notifications" className="relative p-2 rounded-xl hover:bg-muted transition-colors">
-            <Bell className="w-5 h-5 text-muted-foreground" />
+          <Link
+            to="/church/school"
+            className={`relative p-2 rounded-xl transition-colors ${
+              isSchoolRoute
+                ? 'bg-primary/10 text-primary'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            }`}
+            aria-label="Escola Bíblica"
+            title="Escola Bíblica"
+          >
+            <GraduationCap className="w-5 h-5" />
+          </Link>
+          <Link to="/church/notifications" className="relative p-2 rounded-xl hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+            <Bell className="w-5 h-5" />
           </Link>
           {isAdmin && (
             <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-xl hover:bg-muted transition-colors">
@@ -77,7 +89,6 @@ const MemberLayout = () => {
         </div>
       </header>
 
-      {/* Admin sidebar overlay */}
       {sidebarOpen && (
         <>
           <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setSidebarOpen(false)} />
@@ -127,12 +138,10 @@ const MemberLayout = () => {
         </>
       )}
 
-      {/* Main content */}
       <main className="flex-1 overflow-auto pb-24">
         <Outlet />
       </main>
 
-      {/* Bottom navigation - PWA style */}
       <nav className="fixed bottom-0 left-0 right-0 z-30 bg-card/95 backdrop-blur-xl border-t border-border safe-bottom">
         <div className="flex items-center justify-around py-1.5 max-w-lg mx-auto">
           {memberBottomNav.map(item => {
