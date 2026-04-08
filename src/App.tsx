@@ -44,6 +44,7 @@ import SchoolClassDetail from "@/pages/church/SchoolClassDetail";
 import SchoolAdmin from "@/pages/church/SchoolAdmin";
 import OnboardingPage from "@/pages/church/OnboardingPage";
 import FavoritesPage from "@/pages/church/FavoritesPage";
+import HelpPage from "@/pages/church/HelpPage";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -107,6 +108,7 @@ const AppRoutes = () => (
         <Route path="/church/school" element={<SchoolPage />} />
         <Route path="/church/school/:id" element={<SchoolClassDetail />} />
         <Route path="/church/favorites" element={<FavoritesPage />} />
+        <Route path="/church/help" element={<HelpPage />} />
         <Route path="/church/onboarding" element={<OnboardingPage />} />
       </Route>
 

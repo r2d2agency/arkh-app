@@ -21,6 +21,7 @@ import {
   Heart,
   BarChart3,
   GraduationCap,
+  HelpCircle,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
@@ -91,6 +92,9 @@ const MemberLayout = () => {
             title="Escola Bíblica"
           >
             <GraduationCap className="w-5 h-5" />
+          </Link>
+          <Link to="/church/help" className="relative p-2 rounded-xl hover:bg-muted transition-colors text-muted-foreground hover:text-foreground" title="Ajuda">
+            <HelpCircle className="w-5 h-5" />
           </Link>
           <Link to="/church/notifications" className="relative p-2 rounded-xl hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
             <Bell className="w-5 h-5" />
