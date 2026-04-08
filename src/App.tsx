@@ -45,6 +45,9 @@ import SchoolAdmin from "@/pages/church/SchoolAdmin";
 import OnboardingPage from "@/pages/church/OnboardingPage";
 import FavoritesPage from "@/pages/church/FavoritesPage";
 import HelpPage from "@/pages/church/HelpPage";
+import QuizListPage from "@/pages/church/QuizListPage";
+import QuizPlayPage from "@/pages/church/QuizPlayPage";
+import QuizAdminPage from "@/pages/church/QuizAdminPage";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -110,6 +113,8 @@ const AppRoutes = () => (
         <Route path="/church/favorites" element={<FavoritesPage />} />
         <Route path="/church/help" element={<HelpPage />} />
         <Route path="/church/onboarding" element={<OnboardingPage />} />
+        <Route path="/church/quiz" element={<QuizListPage />} />
+        <Route path="/church/quiz/:id" element={<QuizPlayPage />} />
       </Route>
 
       {/* Admin-only management pages (with sidebar layout) */}
@@ -121,6 +126,7 @@ const AppRoutes = () => (
         <Route path="/church/manage-studies" element={<ChurchStudiesAdmin />} />
         <Route path="/church/groups" element={<GroupsPage />} />
         <Route path="/church/manage-school" element={<SchoolAdmin />} />
+        <Route path="/church/manage-quizzes" element={<QuizAdminPage />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />

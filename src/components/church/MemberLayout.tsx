@@ -22,6 +22,7 @@ import {
   BarChart3,
   GraduationCap,
   HelpCircle,
+  Gamepad2,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
@@ -30,8 +31,8 @@ import logoImg from '@/assets/logo.png';
 const memberBottomNav = [
   { path: '/church', label: 'Início', icon: Home },
   { path: '/church/services', label: 'Cultos', icon: Video },
+  { path: '/church/quiz', label: 'Quiz', icon: Gamepad2 },
   { path: '/church/studies', label: 'Estudar', icon: BookOpen },
-  { path: '/church/agenda', label: 'Agenda', icon: Calendar },
   { path: '/church/profile', label: 'Perfil', icon: User },
 ];
 
@@ -41,6 +42,7 @@ const adminSidebarItems = [
   { path: '/church/manage-school', label: 'Escola Bíblica', icon: GraduationCap },
   { path: '/church/groups', label: 'Grupos', icon: UsersRound },
   { path: '/church/polls', label: 'Enquetes', icon: BarChart3 },
+  { path: '/church/manage-quizzes', label: 'Quizzes', icon: Gamepad2 },
   { path: '/church/members', label: 'Membros', icon: Users },
   { path: '/church/customize', label: 'Personalizar', icon: Palette },
   { path: '/church/settings', label: 'Configurações', icon: Settings },
