@@ -50,9 +50,20 @@ const MemberLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [churchName, setChurchName] = useState<string>('');
+  const [churchLogo, setChurchLogo] = useState<string | null>(null);
 
   const isAdmin = user?.role === 'admin_church' || user?.role === 'leader';
   const isSchoolRoute = location.pathname.startsWith('/church/school');
+
+  useEffect(() => {
+    api.get<{ name: string; logo_url: string | null }>('/api/church/info')
+      .then(info => {
+        setChurchName(info.name || '');
+        setChurchLogo(info.logo_url || null);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleLogout = () => {
     logout();
