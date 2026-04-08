@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Video, Search, Clock, User, Calendar, Play, Loader2, Sparkles } from 'lucide-react';
+import { Video, Search, Clock, User, Calendar, Play, Loader2, Sparkles, Heart } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 
 interface Service {
   id: string;
@@ -25,13 +26,37 @@ const MemberServices = () => {
   const [services, setServices] = useState<Service[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [favIds, setFavIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    api.get<Service[]>('/api/church/services')
-      .then(data => setServices(data))
-      .catch(() => {})
+    Promise.all([
+      api.get<Service[]>('/api/church/services'),
+      api.get<any[]>('/api/church/media/favorites').catch(() => []),
+    ]).then(([data, favs]) => {
+      setServices(data);
+      setFavIds(new Set(favs.filter((f: any) => f.content_type === 'service').map((f: any) => f.content_id)));
+    }).catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  const toggleFav = async (e: React.MouseEvent, serviceId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const isFav = favIds.has(serviceId);
+    try {
+      if (isFav) {
+        await api.delete(`/api/church/media/favorites/service/${serviceId}`);
+        setFavIds(prev => { const n = new Set(prev); n.delete(serviceId); return n; });
+        toast.success('Removido dos favoritos');
+      } else {
+        await api.post('/api/church/media/favorites', { content_type: 'service', content_id: serviceId });
+        setFavIds(prev => new Set(prev).add(serviceId));
+        toast.success('Adicionado aos favoritos!');
+      }
+    } catch {
+      toast.error('Erro ao atualizar favorito');
+    }
+  };
 
   const filtered = services
     .filter(s =>
@@ -107,18 +132,32 @@ const MemberServices = () => {
                           </span>
                         </div>
                       </div>
-                      {service.ai_status === 'completed' && (
-                        <div className="absolute top-3 right-3">
+                      <div className="absolute top-3 right-3 flex gap-1.5">
+                        {service.ai_status === 'completed' && (
                           <Badge className="bg-primary/90 text-primary-foreground border-0 text-[10px] gap-1">
                             <Sparkles className="w-3 h-3" /> Estudo disponível
                           </Badge>
-                        </div>
-                      )}
+                        )}
+                        <button
+                          onClick={(e) => toggleFav(e, service.id)}
+                          className="w-8 h-8 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center hover:bg-black/50 transition-colors"
+                        >
+                          <Heart className={`w-4 h-4 ${favIds.has(service.id) ? 'text-rose-500 fill-rose-500' : 'text-white'}`} />
+                        </button>
+                      </div>
                     </div>
                   )}
                   {!ytId && (
                     <div className="p-4 space-y-2">
-                      <h3 className="font-heading font-semibold">{service.title}</h3>
+                      <div className="flex items-start justify-between">
+                        <h3 className="font-heading font-semibold">{service.title}</h3>
+                        <button
+                          onClick={(e) => toggleFav(e, service.id)}
+                          className="shrink-0 ml-2"
+                        >
+                          <Heart className={`w-4 h-4 ${favIds.has(service.id) ? 'text-rose-500 fill-rose-500' : 'text-muted-foreground'}`} />
+                        </button>
+                      </div>
                       <div className="flex gap-3 text-xs text-muted-foreground">
                         {service.preacher && <span>{service.preacher}</span>}
                         <span>{new Date(service.service_date || service.created_at).toLocaleDateString('pt-BR')}</span>
