@@ -40,6 +40,7 @@ const adminSidebarItems = [
   { path: '/church/manage-services', label: 'Gerenciar Cultos', icon: Video },
   { path: '/church/manage-studies', label: 'Estudos Bíblicos', icon: BookOpen },
   { path: '/church/manage-school', label: 'Escola Bíblica', icon: GraduationCap },
+  { path: '/church/agenda', label: 'Agenda / Eventos', icon: Calendar },
   { path: '/church/groups', label: 'Grupos', icon: UsersRound },
   { path: '/church/polls', label: 'Enquetes', icon: BarChart3 },
   { path: '/church/manage-quizzes', label: 'Quizzes', icon: Gamepad2 },
