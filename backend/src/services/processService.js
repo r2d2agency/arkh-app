@@ -452,4 +452,4 @@ async function callAI(provider, apiKey, systemPrompt, userPrompt, temperature = 
   throw new Error(`Provedor "${providerType}" não suportado`);
 }
 
-module.exports = { processService };
+module.exports = { processService, callAI };

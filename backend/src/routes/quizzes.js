@@ -1,5 +1,63 @@
 const router = require('express').Router();
 const pool = require('../db/pool');
+const { callAI } = require('../services/processService');
+
+function getProviderApiKey(provider) {
+  return (provider.api_keys_encrypted || [])[0] || provider.api_key_encrypted || '';
+}
+
+function extractJsonObject(text) {
+  if (!text || typeof text !== 'string') {
+    throw new Error('A IA retornou uma resposta vazia');
+  }
+
+  const cleaned = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+
+  if (!jsonMatch) {
+    throw new Error('A IA não retornou JSON válido');
+  }
+
+  return JSON.parse(jsonMatch[0]);
+}
+
+function normalizeQuizData(quizData) {
+  const questions = Array.isArray(quizData?.questions) ? quizData.questions : [];
+
+  const normalizedQuestions = questions
+    .map((question) => {
+      const questionText = String(question?.question || '').trim();
+      const options = Array.isArray(question?.options)
+        ? question.options.map((option) => String(option || '').trim()).filter(Boolean).slice(0, 4)
+        : [];
+
+      if (!questionText || options.length < 2) {
+        return null;
+      }
+
+      const parsedCorrect = Number.parseInt(String(question?.correct ?? 0), 10);
+
+      return {
+        question: questionText,
+        reference: question?.reference ? String(question.reference).trim() : null,
+        options,
+        correct: Number.isNaN(parsedCorrect) || parsedCorrect < 0 || parsedCorrect >= options.length ? 0 : parsedCorrect,
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 5);
+
+  if (normalizedQuestions.length < 3) {
+    throw new Error('A IA não retornou perguntas válidas suficientes');
+  }
+
+  return {
+    title: String(quizData?.title || '').trim() || 'Quiz Bíblico',
+    description: String(quizData?.description || '').trim(),
+    emoji: String(quizData?.emoji || '📖').trim() || '📖',
+    questions: normalizedQuestions,
+  };
+}
 
 // GET /api/church/quizzes — list active quizzes for members
 router.get('/', async (req, res) => {
@@ -98,24 +156,41 @@ router.put('/auto-settings', async (req, res) => {
 // POST /api/church/quizzes/generate — AI-generate quizzes
 router.post('/generate', async (req, res) => {
   try {
-    if (req.user.role !== 'admin_church' && req.user.role !== 'leader')
+    if (req.user.role !== 'admin_church' && req.user.role !== 'leader') {
       return res.status(403).json({ error: 'Forbidden' });
+    }
 
     const churchId = req.user.church_id;
-    const { category, count } = req.body; // category: kids|youth|adults, count: number of quizzes
+    const { category, count } = req.body;
     const categories = category ? [category] : ['kids', 'youth', 'adults'];
-    const quizzesPerCat = count || 1;
+    const quizzesPerCat = Math.max(Number(count) || 1, 1);
+    const { rows: providerRows } = await pool.query(
+      'SELECT * FROM ai_providers WHERE is_active = true ORDER BY created_at LIMIT 1'
+    );
+
+    if (!providerRows.length) {
+      return res.status(400).json({ error: 'Nenhum provedor de IA ativo encontrado. Configure em Admin > Gestão de IA.' });
+    }
+
+    const provider = providerRows[0];
+    const apiKey = getProviderApiKey(provider);
+
+    if (!apiKey) {
+      return res.status(400).json({ error: 'O provedor de IA ativo não possui API key configurada.' });
+    }
 
     const generated = [];
+    const warnings = [];
+    const catLabels = { kids: 'crianças (7-12 anos)', youth: 'jovens (13-25 anos)', adults: 'adultos' };
+    const systemPrompt = 'Você é um criador de quizzes bíblicos educativos. Responda SOMENTE com JSON válido, sem markdown e sem blocos de código.';
 
     for (const cat of categories) {
       for (let i = 0; i < quizzesPerCat; i++) {
-        const catLabels = { kids: 'crianças (7-12 anos)', youth: 'jovens (13-25 anos)', adults: 'adultos' };
         const diffOptions = cat === 'kids' ? 'easy' : cat === 'youth' ? 'medium' : 'hard';
-        const prompt = `Crie um quiz bíblico para ${catLabels[cat] || cat} com exatamente 5 perguntas. 
+        const prompt = `Crie um quiz bíblico para ${catLabels[cat] || cat} com exatamente 5 perguntas.
 Para cada pergunta, forneça 4 alternativas e indique qual é a correta.
 Dificuldade: ${diffOptions === 'easy' ? 'fácil' : diffOptions === 'medium' ? 'médio' : 'difícil'}.
-Use temas variados: personagens bíblicos, livros da Bíblia, histórias, versículos, etc.
+Use temas variados: personagens bíblicos, livros da Bíblia, histórias, versículos e aplicações práticas.
 Retorne APENAS um JSON válido no formato:
 {
   "title": "título criativo do quiz",
@@ -132,59 +207,23 @@ Retorne APENAS um JSON válido no formato:
 }`;
 
         try {
-          // Use AI Gateway (Node 18+ has global fetch)
-          const fetchFn = typeof fetch !== 'undefined' ? fetch : require('node-fetch');
-          const aiGatewayUrl = process.env.AI_GATEWAY_URL || 'https://ai.gateway.lovable.dev/v1/chat/completions';
-          const aiApiKey = process.env.AI_API_KEY || process.env.LOVABLE_API_KEY || '';
+          const aiText = await callAI(provider, apiKey, systemPrompt, prompt, 0.7, 4096);
+          const rawQuizData = extractJsonObject(aiText);
+          const quizData = normalizeQuizData(rawQuizData);
 
-          if (!aiApiKey) {
-            console.error('AI API key not configured (AI_API_KEY or LOVABLE_API_KEY)');
-            continue;
-          }
-
-          const aiResp = await fetchFn(aiGatewayUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${aiApiKey}`,
-            },
-            body: JSON.stringify({
-              model: process.env.AI_MODEL || 'google/gemini-2.0-flash-001',
-              messages: [
-                { role: 'system', content: 'Você é um criador de quizzes bíblicos educativos. Responda SOMENTE com JSON válido, sem markdown.' },
-                { role: 'user', content: prompt }
-              ],
-              response_format: { type: 'json_object' },
-            }),
-          });
-
-          if (!aiResp.ok) {
-            const errBody = await aiResp.text().catch(() => '');
-            console.error('AI error:', aiResp.status, errBody);
-            continue;
-          }
-
-          const aiData = await aiResp.json();
-          const content = aiData.choices?.[0]?.message?.content;
-          if (!content) continue;
-
-          const quizData = JSON.parse(content);
-          if (!quizData.title || !quizData.questions?.length) continue;
-
-          // Insert quiz
           const { rows: [quiz] } = await pool.query(
             `INSERT INTO quizzes (church_id, title, description, category, difficulty, time_limit_seconds, cover_emoji, is_active, is_auto_generated, generated_week, created_by)
              VALUES ($1,$2,$3,$4,$5,$6,$7,true,true,CURRENT_DATE,$8) RETURNING *`,
-            [churchId, quizData.title, quizData.description || '', cat, diffOptions, cat === 'kids' ? 45 : 30, quizData.emoji || '📖', req.user.id]
+            [churchId, quizData.title, quizData.description, cat, diffOptions, cat === 'kids' ? 45 : 30, quizData.emoji, req.user.id]
           );
 
-          // Insert questions
           for (let qi = 0; qi < quizData.questions.length; qi++) {
             const q = quizData.questions[qi];
             const { rows: [question] } = await pool.query(
               'INSERT INTO quiz_questions (quiz_id, question_text, bible_reference, question_order) VALUES ($1,$2,$3,$4) RETURNING *',
-              [quiz.id, q.question, q.reference || null, qi]
+              [quiz.id, q.question, q.reference, qi]
             );
+
             for (let oi = 0; oi < q.options.length; oi++) {
               await pool.query(
                 'INSERT INTO quiz_options (question_id, option_text, is_correct, option_order) VALUES ($1,$2,$3,$4)',
@@ -192,14 +231,23 @@ Retorne APENAS um JSON válido no formato:
               );
             }
           }
+
           generated.push(quiz);
         } catch (aiErr) {
-          console.error('AI quiz generation error:', aiErr.message);
+          const message = aiErr instanceof Error ? aiErr.message : 'Erro desconhecido ao gerar quiz';
+          warnings.push(`${cat}: ${message}`);
+          console.error('AI quiz generation error:', message);
         }
       }
     }
 
-    res.json({ generated: generated.length, quizzes: generated });
+    if (!generated.length) {
+      return res.status(502).json({
+        error: warnings[0] || 'Não foi possível gerar quizzes com o provedor de IA configurado.'
+      });
+    }
+
+    res.json({ generated: generated.length, quizzes: generated, warnings });
   } catch (err) {
     console.error('Generate quizzes error:', err);
     res.status(500).json({ error: err.message });
