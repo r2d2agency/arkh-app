@@ -66,13 +66,22 @@ router.put('/services/:id', async (req, res) => {
     const { title, youtube_url, preacher, service_date, ai_start_time, ai_end_time } = req.body;
     const { rows } = await pool.query(
       `UPDATE services SET title=COALESCE($1,title), youtube_url=COALESCE($2,youtube_url), preacher=COALESCE($3,preacher), service_date=COALESCE($4,service_date), ai_start_time=COALESCE($5,ai_start_time), ai_end_time=COALESCE($6,ai_end_time) WHERE id=$7 AND church_id=$8 RETURNING *`,
-      [title, youtube_url, preacher, service_date, ai_start_time, ai_end_time, req.params.id, churchId]
+      [
+        title || null,
+        youtube_url || null,
+        preacher || null,
+        service_date || null,
+        ai_start_time || null,
+        ai_end_time || null,
+        req.params.id,
+        churchId
+      ]
     );
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(rows[0]);
   } catch (err) {
     console.error('PUT services error:', err);
-    res.status(500).json({ error: 'Internal error' });
+    res.status(500).json({ error: err.message || 'Internal error' });
   }
 });
 
