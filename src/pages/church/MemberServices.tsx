@@ -149,7 +149,15 @@ const MemberServices = () => {
                   )}
                   {!ytId && (
                     <div className="p-4 space-y-2">
-                      <h3 className="font-heading font-semibold">{service.title}</h3>
+                      <div className="flex items-start justify-between">
+                        <h3 className="font-heading font-semibold">{service.title}</h3>
+                        <button
+                          onClick={(e) => toggleFav(e, service.id)}
+                          className="shrink-0 ml-2"
+                        >
+                          <Heart className={`w-4 h-4 ${favIds.has(service.id) ? 'text-rose-500 fill-rose-500' : 'text-muted-foreground'}`} />
+                        </button>
+                      </div>
                       <div className="flex gap-3 text-xs text-muted-foreground">
                         {service.preacher && <span>{service.preacher}</span>}
                         <span>{new Date(service.service_date || service.created_at).toLocaleDateString('pt-BR')}</span>
