@@ -245,6 +245,38 @@ router.post('/classes/:id/enroll', async (req, res) => {
        RETURNING *`,
       [req.params.id, req.user.id]
     );
+
+    // Get class info and user name for notification
+    const { rows: classInfo } = await pool.query('SELECT title, teacher_id, church_id FROM school_classes WHERE id = $1', [req.params.id]);
+    const userName = req.user.name || 'Um membro';
+    const className = classInfo[0]?.title || 'uma classe';
+
+    // Notify teacher
+    if (classInfo[0]?.teacher_id) {
+      await pool.query(
+        `INSERT INTO notifications (user_id, title, body, type, data) VALUES ($1, $2, $3, $4, $5)`,
+        [classInfo[0].teacher_id, 'Nova solicitação de matrícula',
+         `${userName} solicitou matrícula na classe "${className}"`,
+         'enrollment_request',
+         JSON.stringify({ class_id: req.params.id, enrollment_id: rows[0].id })]
+      );
+    }
+
+    // Notify church admins
+    const { rows: admins } = await pool.query(
+      `SELECT id FROM users WHERE church_id = $1 AND role IN ('admin_church','leader') AND id != $2`,
+      [classInfo[0]?.church_id, classInfo[0]?.teacher_id || '00000000-0000-0000-0000-000000000000']
+    );
+    for (const admin of admins) {
+      await pool.query(
+        `INSERT INTO notifications (user_id, title, body, type, data) VALUES ($1, $2, $3, $4, $5)`,
+        [admin.id, 'Nova solicitação de matrícula',
+         `${userName} solicitou matrícula na classe "${className}"`,
+         'enrollment_request',
+         JSON.stringify({ class_id: req.params.id, enrollment_id: rows[0].id })]
+      );
+    }
+
     res.json({ ...rows[0], message: 'Solicitação enviada. Aguarde aprovação.' });
   } catch (err) {
     console.error('Enroll error:', err);
