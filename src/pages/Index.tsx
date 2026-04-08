@@ -269,7 +269,6 @@ export default function Index() {
           </div>
         ) : churches.length === 0 ? (
           <div className="text-center py-20">
-            <Church className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-foreground mb-2">Nenhuma igreja encontrada</h2>
             <p className="text-muted-foreground">Tente buscar com outros termos ou remova os filtros.</p>
           </div>
