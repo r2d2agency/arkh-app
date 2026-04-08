@@ -213,4 +213,161 @@ router.delete('/:id/content/:contentId', async (req, res) => {
   }
 });
 
+// === DYNAMICS ===
+
+// GET /api/church/groups/dynamics — list all available dynamics for this church
+router.get('/dynamics/available', async (req, res) => {
+  try {
+    const churchId = req.user.church_id;
+    const { rows } = await pool.query(
+      `SELECT * FROM group_dynamics
+       WHERE is_global = true OR church_id = $1
+       ORDER BY created_at DESC`,
+      [churchId]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('GET dynamics error:', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// POST /api/church/groups/dynamics/generate — AI-generate a new dynamic
+router.post('/dynamics/generate', async (req, res) => {
+  try {
+    if (req.user.role !== 'admin_church' && req.user.role !== 'leader')
+      return res.status(403).json({ error: 'Forbidden' });
+
+    const churchId = req.user.church_id;
+
+    // Get AI provider
+    const { rows: providerRows } = await pool.query(
+      'SELECT * FROM ai_providers WHERE is_active = true ORDER BY created_at LIMIT 1'
+    );
+    if (!providerRows.length) {
+      return res.status(400).json({ error: 'Nenhum provedor de IA configurado. Configure em Admin > Gestão de IA.' });
+    }
+
+    const provider = providerRows[0];
+    const apiKey = (provider.api_keys_encrypted || [])[0] || provider.api_key_encrypted || '';
+    if (!apiKey) {
+      return res.status(400).json({ error: 'Provedor de IA sem API key.' });
+    }
+
+    // Get existing dynamics to avoid repeats
+    const { rows: existing } = await pool.query(
+      `SELECT title FROM group_dynamics WHERE is_global = true OR church_id = $1`,
+      [churchId]
+    );
+    const existingTitles = existing.map(d => d.title).join(', ');
+
+    const prompt = `Crie uma dinâmica de grupo criativa e inédita para um grupo de igreja cristã.
+A dinâmica deve promover interação, conhecimento mútuo e/ou reflexão espiritual.
+
+DINÂMICAS JÁ EXISTENTES (NÃO REPETIR): ${existingTitles}
+
+Retorne APENAS JSON válido:
+{
+  "title": "nome criativo da dinâmica",
+  "description": "descrição breve (1-2 frases)",
+  "instructions": "instruções passo a passo numeradas",
+  "category": "icebreaker|spiritual|reflection|game|creative",
+  "emoji": "emoji representativo",
+  "min_participants": 2,
+  "duration_minutes": 15
+}`;
+
+    const { callAI } = require('../services/processService');
+    const aiText = await callAI(
+      provider, apiKey,
+      'Você é um pastor criativo especialista em dinâmicas de grupo para igrejas. Responda SOMENTE com JSON válido.',
+      prompt, 0.9, 2048
+    );
+
+    const jsonMatch = aiText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return res.status(502).json({ error: 'A IA não retornou uma dinâmica válida.' });
+    }
+
+    const data = JSON.parse(jsonMatch[0]);
+    if (!data.title || !data.instructions) {
+      return res.status(502).json({ error: 'Resposta da IA incompleta.' });
+    }
+
+    const { rows: [dynamic] } = await pool.query(
+      `INSERT INTO group_dynamics (church_id, title, description, instructions, category, emoji, min_participants, duration_minutes, is_auto_generated, generated_week)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,true,CURRENT_DATE) RETURNING *`,
+      [churchId, data.title, data.description || '', data.instructions, data.category || 'icebreaker', data.emoji || '🎯', data.min_participants || 2, data.duration_minutes || 15]
+    );
+
+    res.json(dynamic);
+  } catch (err) {
+    console.error('Generate dynamic error:', err);
+    res.status(500).json({ error: err.message || 'Erro ao gerar dinâmica' });
+  }
+});
+
+// POST /api/church/groups/:id/dynamics/:dynamicId/use — mark dynamic as used
+router.post('/:id/dynamics/:dynamicId/use', async (req, res) => {
+  try {
+    const { rows: [usage] } = await pool.query(
+      'INSERT INTO group_dynamic_usage (group_id, dynamic_id, used_by) VALUES ($1,$2,$3) RETURNING *',
+      [req.params.id, req.params.dynamicId, req.user.id]
+    );
+    res.json(usage);
+  } catch (err) {
+    console.error('Use dynamic error:', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// POST /api/church/groups/:id/dynamics/:dynamicId/respond — member response
+router.post('/:id/dynamics/:dynamicId/respond', async (req, res) => {
+  try {
+    const { response } = req.body;
+    if (!response) return res.status(400).json({ error: 'Response required' });
+    const { rows: [resp] } = await pool.query(
+      'INSERT INTO group_dynamic_responses (dynamic_id, group_id, user_id, response) VALUES ($1,$2,$3,$4) RETURNING *',
+      [req.params.dynamicId, req.params.id, req.user.id, response]
+    );
+    res.json(resp);
+  } catch (err) {
+    console.error('Respond dynamic error:', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// GET /api/church/groups/:id/dynamics/:dynamicId/responses — view responses
+router.get('/:id/dynamics/:dynamicId/responses', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT dr.*, u.name as user_name FROM group_dynamic_responses dr
+       JOIN users u ON u.id = dr.user_id
+       WHERE dr.dynamic_id = $1 AND dr.group_id = $2
+       ORDER BY dr.created_at DESC`,
+      [req.params.dynamicId, req.params.id]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('GET responses error:', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// POST /api/church/groups/:id/dynamics/:dynamicId/rate — rate a dynamic
+router.post('/:id/dynamics/:dynamicId/rate', async (req, res) => {
+  try {
+    const { rating, feedback } = req.body;
+    if (!rating || rating < 1 || rating > 5) return res.status(400).json({ error: 'Rating 1-5 required' });
+    await pool.query(
+      `UPDATE group_dynamic_usage SET rating = $1, feedback = $2
+       WHERE group_id = $3 AND dynamic_id = $4 AND used_by = $5`,
+      [rating, feedback || null, req.params.id, req.params.dynamicId, req.user.id]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
 module.exports = router;
