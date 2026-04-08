@@ -44,6 +44,7 @@ import SchoolClassDetail from "@/pages/church/SchoolClassDetail";
 import SchoolAdmin from "@/pages/church/SchoolAdmin";
 import OnboardingPage from "@/pages/church/OnboardingPage";
 import FavoritesPage from "@/pages/church/FavoritesPage";
+import HelpPage from "@/pages/church/HelpPage";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
