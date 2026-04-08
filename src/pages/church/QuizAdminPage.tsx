@@ -80,8 +80,11 @@ const QuizAdminPage = () => {
   const handleGenerateInitial = async () => {
     setGeneratingInitial(true);
     try {
-      const result = await api.post<{ generated: number }>('/api/church/quizzes/generate', { count: 3 });
+      const result = await api.post<{ generated: number; warnings?: string[] }>('/api/church/quizzes/generate', { count: 3 });
       toast.success(`${result.generated} quizzes gerados com IA!`);
+      if (result.warnings?.length) {
+        toast.warning(`Alguns quizzes não puderam ser gerados: ${result.warnings[0]}`);
+      }
       fetchQuizzes();
     } catch (err: any) {
       toast.error(err.message || 'Erro ao gerar');
@@ -92,8 +95,11 @@ const QuizAdminPage = () => {
   const handleGenerateOne = async (category?: string) => {
     setGenerating(true);
     try {
-      const result = await api.post<{ generated: number }>('/api/church/quizzes/generate', { count: 1, category });
+      const result = await api.post<{ generated: number; warnings?: string[] }>('/api/church/quizzes/generate', { count: 1, category });
       toast.success(`${result.generated} quiz gerado!`);
+      if (result.warnings?.length) {
+        toast.warning(result.warnings[0]);
+      }
       fetchQuizzes();
     } catch (err: any) {
       toast.error(err.message || 'Erro ao gerar');
