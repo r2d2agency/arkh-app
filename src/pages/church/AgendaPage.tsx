@@ -244,9 +244,13 @@ const AgendaPage = () => {
                 <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="service">Culto</SelectItem>
+                  <SelectItem value="communion">Santa Ceia</SelectItem>
+                  <SelectItem value="prayer">Culto de Oração</SelectItem>
+                  <SelectItem value="youth_service">Culto Jovem</SelectItem>
+                  <SelectItem value="worship">Louvor & Adoração</SelectItem>
                   <SelectItem value="meeting">Reunião</SelectItem>
-                  <SelectItem value="event">Evento</SelectItem>
-                  <SelectItem value="group">Grupo</SelectItem>
+                  <SelectItem value="event">Evento Especial</SelectItem>
+                  <SelectItem value="group">Grupo / Célula</SelectItem>
                   <SelectItem value="general">Geral</SelectItem>
                 </SelectContent>
               </Select>
