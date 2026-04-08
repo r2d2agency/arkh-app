@@ -27,6 +27,7 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Dat
 app.use('/api/auth', authRoutes);
 app.use('/api/register', registerRoutes);
 app.use('/api/join', require('./routes/join'));
+app.use('/api/catalog', require('./routes/catalog'));
 
 // Protected routes (Super Admin)
 app.use('/api/dashboard', authenticate, requireRole('super_admin'), dashboardRoutes);

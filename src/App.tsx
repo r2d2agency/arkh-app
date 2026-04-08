@@ -48,6 +48,7 @@ import HelpPage from "@/pages/church/HelpPage";
 import QuizListPage from "@/pages/church/QuizListPage";
 import QuizPlayPage from "@/pages/church/QuizPlayPage";
 import QuizAdminPage from "@/pages/church/QuizAdminPage";
+import Index from "./pages/Index";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -63,10 +64,10 @@ function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles?
   return <>{children}</>;
 }
 
-function RedirectByRole() {
+function AutoRedirect() {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Index />;
   if (user.role === 'super_admin') return <Navigate to="/admin" replace />;
   return <Navigate to="/church" replace />;
 }
@@ -77,7 +78,7 @@ const AppRoutes = () => (
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/join/:slug" element={<JoinChurch />} />
-      <Route path="/" element={<RedirectByRole />} />
+      <Route path="/" element={<AutoRedirect />} />
 
       {/* Super Admin */}
       <Route element={<ProtectedRoute roles={['super_admin']}><AdminLayout /></ProtectedRoute>}>
