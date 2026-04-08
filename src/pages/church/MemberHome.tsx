@@ -4,7 +4,7 @@ import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Video, BookOpen, ArrowRight, Play, Clock, Heart, Sparkles,
-  Sun, CloudRain, Smile, Frown, Flame, HelpCircle, Zap, GraduationCap, Gamepad2,
+  Sun, CloudRain, Smile, Frown, Flame, HelpCircle, Zap, GraduationCap, Gamepad2, Calendar, MapPin,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
@@ -79,6 +79,17 @@ const formatTime = (seconds: number) => {
   return `${m}:${s.toString().padStart(2, '0')}`;
 };
 
+interface UpcomingEvent {
+  id: string; title: string; event_type: string;
+  starts_at: string; ends_at: string; location: string; all_day: boolean;
+}
+
+const eventTypeLabels: Record<string, string> = {
+  service: 'Culto', communion: 'Santa Ceia', prayer: 'Oração',
+  youth_service: 'Culto Jovem', worship: 'Louvor',
+  meeting: 'Reunião', event: 'Evento', group: 'Grupo', general: 'Geral',
+};
+
 const MemberHome = () => {
   const { user } = useAuth();
   const [services, setServices] = useState<Service[]>([]);
@@ -86,22 +97,28 @@ const MemberHome = () => {
   const [devotional, setDevotional] = useState<Devotional | null>(null);
   const [continueWatching, setContinueWatching] = useState<ContinueWatching[]>([]);
   const [schoolClasses, setSchoolClasses] = useState<SchoolClassPreview[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
 
   useEffect(() => {
+    const now = new Date();
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     Promise.all([
       api.get<Service[]>('/api/church/services').catch(() => []),
       api.get<ChurchInfo>('/api/church/info').catch(() => null),
       api.get<Devotional>('/api/church/devotional').catch(() => null),
       api.get<ContinueWatching[]>('/api/church/suggestions/continue-watching').catch(() => []),
       api.get<SchoolClassPreview[]>('/api/church/school/classes').catch(() => []),
-    ]).then(([svc, info, dev, cw, school]) => {
+      api.get<UpcomingEvent[]>(`/api/church/events?month=${month}`).catch(() => []),
+    ]).then(([svc, info, dev, cw, school, events]) => {
       setServices(svc || []);
       setChurchInfo(info);
       setDevotional(dev);
       setContinueWatching(cw || []);
       setSchoolClasses(school || []);
+      const futureEvents = (events || []).filter(e => new Date(e.starts_at) >= now);
+      setUpcomingEvents(futureEvents.slice(0, 5));
     }).finally(() => setLoading(false));
   }, []);
 
@@ -313,6 +330,53 @@ const MemberHome = () => {
           </div>
         )}
       </div>
+
+      {/* Upcoming Events */}
+      {upcomingEvents.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-heading text-lg font-semibold flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-primary" /> Próximos Eventos
+            </h2>
+            <Link to="/church/agenda" className="text-xs text-primary font-medium flex items-center gap-1">
+              Ver agenda <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {upcomingEvents.map(ev => (
+              <Link key={ev.id} to="/church/agenda">
+                <Card className="p-3 rounded-xl flex items-center gap-3 card-hover">
+                  <div className="text-center shrink-0 w-12 py-1">
+                    <p className="text-[10px] text-muted-foreground uppercase">
+                      {new Date(ev.starts_at).toLocaleDateString('pt-BR', { month: 'short' })}
+                    </p>
+                    <p className="text-lg font-bold leading-tight">{new Date(ev.starts_at).getDate()}</p>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{ev.title}</p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded-full text-[10px] font-medium">
+                        {eventTypeLabels[ev.event_type] || ev.event_type}
+                      </span>
+                      {!ev.all_day && (
+                        <span className="flex items-center gap-0.5">
+                          <Clock className="w-3 h-3" />
+                          {new Date(ev.starts_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      )}
+                      {ev.location && (
+                        <span className="flex items-center gap-0.5 truncate">
+                          <MapPin className="w-3 h-3" />{ev.location}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div>
         <div className="flex items-center justify-between mb-3">

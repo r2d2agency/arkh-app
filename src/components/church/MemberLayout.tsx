@@ -31,7 +31,7 @@ import logoImg from '@/assets/logo.png';
 const memberBottomNav = [
   { path: '/church', label: 'Início', icon: Home },
   { path: '/church/services', label: 'Cultos', icon: Video },
-  { path: '/church/quiz', label: 'Quiz', icon: Gamepad2 },
+  { path: '/church/agenda', label: 'Agenda', icon: Calendar },
   { path: '/church/studies', label: 'Estudar', icon: BookOpen },
   { path: '/church/profile', label: 'Perfil', icon: User },
 ];
@@ -40,6 +40,7 @@ const adminSidebarItems = [
   { path: '/church/manage-services', label: 'Gerenciar Cultos', icon: Video },
   { path: '/church/manage-studies', label: 'Estudos Bíblicos', icon: BookOpen },
   { path: '/church/manage-school', label: 'Escola Bíblica', icon: GraduationCap },
+  { path: '/church/agenda', label: 'Agenda / Eventos', icon: Calendar },
   { path: '/church/groups', label: 'Grupos', icon: UsersRound },
   { path: '/church/polls', label: 'Enquetes', icon: BarChart3 },
   { path: '/church/manage-quizzes', label: 'Quizzes', icon: Gamepad2 },

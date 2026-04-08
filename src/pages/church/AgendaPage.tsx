@@ -21,10 +21,14 @@ interface Event {
 }
 
 const eventTypeLabels: Record<string, string> = {
-  service: 'Culto', meeting: 'Reunião', event: 'Evento', group: 'Grupo', general: 'Geral'
+  service: 'Culto', communion: 'Santa Ceia', prayer: 'Oração',
+  youth_service: 'Culto Jovem', worship: 'Louvor',
+  meeting: 'Reunião', event: 'Evento', group: 'Grupo', general: 'Geral',
 };
 const eventTypeColors: Record<string, string> = {
-  service: 'bg-primary', meeting: 'bg-amber-500', event: 'bg-emerald-500', group: 'bg-violet-500', general: 'bg-muted-foreground'
+  service: 'bg-primary', communion: 'bg-rose-500', prayer: 'bg-amber-500',
+  youth_service: 'bg-emerald-500', worship: 'bg-violet-500',
+  meeting: 'bg-orange-500', event: 'bg-cyan-500', group: 'bg-indigo-500', general: 'bg-muted-foreground',
 };
 
 const AgendaPage = () => {
@@ -240,9 +244,13 @@ const AgendaPage = () => {
                 <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="service">Culto</SelectItem>
+                  <SelectItem value="communion">Santa Ceia</SelectItem>
+                  <SelectItem value="prayer">Culto de Oração</SelectItem>
+                  <SelectItem value="youth_service">Culto Jovem</SelectItem>
+                  <SelectItem value="worship">Louvor & Adoração</SelectItem>
                   <SelectItem value="meeting">Reunião</SelectItem>
-                  <SelectItem value="event">Evento</SelectItem>
-                  <SelectItem value="group">Grupo</SelectItem>
+                  <SelectItem value="event">Evento Especial</SelectItem>
+                  <SelectItem value="group">Grupo / Célula</SelectItem>
                   <SelectItem value="general">Geral</SelectItem>
                 </SelectContent>
               </Select>
