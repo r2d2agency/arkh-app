@@ -55,6 +55,7 @@ const MemberLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [churchName, setChurchName] = useState<string>('');
   const [churchLogo, setChurchLogo] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const isAdmin = user?.role === 'admin_church' || user?.role === 'leader';
   const isSchoolRoute = location.pathname.startsWith('/church/school');
@@ -66,6 +67,18 @@ const MemberLayout = () => {
         setChurchLogo(info.logo_url || null);
       })
       .catch(() => {});
+    
+    api.get<{ count: number }>('/api/church/notifications/unread-count')
+      .then(r => setUnreadCount(r.count))
+      .catch(() => {});
+    
+    // Poll every 30s
+    const interval = setInterval(() => {
+      api.get<{ count: number }>('/api/church/notifications/unread-count')
+        .then(r => setUnreadCount(r.count))
+        .catch(() => {});
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleLogout = () => {
@@ -100,6 +113,11 @@ const MemberLayout = () => {
           </Link>
           <Link to="/church/notifications" className="relative p-2 rounded-xl hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
             <Bell className="w-5 h-5" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center px-1">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
           </Link>
           {isAdmin && (
             <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-xl hover:bg-muted transition-colors">

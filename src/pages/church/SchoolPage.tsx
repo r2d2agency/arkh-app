@@ -2,29 +2,23 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { GraduationCap, Users, BookOpen, Calendar, Loader2, ArrowRight, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { GraduationCap, Users, BookOpen, Calendar, Loader2, ArrowRight, CheckCircle, Clock, UserCheck, UserX } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
 interface SchoolClass {
-  id: string;
-  title: string;
-  description: string;
-  teacher_name: string;
-  category: string;
-  schedule: string;
-  max_students: number | null;
-  student_count: number;
-  pending_count: number;
-  lesson_count: number;
-  is_enrolled: boolean;
-  is_pending: boolean;
-  enrollment_status: string | null;
-  is_active: boolean;
-  starts_at: string;
-  ends_at: string;
+  id: string; title: string; description: string; teacher_name: string;
+  category: string; schedule: string; max_students: number | null;
+  student_count: number; pending_count: number; lesson_count: number;
+  is_enrolled: boolean; is_pending: boolean; enrollment_status: string | null;
+  is_active: boolean; starts_at: string; ends_at: string;
+}
+
+interface PendingEnrollment {
+  enrollment_id: string; user_name: string; user_email: string;
+  avatar_url: string; class_title: string; class_id: string; requested_at: string;
 }
 
 const categoryLabels: Record<string, string> = {
@@ -40,24 +34,33 @@ const categoryColors: Record<string, string> = {
 const SchoolPage = () => {
   const { user } = useAuth();
   const [classes, setClasses] = useState<SchoolClass[]>([]);
+  const [pending, setPending] = useState<PendingEnrollment[]>([]);
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState<string | null>(null);
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
-  const loadClasses = () => {
-    api.get<SchoolClass[]>('/api/church/school/classes')
-      .then(setClasses)
-      .catch(() => {})
-      .finally(() => setLoading(false));
+  const isAdmin = user?.role === 'admin_church' || user?.role === 'leader';
+
+  const loadData = () => {
+    const promises: Promise<any>[] = [
+      api.get<SchoolClass[]>('/api/church/school/classes').then(setClasses).catch(() => {}),
+    ];
+    if (isAdmin) {
+      promises.push(
+        api.get<PendingEnrollment[]>('/api/church/school/pending').then(setPending).catch(() => {})
+      );
+    }
+    Promise.all(promises).finally(() => setLoading(false));
   };
 
-  useEffect(() => { loadClasses(); }, []);
+  useEffect(() => { loadData(); }, []);
 
   const handleEnroll = async (classId: string) => {
     setEnrolling(classId);
     try {
       const result = await api.post<{ message?: string }>(`/api/church/school/classes/${classId}/enroll`, {});
       toast.success(result.message || 'Solicitação enviada! Aguarde aprovação.');
-      loadClasses();
+      loadData();
     } catch (err: any) {
       toast.error(err.message || 'Erro ao solicitar matrícula');
     }
@@ -68,8 +71,32 @@ const SchoolPage = () => {
     try {
       await api.delete(`/api/church/school/classes/${classId}/enroll`);
       toast.success('Solicitação cancelada');
-      loadClasses();
+      loadData();
     } catch {}
+  };
+
+  const handleApprove = async (enrollmentId: string) => {
+    setProcessingId(enrollmentId);
+    try {
+      await api.put(`/api/church/school/enrollments/${enrollmentId}/approve`, {});
+      toast.success('Matrícula aprovada!');
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || 'Erro');
+    }
+    setProcessingId(null);
+  };
+
+  const handleReject = async (enrollmentId: string) => {
+    setProcessingId(enrollmentId);
+    try {
+      await api.put(`/api/church/school/enrollments/${enrollmentId}/reject`, {});
+      toast.success('Matrícula recusada');
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || 'Erro');
+    }
+    setProcessingId(null);
   };
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
@@ -85,6 +112,53 @@ const SchoolPage = () => {
           <p className="text-sm text-muted-foreground">Classes e cursos disponíveis</p>
         </div>
       </div>
+
+      {/* PENDING APPROVALS SECTION */}
+      {isAdmin && pending.length > 0 && (
+        <Card className="p-4 border-amber-500/30 bg-amber-500/5">
+          <h2 className="text-sm font-semibold text-amber-400 flex items-center gap-2 mb-3">
+            <Clock className="w-4 h-4" />
+            Solicitações pendentes ({pending.length})
+          </h2>
+          <div className="space-y-2">
+            {pending.map(p => (
+              <div key={p.enrollment_id} className="flex items-center gap-3 p-3 rounded-xl bg-background/50 border border-border/50">
+                <div className="w-9 h-9 rounded-full bg-amber-500/20 flex items-center justify-center text-xs font-bold text-amber-400 shrink-0">
+                  {p.user_name?.charAt(0)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{p.user_name}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">{p.class_title}</p>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-9 w-9 text-emerald-400 hover:bg-emerald-500/20"
+                    onClick={() => handleApprove(p.enrollment_id)}
+                    disabled={processingId === p.enrollment_id}
+                  >
+                    {processingId === p.enrollment_id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <UserCheck className="w-5 h-5" />
+                    )}
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-9 w-9 text-destructive hover:bg-destructive/20"
+                    onClick={() => handleReject(p.enrollment_id)}
+                    disabled={processingId === p.enrollment_id}
+                  >
+                    <UserX className="w-5 h-5" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {classes.length === 0 ? (
         <Card className="p-8 text-center border-dashed">
@@ -106,7 +180,12 @@ const SchoolPage = () => {
                     )}
                     {cls.is_pending && (
                       <Badge variant="outline" className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[10px]">
-                        <Clock className="w-3 h-3 mr-1" /> Aguardando aprovação
+                        <Clock className="w-3 h-3 mr-1" /> Aguardando
+                      </Badge>
+                    )}
+                    {isAdmin && cls.pending_count > 0 && (
+                      <Badge className="bg-amber-500/20 text-amber-400 text-[10px]">
+                        {cls.pending_count} pendente{cls.pending_count > 1 ? 's' : ''}
                       </Badge>
                     )}
                   </div>
