@@ -1,4 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import AIAssistant from '@/components/church/AIAssistant';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import {
@@ -180,6 +181,8 @@ const MemberLayout = () => {
       <main className="flex-1 overflow-auto pb-24">
         <Outlet />
       </main>
+
+      <AIAssistant />
 
       <nav className="fixed bottom-0 left-0 right-0 z-30 backdrop-blur-xl border-t border-white/10 safe-bottom" style={{ background: "linear-gradient(135deg, hsl(215 45% 12%) 0%, hsl(215 65% 25%) 100%)" }}>
         <div className="flex items-center justify-around py-2 max-w-lg mx-auto">
