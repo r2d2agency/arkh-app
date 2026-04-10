@@ -5,8 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Settings, Brain, Sparkles, Save, RotateCcw, Bot, Crown } from 'lucide-react';
+import { Settings, Brain, Sparkles, Save, RotateCcw, Bot, Crown, MessageCircle, Church } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
@@ -16,9 +15,10 @@ interface AISettings {
   ai_temperature: number | null;
   ai_max_tokens: number | null;
   ai_assistant_enabled: boolean;
+  ai_assistant_prompt: string | null;
 }
 
-const defaultPrompt = `Você é um teólogo e analista bíblico especializado em pregações cristãs. Sua função é criar uma análise PROFUNDA, COMPLETA e DETALHADA de cada pregação.
+const defaultProcessingPrompt = `Você é um teólogo e analista bíblico especializado em pregações cristãs. Sua função é criar uma análise PROFUNDA, COMPLETA e DETALHADA de cada pregação.
 
 Responda SEMPRE em JSON válido com a seguinte estrutura:
 {
@@ -32,10 +32,23 @@ Responda SEMPRE em JSON válido com a seguinte estrutura:
   "connections": [{"sermon_title": "...", "connection": "..."}]
 }`;
 
+const defaultAssistantPrompt = `Descreva aqui informações sobre a doutrina, valores e identidade da sua igreja. Essas informações serão usadas pelo Assistente ARKHÉ para contextualizar respostas aos membros.
+
+Exemplo:
+- Nossa igreja é da denominação Batista
+- Cremos na Trindade, salvação pela graça e autoridade das Escrituras
+- Valorizamos comunhão, missões e discipulado`;
+
 const ChurchSettings = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [settings, setSettings] = useState<AISettings>({ ai_prompt_template: null, ai_temperature: null, ai_max_tokens: null, ai_assistant_enabled: false });
+  const [settings, setSettings] = useState<AISettings>({
+    ai_prompt_template: null,
+    ai_temperature: null,
+    ai_max_tokens: null,
+    ai_assistant_enabled: false,
+    ai_assistant_prompt: null,
+  });
   const [togglingAssistant, setTogglingAssistant] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -43,7 +56,7 @@ const ChurchSettings = () => {
   const isAdmin = user?.role === 'admin_church';
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchSettings = async () => {
       setLoading(true);
       try {
         const data = await api.get<AISettings>('/api/church/ai-settings');
@@ -54,14 +67,14 @@ const ChurchSettings = () => {
         setLoading(false);
       }
     };
-    fetch();
+    fetchSettings();
   }, []);
 
   const handleSave = async () => {
     setSaving(true);
     try {
       await api.put('/api/church/ai-settings', settings);
-      toast({ title: 'Configurações de IA salvas!' });
+      toast({ title: 'Configurações salvas com sucesso!' });
     } catch (err: any) {
       toast({ title: err.message || 'Erro ao salvar', variant: 'destructive' });
     } finally {
@@ -69,8 +82,12 @@ const ChurchSettings = () => {
     }
   };
 
-  const handleReset = () => {
-    setSettings({ ai_prompt_template: null, ai_temperature: null, ai_max_tokens: null, ai_assistant_enabled: settings.ai_assistant_enabled });
+  const handleResetProcessing = () => {
+    setSettings(s => ({ ...s, ai_prompt_template: null, ai_temperature: null, ai_max_tokens: null }));
+  };
+
+  const handleResetAssistant = () => {
+    setSettings(s => ({ ...s, ai_assistant_prompt: null }));
   };
 
   if (!isAdmin) {
@@ -78,7 +95,7 @@ const ChurchSettings = () => {
       <div className="space-y-6 animate-fade-in">
         <div>
           <h1 className="font-heading text-2xl font-bold">Configurações</h1>
-          <p className="text-sm text-muted-foreground">Apenas administradores podem alterar configurações.</p>
+          <p className="text-muted-foreground">Apenas administradores podem alterar configurações.</p>
         </div>
       </div>
     );
@@ -88,25 +105,27 @@ const ChurchSettings = () => {
     <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="font-heading text-2xl font-bold">Configurações</h1>
-        <p className="text-sm text-muted-foreground">Configurações gerais da sua igreja</p>
+        <p className="text-muted-foreground">Configurações gerais da sua igreja</p>
       </div>
 
-      {/* AI Assistant Toggle */}
-      <Card className="p-6 rounded-xl space-y-4 max-w-2xl border-primary/20">
-        <h3 className="font-heading font-semibold flex items-center gap-2">
-          <Bot className="w-4 h-4 text-primary" /> IA Assistente
+      {/* ═══════ SEÇÃO 1: IA ASSISTENTE (PREMIUM) ═══════ */}
+      <Card className="p-6 rounded-xl space-y-5 max-w-2xl border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+        <h3 className="font-heading text-lg font-semibold flex items-center gap-2">
+          <Bot className="w-5 h-5 text-primary" /> IA Assistente
           <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 px-2 py-0.5 rounded-full">
             <Crown className="w-3 h-3" /> Premium
           </span>
         </h3>
         <p className="text-sm text-muted-foreground">
-          Ative para que os membros possam conversar com a IA, tirar dúvidas bíblicas, aprofundar estudos e muito mais. 
-          Disponível apenas em planos premium.
+          O Assistente ARKHÉ permite que os membros conversem com a IA, tirem dúvidas bíblicas e aprofundem estudos.
+          Disponível em planos premium.
         </p>
+
+        {/* Toggle */}
         <div className="flex items-center justify-between p-4 rounded-xl bg-muted/50 border border-border">
           <div>
-            <p className="font-medium text-foreground text-sm">Ativar IA Assistente para membros</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Os membros verão o botão "Assistente ARKHÉ"</p>
+            <p className="font-medium text-foreground">Ativar IA Assistente para membros</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Os membros verão o botão "Assistente ARKHÉ" no app</p>
           </div>
           <Switch
             checked={settings.ai_assistant_enabled}
@@ -125,30 +144,62 @@ const ChurchSettings = () => {
             }}
           />
         </div>
+
+        {/* Prompt do Assistente — só aparece quando ativo */}
+        {settings.ai_assistant_enabled && (
+          <div className="space-y-4 pt-2 border-t border-border/50">
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <MessageCircle className="w-3 h-3" /> Contexto da Igreja (Doutrina / Descrição)
+              </Label>
+              <Textarea
+                placeholder={defaultAssistantPrompt}
+                value={settings.ai_assistant_prompt || ''}
+                onChange={e => setSettings(s => ({ ...s, ai_assistant_prompt: e.target.value || null }))}
+                className="rounded-xl min-h-[140px] text-sm"
+                rows={6}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Descreva a doutrina, valores e identidade da sua igreja. Esse texto complementa o prompt principal (definido pelo Super Admin)
+                e ajuda o assistente a dar respostas alinhadas com a sua denominação.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleSave} disabled={saving} size="sm" className="rounded-xl bg-primary hover:bg-primary/90 border-0 text-primary-foreground">
+                <Save className="w-4 h-4 mr-2" />
+                {saving ? 'Salvando...' : 'Salvar'}
+              </Button>
+              <Button variant="outline" onClick={handleResetAssistant} size="sm" className="rounded-xl">
+                <RotateCcw className="w-4 h-4 mr-2" /> Limpar
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
 
+      {/* ═══════ SEÇÃO 2: IA PROCESSAMENTO (CULTOS) ═══════ */}
       <Card className="p-6 rounded-xl space-y-5 max-w-2xl">
-        <h3 className="font-heading font-semibold flex items-center gap-2">
-          <Brain className="w-4 h-4 text-primary" /> Configurações de IA
+        <h3 className="font-heading text-lg font-semibold flex items-center gap-2">
+          <Brain className="w-5 h-5 text-primary" /> IA de Processamento de Cultos
         </h3>
         <p className="text-sm text-muted-foreground">
-          Personalize como a IA processa as pregações da sua igreja. O prompt define o formato e profundidade da análise.
+          Configure como a IA gera resumos, pontos-chave e análises dos cultos. Este prompt é usado na <strong>IA Passiva</strong> (incluída no plano gratuito).
         </p>
 
         <div className="space-y-4">
           <div className="space-y-2">
             <Label className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-              <Sparkles className="w-3 h-3" /> Prompt personalizado
+              <Sparkles className="w-3 h-3" /> Prompt de processamento
             </Label>
             <Textarea
-              placeholder={defaultPrompt}
+              placeholder={defaultProcessingPrompt}
               value={settings.ai_prompt_template || ''}
               onChange={e => setSettings(s => ({ ...s, ai_prompt_template: e.target.value || null }))}
-              className="rounded-xl min-h-[200px] font-mono text-xs"
-              rows={12}
+              className="rounded-xl min-h-[180px] font-mono text-xs"
+              rows={10}
             />
-            <p className="text-[10px] text-muted-foreground">
-              Deixe vazio para usar o prompt padrão do sistema. O prompt deve instruir a IA a retornar JSON válido.
+            <p className="text-[11px] text-muted-foreground">
+              Deixe vazio para usar o prompt padrão do sistema. O prompt deve instruir a IA a retornar JSON válido com resumo, versículos, etc.
             </p>
           </div>
 
@@ -165,9 +216,7 @@ const ChurchSettings = () => {
                 onChange={e => setSettings(s => ({ ...s, ai_temperature: e.target.value ? parseFloat(e.target.value) : null }))}
                 className="rounded-xl"
               />
-              <p className="text-[10px] text-muted-foreground">
-                0 = mais focado, 2 = mais criativo
-              </p>
+              <p className="text-[11px] text-muted-foreground">0 = mais focado, 2 = mais criativo</p>
             </div>
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wider text-muted-foreground">Max Tokens</Label>
@@ -181,9 +230,7 @@ const ChurchSettings = () => {
                 onChange={e => setSettings(s => ({ ...s, ai_max_tokens: e.target.value ? parseInt(e.target.value) : null }))}
                 className="rounded-xl"
               />
-              <p className="text-[10px] text-muted-foreground">
-                Mais tokens = resposta mais longa
-              </p>
+              <p className="text-[11px] text-muted-foreground">Mais tokens = resposta mais longa</p>
             </div>
           </div>
         </div>
@@ -193,15 +240,16 @@ const ChurchSettings = () => {
             <Save className="w-4 h-4 mr-2" />
             {saving ? 'Salvando...' : 'Salvar configurações'}
           </Button>
-          <Button variant="outline" onClick={handleReset} className="rounded-xl">
+          <Button variant="outline" onClick={handleResetProcessing} className="rounded-xl">
             <RotateCcw className="w-4 h-4 mr-2" /> Restaurar padrão
           </Button>
         </div>
       </Card>
 
+      {/* ═══════ SEÇÃO 3: DADOS DA IGREJA ═══════ */}
       <Card className="p-6 rounded-xl space-y-5 max-w-2xl">
-        <h3 className="font-heading font-semibold flex items-center gap-2">
-          <Settings className="w-4 h-4" /> Dados da Igreja
+        <h3 className="font-heading text-lg font-semibold flex items-center gap-2">
+          <Church className="w-5 h-5" /> Dados da Igreja
         </h3>
         <div className="space-y-4">
           <div className="space-y-2">
