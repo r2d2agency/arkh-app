@@ -30,7 +30,7 @@ $$ LANGUAGE plpgsql;
 -- Plans
 CREATE TABLE IF NOT EXISTS plans (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name VARCHAR(100) NOT NULL,
+  name VARCHAR(100) NOT NULL UNIQUE,
   price DECIMAL(10,2) NOT NULL DEFAULT 0,
   interval plan_interval NOT NULL DEFAULT 'monthly',
   max_members INT NOT NULL DEFAULT 50,
