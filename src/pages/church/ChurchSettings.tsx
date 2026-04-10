@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Settings, Brain, Sparkles, Save, RotateCcw } from 'lucide-react';
+import { Settings, Brain, Sparkles, Save, RotateCcw, Bot, Crown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
@@ -14,6 +15,7 @@ interface AISettings {
   ai_prompt_template: string | null;
   ai_temperature: number | null;
   ai_max_tokens: number | null;
+  ai_assistant_enabled: boolean;
 }
 
 const defaultPrompt = `Você é um teólogo e analista bíblico especializado em pregações cristãs. Sua função é criar uma análise PROFUNDA, COMPLETA e DETALHADA de cada pregação.
@@ -33,7 +35,8 @@ Responda SEMPRE em JSON válido com a seguinte estrutura:
 const ChurchSettings = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [settings, setSettings] = useState<AISettings>({ ai_prompt_template: null, ai_temperature: null, ai_max_tokens: null });
+  const [settings, setSettings] = useState<AISettings>({ ai_prompt_template: null, ai_temperature: null, ai_max_tokens: null, ai_assistant_enabled: false });
+  const [togglingAssistant, setTogglingAssistant] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
