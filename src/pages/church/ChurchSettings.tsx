@@ -91,9 +91,43 @@ const ChurchSettings = () => {
         <p className="text-sm text-muted-foreground">Configurações gerais da sua igreja</p>
       </div>
 
-      <Card className="p-6 rounded-xl space-y-5 max-w-2xl">
+      {/* AI Assistant Toggle */}
+      <Card className="p-6 rounded-xl space-y-4 max-w-2xl border-primary/20">
         <h3 className="font-heading font-semibold flex items-center gap-2">
-          <Brain className="w-4 h-4 text-primary" /> Configurações de IA
+          <Bot className="w-4 h-4 text-primary" /> IA Assistente
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 px-2 py-0.5 rounded-full">
+            <Crown className="w-3 h-3" /> Premium
+          </span>
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          Ative para que os membros possam conversar com a IA, tirar dúvidas bíblicas, aprofundar estudos e muito mais. 
+          Disponível apenas em planos premium.
+        </p>
+        <div className="flex items-center justify-between p-4 rounded-xl bg-muted/50 border border-border">
+          <div>
+            <p className="font-medium text-foreground text-sm">Ativar IA Assistente para membros</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Os membros verão o botão "Assistente ARKHÉ"</p>
+          </div>
+          <Switch
+            checked={settings.ai_assistant_enabled}
+            disabled={togglingAssistant}
+            onCheckedChange={async () => {
+              setTogglingAssistant(true);
+              try {
+                const data = await api.put<{ ai_assistant_enabled: boolean }>('/api/church/assistant/toggle', {});
+                setSettings(s => ({ ...s, ai_assistant_enabled: data.ai_assistant_enabled }));
+                toast({ title: data.ai_assistant_enabled ? 'IA Assistente ativada!' : 'IA Assistente desativada' });
+              } catch (err: any) {
+                toast({ title: err.message || 'Erro ao alterar', variant: 'destructive' });
+              } finally {
+                setTogglingAssistant(false);
+              }
+            }}
+          />
+        </div>
+      </Card>
+
+
         </h3>
         <p className="text-sm text-muted-foreground">
           Personalize como a IA processa as pregações da sua igreja. O prompt define o formato e profundidade da análise.
