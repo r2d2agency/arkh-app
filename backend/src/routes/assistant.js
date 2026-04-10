@@ -1,5 +1,18 @@
 const router = require('express').Router();
 const pool = require('../db/pool');
+const crypto = require('crypto');
+
+// Normaliza pergunta para cache (lowercase, sem acentos, sem pontuação extra)
+function normalizeQuestion(q) {
+  return q.trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ');
+}
+
+function hashQuestion(normalized) {
+  return crypto.createHash('sha256').update(normalized).digest('hex');
+}
 
 // ─── Check if AI Assistant is available for this user ───
 router.get('/status', async (req, res) => {
@@ -121,6 +134,51 @@ router.post('/chat', async (req, res) => {
       [convId, 'user', message]
     );
 
+    // ─── Check cache for similar question (only for first message / no prior context) ───
+    const normalized = normalizeQuestion(message);
+    const qHash = hashQuestion(normalized);
+    const isFirstMessage = !conversation_id; // new conversation = cacheable
+
+    if (isFirstMessage) {
+      const { rows: cached } = await pool.query(
+        `SELECT id, response FROM ai_assistant_cache
+         WHERE church_id = $1 AND question_hash = $2 AND context_type = $3
+         LIMIT 1`,
+        [status.church_id, qHash, context_type || 'general']
+      );
+
+      if (cached.length) {
+        // Cache hit! Return cached response without calling AI
+        const cachedResponse = cached[0].response;
+
+        // Increment hit count
+        await pool.query(
+          'UPDATE ai_assistant_cache SET hit_count = hit_count + 1 WHERE id = $1',
+          [cached[0].id]
+        );
+
+        // Save cached response as message
+        await pool.query(
+          'INSERT INTO ai_assistant_messages (conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4)',
+          [convId, 'assistant', cachedResponse, 0]
+        );
+
+        // Update usage (0 tokens since cached)
+        await pool.query(`
+          INSERT INTO ai_assistant_usage (user_id, church_id, usage_date, interactions_count, tokens_used)
+          VALUES ($1, $2, CURRENT_DATE, 1, 0)
+          ON CONFLICT (user_id, usage_date)
+          DO UPDATE SET interactions_count = ai_assistant_usage.interactions_count + 1
+        `, [req.user.id, status.church_id]);
+
+        return res.json({
+          conversation_id: convId,
+          message: cachedResponse,
+          cached: true,
+        });
+      }
+    }
+
     // Get conversation history
     const { rows: history } = await pool.query(
       'SELECT role, content FROM ai_assistant_messages WHERE conversation_id = $1 ORDER BY created_at ASC LIMIT 20',
@@ -231,6 +289,18 @@ ${status.ai_prompt_template ? `\nInstruções adicionais da igreja:\n${status.ai
       'INSERT INTO ai_assistant_messages (conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4)',
       [convId, 'assistant', aiResponse, maxTokens]
     );
+
+    // ─── Save to cache (only first messages in new conversations) ───
+    if (isFirstMessage && aiResponse && !aiResponse.includes('Não foi possível')) {
+      await pool.query(`
+        INSERT INTO ai_assistant_cache (church_id, question_hash, question_normalized, context_type, context_id, response)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (church_id, question_hash, context_type) DO UPDATE SET
+          response = EXCLUDED.response,
+          hit_count = ai_assistant_cache.hit_count + 1,
+          updated_at = NOW()
+      `, [status.church_id, qHash, normalized, context_type || 'general', context_id || null, aiResponse]).catch(() => {});
+    }
 
     // Update usage
     await pool.query(`
