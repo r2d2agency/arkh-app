@@ -1,4 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import AIAssistant from '@/components/church/AIAssistant';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import {
@@ -181,8 +182,10 @@ const MemberLayout = () => {
         <Outlet />
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-30 bg-card/95 backdrop-blur-xl border-t border-border safe-bottom">
-        <div className="flex items-center justify-around py-1.5 max-w-lg mx-auto">
+      <AIAssistant />
+
+      <nav className="fixed bottom-0 left-0 right-0 z-30 backdrop-blur-xl border-t border-white/10 safe-bottom" style={{ background: "linear-gradient(135deg, hsl(215 45% 12%) 0%, hsl(215 65% 25%) 100%)" }}>
+        <div className="flex items-center justify-around py-2 max-w-lg mx-auto">
           {memberBottomNav.map(item => {
             const isActive = location.pathname === item.path ||
               (item.path !== '/church' && location.pathname.startsWith(item.path));
@@ -192,12 +195,12 @@ const MemberLayout = () => {
                 to={item.path}
                 className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all min-w-[60px] ${
                   isActive
-                    ? 'text-primary'
-                    : 'text-muted-foreground'
+                    ? 'text-white'
+                    : 'text-white/50 hover:text-white/70'
                 }`}
               >
-                <item.icon className={`w-5 h-5 ${isActive ? 'text-primary' : ''}`} />
-                <span className={`text-[10px] ${isActive ? 'font-semibold' : 'font-medium'}`}>{item.label}</span>
+                <item.icon className={`w-5 h-5 ${isActive ? 'text-white' : ''}`} />
+                <span className={`text-[11px] ${isActive ? 'font-bold' : 'font-medium'}`}>{item.label}</span>
               </Link>
             );
           })}

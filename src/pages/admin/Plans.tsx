@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Pencil, Sparkles, Trash2 } from "lucide-react";
+import { Plus, Pencil, Sparkles, Trash2, Bot } from "lucide-react";
 import { Plan, usePlans, useUpdatePlan } from "@/hooks/useApi";
 import PlanDialog from "@/components/admin/PlanDialog";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
@@ -63,6 +63,12 @@ const Plans = () => {
                 <div className="space-y-2 text-sm">
                   <p className="text-muted-foreground">Máx. membros: <span className="text-foreground font-medium">{plan.max_members}</span></p>
                   <p className="text-muted-foreground">Máx. tokens IA: <span className="text-foreground font-medium">{plan.max_ai_tokens.toLocaleString('pt-BR')}</span></p>
+                  <p className="text-muted-foreground flex items-center gap-1.5">
+                    <Bot className="w-3.5 h-3.5" /> IA Assistente:{' '}
+                    <span className={`font-medium ${(plan as any).ai_assistant_enabled ? 'text-success' : 'text-muted-foreground'}`}>
+                      {(plan as any).ai_assistant_enabled ? `Ativo (${(plan as any).ai_assistant_daily_limit || '∞'}/dia)` : 'Desativado'}
+                    </span>
+                  </p>
                   {Array.isArray(plan.features) && plan.features.map((f: string) => (
                     <p key={f} className="text-success">✓ {f}</p>
                   ))}

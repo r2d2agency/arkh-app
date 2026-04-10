@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Settings, Brain, Sparkles, Save, RotateCcw } from 'lucide-react';
+import { Settings, Brain, Sparkles, Save, RotateCcw, Bot, Crown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
@@ -14,6 +15,7 @@ interface AISettings {
   ai_prompt_template: string | null;
   ai_temperature: number | null;
   ai_max_tokens: number | null;
+  ai_assistant_enabled: boolean;
 }
 
 const defaultPrompt = `Você é um teólogo e analista bíblico especializado em pregações cristãs. Sua função é criar uma análise PROFUNDA, COMPLETA e DETALHADA de cada pregação.
@@ -33,7 +35,8 @@ Responda SEMPRE em JSON válido com a seguinte estrutura:
 const ChurchSettings = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [settings, setSettings] = useState<AISettings>({ ai_prompt_template: null, ai_temperature: null, ai_max_tokens: null });
+  const [settings, setSettings] = useState<AISettings>({ ai_prompt_template: null, ai_temperature: null, ai_max_tokens: null, ai_assistant_enabled: false });
+  const [togglingAssistant, setTogglingAssistant] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -67,7 +70,7 @@ const ChurchSettings = () => {
   };
 
   const handleReset = () => {
-    setSettings({ ai_prompt_template: null, ai_temperature: null, ai_max_tokens: null });
+    setSettings({ ai_prompt_template: null, ai_temperature: null, ai_max_tokens: null, ai_assistant_enabled: settings.ai_assistant_enabled });
   };
 
   if (!isAdmin) {
@@ -87,6 +90,42 @@ const ChurchSettings = () => {
         <h1 className="font-heading text-2xl font-bold">Configurações</h1>
         <p className="text-sm text-muted-foreground">Configurações gerais da sua igreja</p>
       </div>
+
+      {/* AI Assistant Toggle */}
+      <Card className="p-6 rounded-xl space-y-4 max-w-2xl border-primary/20">
+        <h3 className="font-heading font-semibold flex items-center gap-2">
+          <Bot className="w-4 h-4 text-primary" /> IA Assistente
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 px-2 py-0.5 rounded-full">
+            <Crown className="w-3 h-3" /> Premium
+          </span>
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          Ative para que os membros possam conversar com a IA, tirar dúvidas bíblicas, aprofundar estudos e muito mais. 
+          Disponível apenas em planos premium.
+        </p>
+        <div className="flex items-center justify-between p-4 rounded-xl bg-muted/50 border border-border">
+          <div>
+            <p className="font-medium text-foreground text-sm">Ativar IA Assistente para membros</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Os membros verão o botão "Assistente ARKHÉ"</p>
+          </div>
+          <Switch
+            checked={settings.ai_assistant_enabled}
+            disabled={togglingAssistant}
+            onCheckedChange={async () => {
+              setTogglingAssistant(true);
+              try {
+                const data = await api.put<{ ai_assistant_enabled: boolean }>('/api/church/assistant/toggle', {});
+                setSettings(s => ({ ...s, ai_assistant_enabled: data.ai_assistant_enabled }));
+                toast({ title: data.ai_assistant_enabled ? 'IA Assistente ativada!' : 'IA Assistente desativada' });
+              } catch (err: any) {
+                toast({ title: err.message || 'Erro ao alterar', variant: 'destructive' });
+              } finally {
+                setTogglingAssistant(false);
+              }
+            }}
+          />
+        </div>
+      </Card>
 
       <Card className="p-6 rounded-xl space-y-5 max-w-2xl">
         <h3 className="font-heading font-semibold flex items-center gap-2">

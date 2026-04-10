@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Plus, X } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Loader2, Plus, X, Bot } from "lucide-react";
 import { Plan, useCreatePlan, useUpdatePlan } from "@/hooks/useApi";
 import { Badge } from "@/components/ui/badge";
 
@@ -22,6 +23,9 @@ export default function PlanDialog({ open, onOpenChange, plan }: Props) {
   const [maxAiTokens, setMaxAiTokens] = useState("100000");
   const [features, setFeatures] = useState<string[]>([]);
   const [newFeature, setNewFeature] = useState("");
+  const [aiAssistantEnabled, setAiAssistantEnabled] = useState(false);
+  const [aiAssistantDailyLimit, setAiAssistantDailyLimit] = useState("0");
+  const [aiAssistantMaxTokens, setAiAssistantMaxTokens] = useState("2000");
   const createMut = useCreatePlan();
   const updateMut = useUpdatePlan();
   const isEdit = !!plan;
@@ -35,8 +39,12 @@ export default function PlanDialog({ open, onOpenChange, plan }: Props) {
       setMaxMembers(String(plan.max_members));
       setMaxAiTokens(String(plan.max_ai_tokens));
       setFeatures(Array.isArray(plan.features) ? plan.features : []);
+      setAiAssistantEnabled((plan as any).ai_assistant_enabled || false);
+      setAiAssistantDailyLimit(String((plan as any).ai_assistant_daily_limit || 0));
+      setAiAssistantMaxTokens(String((plan as any).ai_assistant_max_tokens_per_msg || 2000));
     } else {
       setName(""); setPrice("0"); setInterval("monthly"); setMaxMembers("50"); setMaxAiTokens("100000"); setFeatures([]);
+      setAiAssistantEnabled(false); setAiAssistantDailyLimit("0"); setAiAssistantMaxTokens("2000");
     }
     setNewFeature("");
   }, [plan, open]);
@@ -47,7 +55,12 @@ export default function PlanDialog({ open, onOpenChange, plan }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const data = { name, price: +price, interval, max_members: +maxMembers, max_ai_tokens: +maxAiTokens, features };
+    const data = {
+      name, price: +price, interval, max_members: +maxMembers, max_ai_tokens: +maxAiTokens, features,
+      ai_assistant_enabled: aiAssistantEnabled,
+      ai_assistant_daily_limit: +aiAssistantDailyLimit,
+      ai_assistant_max_tokens_per_msg: +aiAssistantMaxTokens,
+    };
     if (isEdit) {
       await updateMut.mutateAsync({ id: plan!.id, ...data });
     } else {
@@ -58,7 +71,7 @@ export default function PlanDialog({ open, onOpenChange, plan }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-2xl max-w-lg">
+      <DialogContent className="rounded-2xl max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-heading">{isEdit ? "Editar Plano" : "Novo Plano"}</DialogTitle>
         </DialogHeader>
@@ -93,6 +106,30 @@ export default function PlanDialog({ open, onOpenChange, plan }: Props) {
               <Input type="number" value={maxAiTokens} onChange={e => setMaxAiTokens(e.target.value)} min="0" className="rounded-xl" required />
             </div>
           </div>
+
+          {/* AI Assistant Section */}
+          <div className="rounded-xl border border-primary/20 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Bot className="w-4 h-4 text-primary" />
+                <Label className="text-sm font-medium">IA Assistente</Label>
+              </div>
+              <Switch checked={aiAssistantEnabled} onCheckedChange={setAiAssistantEnabled} />
+            </div>
+            {aiAssistantEnabled && (
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Interações/dia</Label>
+                  <Input type="number" value={aiAssistantDailyLimit} onChange={e => setAiAssistantDailyLimit(e.target.value)} min="0" className="rounded-xl" placeholder="0 = ilimitado" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Max tokens/msg</Label>
+                  <Input type="number" value={aiAssistantMaxTokens} onChange={e => setAiAssistantMaxTokens(e.target.value)} min="500" className="rounded-xl" />
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="space-y-2">
             <Label className="text-xs uppercase tracking-wider text-muted-foreground">Funcionalidades</Label>
             <div className="flex gap-2">
