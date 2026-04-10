@@ -1,7 +1,7 @@
 -- Seed: Default plan + Super Admin
 INSERT INTO plans (name, price, interval, max_members, max_ai_tokens, features)
 VALUES ('Gratuito', 0, 'monthly', 50, 10000, '["transcription","basic_ai"]')
-ON CONFLICT DO NOTHING;
+ON CONFLICT (name) DO NOTHING;
 
 -- Super Admin (password: arkhe@2026)
 INSERT INTO users (email, password_hash, name, role)
