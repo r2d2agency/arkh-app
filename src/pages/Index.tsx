@@ -181,11 +181,11 @@ export default function Index() {
             <img src={logo} alt="ARKHÉ" className="h-14 w-14 md:h-16 md:w-16 object-contain drop-shadow-lg" />
             <h1 className="text-4xl md:text-5xl font-bold text-primary-foreground font-heading tracking-tight">ARKHÉ</h1>
           </div>
-          <p className="text-lg md:text-xl text-primary-foreground/80 max-w-2xl mx-auto mb-2 font-body">Encontre uma igreja perto de você</p>
-          <p className="text-sm md:text-base text-primary-foreground/60 max-w-xl mx-auto mb-8 font-body">Conecte-se, participe e cresça em comunidade. Descubra igrejas que usam a plataforma ARKHÉ.</p>
-          <div className="flex justify-center gap-3">
-            <Button variant="secondary" size="lg" onClick={() => navigate("/login")} className="font-semibold shadow-lg">Entrar na minha conta</Button>
-            <Button size="lg" onClick={() => navigate("/register")} className="border border-primary-foreground/30 bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 font-semibold">Criar conta</Button>
+          <p className="text-xl md:text-2xl text-primary-foreground/80 max-w-2xl mx-auto mb-2 font-body">Encontre uma igreja perto de você</p>
+          <p className="text-base md:text-lg text-primary-foreground/60 max-w-xl mx-auto mb-8 font-body">Conecte-se, participe e cresça em comunidade. Descubra igrejas que usam a plataforma ARKHÉ.</p>
+          <div className="flex justify-center gap-4">
+            <Button variant="secondary" size="lg" onClick={() => navigate("/login")} className="font-bold shadow-lg text-base px-8 h-12">Entrar na minha conta</Button>
+            <Button size="lg" onClick={() => navigate("/register")} className="border-2 border-primary-foreground/40 bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 font-bold text-base px-8 h-12">Criar conta</Button>
           </div>
         </div>
       </header>
@@ -264,10 +264,10 @@ export default function Index() {
                     </div>
                   </div>
                   <CardContent className="p-4">
-                    <h3 className="font-semibold text-foreground text-lg leading-tight mb-1 group-hover:text-primary transition-colors">{church.name}</h3>
-                    {church.description && <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{church.description}</p>}
+                    <h3 className="font-bold text-foreground text-xl leading-tight mb-1 group-hover:text-primary transition-colors">{church.name}</h3>
+                    {church.description && <p className="text-base text-muted-foreground line-clamp-2 mb-3">{church.description}</p>}
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground"><Users className="h-3.5 w-3.5" /><span>{church.member_count || 0} membros</span></div>
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground"><Users className="h-4 w-4" /><span>{church.member_count || 0} membros</span></div>
                       <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                     </div>
                   </CardContent>
@@ -305,10 +305,14 @@ export default function Index() {
       </Dialog>
 
       {/* Footer */}
-      <footer className="bg-card border-t border-border py-8">
-        <div className="max-w-6xl mx-auto px-4 flex items-center justify-center gap-3">
-          <img src={logo} alt="ARKHÉ" className="h-6 w-6 object-contain opacity-60" />
-          <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} ARKHÉ — Tecnologia para igrejas</p>
+      <footer className="py-10" style={{ background: "linear-gradient(135deg, hsl(215 45% 10%) 0%, hsl(215 65% 25%) 100%)" }}>
+        <div className="max-w-6xl mx-auto px-4 flex flex-col items-center gap-3">
+          <div className="flex items-center gap-3">
+            <img src={logo} alt="ARKHÉ" className="h-8 w-8 object-contain" />
+            <span className="text-lg font-bold text-white font-heading tracking-tight">ARKHÉ</span>
+          </div>
+          <p className="text-sm text-white/60">© {new Date().getFullYear()} ARKHÉ — Tecnologia para igrejas</p>
+          <p className="text-xs text-white/40">No ARKHÉ gratuito você aprende. No premium você interage e aprofunda.</p>
         </div>
       </footer>
     </div>
