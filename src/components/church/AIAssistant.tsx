@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { MessageCircle, X, Send, Loader2, Sparkles, Bot, User, Minimize2, Maximize2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -30,6 +31,7 @@ interface AIAssistantProps {
 }
 
 export default function AIAssistant({ contextType = 'general', contextId, contextTitle }: AIAssistantProps) {
+  const location = useLocation();
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [status, setStatus] = useState<AssistantStatus | null>(null);
@@ -41,16 +43,6 @@ export default function AIAssistant({ contextType = 'general', contextId, contex
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => {
-    checkStatus();
-  }, []);
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
-
   const checkStatus = async () => {
     try {
       const data = await api.get<AssistantStatus>('/api/church/assistant/status');
@@ -59,6 +51,26 @@ export default function AIAssistant({ contextType = 'general', contextId, contex
       setStatus({ available: false, church_enabled: false, plan_enabled: false, daily_limit: 0, used_today: 0, remaining: 0 });
     }
   };
+
+  useEffect(() => {
+    checkStatus();
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const refreshStatus = () => { checkStatus(); };
+    window.addEventListener('focus', refreshStatus);
+    window.addEventListener('ai-assistant-settings-changed', refreshStatus as EventListener);
+    return () => {
+      window.removeEventListener('focus', refreshStatus);
+      window.removeEventListener('ai-assistant-settings-changed', refreshStatus as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
 
   const sendMessage = async () => {
     if (!input.trim() || sending) return;
@@ -104,7 +116,6 @@ export default function AIAssistant({ contextType = 'general', contextId, contex
     }
   };
 
-  // Suggestions by context
   const getSuggestions = () => {
     if (contextType === 'service') {
       return ['Explique o ponto principal', 'Contexto bíblico', 'Aplicação prática', 'Versículos relacionados'];
@@ -122,7 +133,6 @@ export default function AIAssistant({ contextType = 'general', contextId, contex
 
   return (
     <>
-      {/* Floating Button */}
       {!open && (
         <button
           onClick={() => setOpen(true)}
@@ -137,7 +147,6 @@ export default function AIAssistant({ contextType = 'general', contextId, contex
         </button>
       )}
 
-      {/* Chat Panel */}
       {open && (
         <div
           className={`fixed z-50 flex flex-col bg-card border border-border shadow-2xl transition-all duration-300 ${
@@ -146,7 +155,6 @@ export default function AIAssistant({ contextType = 'general', contextId, contex
               : 'bottom-24 right-4 w-[380px] max-w-[calc(100vw-2rem)] h-[520px] max-h-[70vh] rounded-2xl'
           }`}
         >
-          {/* Header */}
           <div className="flex items-center gap-3 p-4 border-b border-border shrink-0" style={{ background: 'linear-gradient(135deg, hsl(215 65% 45%) 0%, hsl(215 65% 35%) 100%)' }}>
             <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-white/20">
               <Bot className="h-5 w-5 text-white" />
@@ -172,7 +180,6 @@ export default function AIAssistant({ contextType = 'general', contextId, contex
             </div>
           </div>
 
-          {/* Messages */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
             {messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-4 py-8">
@@ -243,7 +250,6 @@ export default function AIAssistant({ contextType = 'general', contextId, contex
             )}
           </div>
 
-          {/* Input */}
           <div className="p-3 border-t border-border shrink-0">
             <div className="flex items-end gap-2">
               <Textarea

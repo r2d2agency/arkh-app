@@ -2,7 +2,6 @@ const router = require('express').Router();
 const pool = require('../db/pool');
 const crypto = require('crypto');
 
-// Normaliza pergunta para cache (lowercase, sem acentos, sem pontuação extra)
 function normalizeQuestion(q) {
   return q.trim().toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -14,15 +13,130 @@ function hashQuestion(normalized) {
   return crypto.createHash('sha256').update(normalized).digest('hex');
 }
 
-// ─── Check if AI Assistant is available for this user ───
+async function getMasterPrompt() {
+  try {
+    const { rows } = await pool.query(`SELECT value FROM system_settings WHERE key = 'assistant_master_prompt' LIMIT 1`);
+    if (!rows.length) return '';
+    const raw = rows[0].value;
+    if (typeof raw === 'string') return raw;
+    if (raw && typeof raw === 'object' && typeof raw.text === 'string') return raw.text;
+    return '';
+  } catch {
+    return '';
+  }
+}
+
+async function getActiveProvider() {
+  const { rows } = await pool.query(
+    `SELECT id, provider, model, api_keys_encrypted
+     FROM ai_providers
+     WHERE is_active = true AND COALESCE(array_length(api_keys_encrypted, 1), 0) > 0
+     ORDER BY created_at
+     LIMIT 1`
+  );
+
+  if (!rows.length) return null;
+
+  const provider = rows[0];
+  const apiKeys = provider.api_keys_encrypted || [];
+  const apiKey = apiKeys[Math.floor(Math.random() * apiKeys.length)];
+
+  return { ...provider, apiKey };
+}
+
+async function generateAIResponse(provider, messages, systemPrompt, maxTokens) {
+  let aiResponse = '';
+
+  if (provider.provider === 'openai' || provider.provider === 'deepseek') {
+    const baseUrl = provider.provider === 'deepseek' ? 'https://api.deepseek.com/v1' : 'https://api.openai.com/v1';
+    const r = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${provider.apiKey}` },
+      body: JSON.stringify({
+        model: provider.model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...messages,
+        ],
+        max_tokens: maxTokens,
+        temperature: 0.7,
+      }),
+    });
+    const data = await r.json();
+    aiResponse = data.choices?.[0]?.message?.content || 'Não foi possível gerar resposta.';
+  } else if (provider.provider === 'google') {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${provider.model}:generateContent?key=${provider.apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: messages.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        generationConfig: { maxOutputTokens: maxTokens, temperature: 0.7 },
+      }),
+    });
+    const data = await r.json();
+    aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Não foi possível gerar resposta.';
+  } else if (provider.provider === 'anthropic') {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': provider.apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: provider.model,
+        max_tokens: maxTokens,
+        system: systemPrompt,
+        messages,
+      }),
+    });
+    const data = await r.json();
+    aiResponse = data.content?.[0]?.text || 'Não foi possível gerar resposta.';
+  } else if (provider.provider === 'groq') {
+    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${provider.apiKey}` },
+      body: JSON.stringify({
+        model: provider.model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...messages,
+        ],
+        max_tokens: maxTokens,
+        temperature: 0.7,
+      }),
+    });
+    const data = await r.json();
+    aiResponse = data.choices?.[0]?.message?.content || 'Não foi possível gerar resposta.';
+  }
+
+  return aiResponse || 'Não foi possível gerar resposta.';
+}
+
 router.get('/status', async (req, res) => {
   try {
+    const provider = await getActiveProvider();
+    const providerAvailable = !!provider;
+
+    if (req.user.role === 'super_admin') {
+      return res.json({
+        available: providerAvailable,
+        church_enabled: true,
+        plan_enabled: true,
+        daily_limit: 0,
+        used_today: 0,
+        remaining: 0,
+        max_tokens_per_msg: 4000,
+      });
+    }
+
     const { rows } = await pool.query(`
       SELECT 
-        c.ai_assistant_enabled as church_enabled,
-        p.ai_assistant_enabled as plan_enabled,
-        p.ai_assistant_daily_limit as daily_limit,
-        p.ai_assistant_max_tokens_per_msg as max_tokens_per_msg,
+        COALESCE(c.ai_assistant_enabled, false) as church_enabled,
+        (COALESCE(p.ai_assistant_enabled, false) OR COALESCE(p.price, 0) > 0) as plan_enabled,
+        COALESCE(p.ai_assistant_daily_limit, 0) as daily_limit,
+        COALESCE(p.ai_assistant_max_tokens_per_msg, 2000) as max_tokens_per_msg,
         COALESCE(u.interactions_count, 0) as used_today
       FROM users usr
       JOIN churches c ON c.id = usr.church_id
@@ -30,21 +144,23 @@ router.get('/status', async (req, res) => {
       LEFT JOIN ai_assistant_usage u ON u.user_id = usr.id AND u.usage_date = CURRENT_DATE
       WHERE usr.id = $1
     `, [req.user.id]);
-    
+
     if (!rows.length) return res.json({ available: false, reason: 'user_not_found' });
-    
+
     const r = rows[0];
-    const available = r.church_enabled && r.plan_enabled;
-    const remaining = Math.max(0, (r.daily_limit || 0) - (r.used_today || 0));
-    
+    const available = providerAvailable && r.church_enabled && r.plan_enabled;
+    const remaining = r.daily_limit > 0
+      ? Math.max(0, r.daily_limit - (r.used_today || 0))
+      : 0;
+
     res.json({
       available,
       church_enabled: r.church_enabled,
       plan_enabled: r.plan_enabled,
-      daily_limit: r.daily_limit || 0,
+      daily_limit: r.daily_limit,
       used_today: r.used_today || 0,
       remaining,
-      max_tokens_per_msg: r.max_tokens_per_msg || 2000,
+      max_tokens_per_msg: r.max_tokens_per_msg,
     });
   } catch (err) {
     console.error(err);
@@ -52,7 +168,6 @@ router.get('/status', async (req, res) => {
   }
 });
 
-// ─── List user conversations ───
 router.get('/conversations', async (req, res) => {
   try {
     const { rows } = await pool.query(`
@@ -68,7 +183,6 @@ router.get('/conversations', async (req, res) => {
   }
 });
 
-// ─── Get conversation messages ───
 router.get('/conversations/:id/messages', async (req, res) => {
   try {
     const { rows } = await pool.query(`
@@ -84,21 +198,53 @@ router.get('/conversations/:id/messages', async (req, res) => {
   }
 });
 
-// ─── Send message to AI ───
 router.post('/chat', async (req, res) => {
   try {
     const { message, conversation_id, context_type, context_id } = req.body;
     if (!message?.trim()) return res.status(400).json({ error: 'message required' });
 
-    // Check availability
+    const provider = await getActiveProvider();
+    if (!provider) {
+      return res.status(503).json({ error: 'Nenhum provedor de IA configurado' });
+    }
+
+    const masterPrompt = await getMasterPrompt();
+
+    if (req.user.role === 'super_admin') {
+      const systemPrompt = `Você é o Assistente de Suporte ARKHÉ para o Super Admin.
+Sua função é ajudar com dúvidas sobre a plataforma, configuração, planos, IA, igrejas, membros e operação geral.
+- Responda em português do Brasil
+- Seja objetivo, prático e claro
+- Quando a pergunta for funcional, explique passo a passo
+- Quando a pergunta for sobre produto, priorize contexto de SaaS para igrejas
+${masterPrompt ? `\nPrompt mestre:\n${masterPrompt}` : ''}`;
+
+      const aiResponse = await generateAIResponse(
+        provider,
+        [{ role: 'user', content: message }],
+        systemPrompt,
+        4000,
+      );
+
+      await pool.query(
+        'INSERT INTO ai_usage (church_id, provider, model, tokens_used, cost) VALUES ($1, $2, $3, $4, $5)',
+        [null, provider.provider, provider.model, 4000, 0]
+      ).catch(() => {});
+
+      return res.json({
+        conversation_id: conversation_id || 'super-admin',
+        message: aiResponse,
+      });
+    }
+
     const { rows: statusRows } = await pool.query(`
       SELECT 
-        c.ai_assistant_enabled as church_enabled,
+        COALESCE(c.ai_assistant_enabled, false) as church_enabled,
         c.id as church_id,
-        c.ai_prompt_template,
-        p.ai_assistant_enabled as plan_enabled,
-        p.ai_assistant_daily_limit as daily_limit,
-        p.ai_assistant_max_tokens_per_msg as max_tokens_per_msg,
+        c.ai_assistant_prompt,
+        (COALESCE(p.ai_assistant_enabled, false) OR COALESCE(p.price, 0) > 0) as plan_enabled,
+        COALESCE(p.ai_assistant_daily_limit, 0) as daily_limit,
+        COALESCE(p.ai_assistant_max_tokens_per_msg, 2000) as max_tokens_per_msg,
         COALESCE(u.interactions_count, 0) as used_today
       FROM users usr
       JOIN churches c ON c.id = usr.church_id
@@ -117,7 +263,6 @@ router.post('/chat', async (req, res) => {
       return res.status(429).json({ error: 'Limite diário de interações atingido' });
     }
 
-    // Get or create conversation
     let convId = conversation_id;
     if (!convId) {
       const { rows: convRows } = await pool.query(
@@ -128,16 +273,14 @@ router.post('/chat', async (req, res) => {
       convId = convRows[0].id;
     }
 
-    // Save user message
     await pool.query(
       'INSERT INTO ai_assistant_messages (conversation_id, role, content) VALUES ($1, $2, $3)',
       [convId, 'user', message]
     );
 
-    // ─── Check cache for similar question (only for first message / no prior context) ───
     const normalized = normalizeQuestion(message);
     const qHash = hashQuestion(normalized);
-    const isFirstMessage = !conversation_id; // new conversation = cacheable
+    const isFirstMessage = !conversation_id;
 
     if (isFirstMessage) {
       const { rows: cached } = await pool.query(
@@ -148,22 +291,18 @@ router.post('/chat', async (req, res) => {
       );
 
       if (cached.length) {
-        // Cache hit! Return cached response without calling AI
         const cachedResponse = cached[0].response;
 
-        // Increment hit count
         await pool.query(
           'UPDATE ai_assistant_cache SET hit_count = hit_count + 1 WHERE id = $1',
           [cached[0].id]
         );
 
-        // Save cached response as message
         await pool.query(
           'INSERT INTO ai_assistant_messages (conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4)',
           [convId, 'assistant', cachedResponse, 0]
         );
 
-        // Update usage (0 tokens since cached)
         await pool.query(`
           INSERT INTO ai_assistant_usage (user_id, church_id, usage_date, interactions_count, tokens_used)
           VALUES ($1, $2, CURRENT_DATE, 1, 0)
@@ -179,13 +318,11 @@ router.post('/chat', async (req, res) => {
       }
     }
 
-    // Get conversation history
     const { rows: history } = await pool.query(
       'SELECT role, content FROM ai_assistant_messages WHERE conversation_id = $1 ORDER BY created_at ASC LIMIT 20',
       [convId]
     );
 
-    // Load context if within service/study
     let contextInfo = '';
     if (context_type === 'service' && context_id) {
       const { rows: svc } = await pool.query(
@@ -197,7 +334,6 @@ router.post('/chat', async (req, res) => {
       }
     }
 
-    // Build system prompt
     const systemPrompt = `Você é o Assistente ARKHÉ, uma IA integrada à plataforma ARKHÉ para igrejas.
 Sua função é ajudar membros da igreja com:
 - Explicações bíblicas e teológicas
@@ -214,83 +350,22 @@ Diretrizes:
 - Foque em explicação e orientação
 - Responda em português do Brasil
 ${contextInfo}
-${status.ai_prompt_template ? `\nInstruções adicionais da igreja:\n${status.ai_prompt_template}` : ''}`;
+${masterPrompt ? `\nPrompt mestre do sistema:\n${masterPrompt}` : ''}
+${status.ai_assistant_prompt ? `\nContexto da igreja:\n${status.ai_assistant_prompt}` : ''}`;
 
-    // Get active AI provider
-    const { rows: providers } = await pool.query(
-      'SELECT id, provider, model, api_keys_encrypted FROM ai_providers WHERE is_active = true ORDER BY created_at LIMIT 1'
+    const maxTokens = status.max_tokens_per_msg || 2000;
+    const aiResponse = await generateAIResponse(
+      provider,
+      history.map(m => ({ role: m.role, content: m.content })),
+      systemPrompt,
+      maxTokens,
     );
 
-    if (!providers.length) {
-      return res.status(503).json({ error: 'Nenhum provedor de IA configurado' });
-    }
-
-    const prov = providers[0];
-    const apiKeys = prov.api_keys_encrypted || [];
-    if (!apiKeys.length) {
-      return res.status(503).json({ error: 'Provedor de IA sem chave configurada' });
-    }
-    const apiKey = apiKeys[Math.floor(Math.random() * apiKeys.length)];
-
-    // Call AI
-    const messages = [
-      { role: 'system', content: systemPrompt },
-      ...history.map(m => ({ role: m.role, content: m.content })),
-    ];
-
-    let aiResponse = '';
-    const maxTokens = status.max_tokens_per_msg || 2000;
-
-    if (prov.provider === 'openai' || prov.provider === 'deepseek') {
-      const baseUrl = prov.provider === 'deepseek' ? 'https://api.deepseek.com/v1' : 'https://api.openai.com/v1';
-      const r = await fetch(`${baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({ model: prov.model, messages, max_tokens: maxTokens, temperature: 0.7 }),
-      });
-      const data = await r.json();
-      aiResponse = data.choices?.[0]?.message?.content || 'Não foi possível gerar resposta.';
-    } else if (prov.provider === 'google') {
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${prov.model}:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: messages.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
-          generationConfig: { maxOutputTokens: maxTokens, temperature: 0.7 },
-        }),
-      });
-      const data = await r.json();
-      aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Não foi possível gerar resposta.';
-    } else if (prov.provider === 'anthropic') {
-      const r = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({
-          model: prov.model,
-          max_tokens: maxTokens,
-          system: systemPrompt,
-          messages: history.map(m => ({ role: m.role, content: m.content })),
-        }),
-      });
-      const data = await r.json();
-      aiResponse = data.content?.[0]?.text || 'Não foi possível gerar resposta.';
-    } else if (prov.provider === 'groq') {
-      const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({ model: prov.model, messages, max_tokens: maxTokens, temperature: 0.7 }),
-      });
-      const data = await r.json();
-      aiResponse = data.choices?.[0]?.message?.content || 'Não foi possível gerar resposta.';
-    }
-
-    // Save AI response
     await pool.query(
       'INSERT INTO ai_assistant_messages (conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4)',
       [convId, 'assistant', aiResponse, maxTokens]
     );
 
-    // ─── Save to cache (only first messages in new conversations) ───
     if (isFirstMessage && aiResponse && !aiResponse.includes('Não foi possível')) {
       await pool.query(`
         INSERT INTO ai_assistant_cache (church_id, question_hash, question_normalized, context_type, context_id, response)
@@ -302,7 +377,6 @@ ${status.ai_prompt_template ? `\nInstruções adicionais da igreja:\n${status.ai
       `, [status.church_id, qHash, normalized, context_type || 'general', context_id || null, aiResponse]).catch(() => {});
     }
 
-    // Update usage
     await pool.query(`
       INSERT INTO ai_assistant_usage (user_id, church_id, usage_date, interactions_count, tokens_used)
       VALUES ($1, $2, CURRENT_DATE, 1, $3)
@@ -311,10 +385,9 @@ ${status.ai_prompt_template ? `\nInstruções adicionais da igreja:\n${status.ai
                     tokens_used = ai_assistant_usage.tokens_used + $3
     `, [req.user.id, status.church_id, maxTokens]);
 
-    // Track AI usage
     await pool.query(
       'INSERT INTO ai_usage (church_id, provider, model, tokens_used, cost) VALUES ($1, $2, $3, $4, $5)',
-      [status.church_id, prov.provider, prov.model, maxTokens, 0]
+      [status.church_id, provider.provider, provider.model, maxTokens, 0]
     );
 
     res.json({
@@ -327,7 +400,6 @@ ${status.ai_prompt_template ? `\nInstruções adicionais da igreja:\n${status.ai
   }
 });
 
-// ─── Toggle AI Assistant for church (admin_church) ───
 router.put('/toggle', async (req, res) => {
   try {
     if (req.user.role !== 'admin_church') return res.status(403).json({ error: 'Forbidden' });
@@ -342,7 +414,6 @@ router.put('/toggle', async (req, res) => {
   }
 });
 
-// ─── Admin: get usage stats per church ───
 router.get('/admin/usage', async (req, res) => {
   try {
     if (req.user.role !== 'super_admin') return res.status(403).json({ error: 'Forbidden' });

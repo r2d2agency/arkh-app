@@ -70,10 +70,15 @@ const ChurchSettings = () => {
     fetchSettings();
   }, []);
 
+  const notifyAssistantRefresh = () => {
+    window.dispatchEvent(new Event('ai-assistant-settings-changed'));
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
       await api.put('/api/church/ai-settings', settings);
+      notifyAssistantRefresh();
       toast({ title: 'Configurações salvas com sucesso!' });
     } catch (err: any) {
       toast({ title: err.message || 'Erro ao salvar', variant: 'destructive' });
@@ -108,7 +113,6 @@ const ChurchSettings = () => {
         <p className="text-muted-foreground">Configurações gerais da sua igreja</p>
       </div>
 
-      {/* ═══════ SEÇÃO 1: IA ASSISTENTE (PREMIUM) ═══════ */}
       <Card className="p-6 rounded-xl space-y-5 max-w-2xl border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
         <h3 className="font-heading text-lg font-semibold flex items-center gap-2">
           <Bot className="w-5 h-5 text-primary" /> IA Assistente
@@ -121,7 +125,6 @@ const ChurchSettings = () => {
           Disponível em planos premium.
         </p>
 
-        {/* Toggle */}
         <div className="flex items-center justify-between p-4 rounded-xl bg-muted/50 border border-border">
           <div>
             <p className="font-medium text-foreground">Ativar IA Assistente para membros</p>
@@ -135,6 +138,7 @@ const ChurchSettings = () => {
               try {
                 const data = await api.put<{ ai_assistant_enabled: boolean }>('/api/church/assistant/toggle', {});
                 setSettings(s => ({ ...s, ai_assistant_enabled: data.ai_assistant_enabled }));
+                notifyAssistantRefresh();
                 toast({ title: data.ai_assistant_enabled ? 'IA Assistente ativada!' : 'IA Assistente desativada' });
               } catch (err: any) {
                 toast({ title: err.message || 'Erro ao alterar', variant: 'destructive' });
@@ -145,7 +149,6 @@ const ChurchSettings = () => {
           />
         </div>
 
-        {/* Prompt do Assistente — só aparece quando ativo */}
         {settings.ai_assistant_enabled && (
           <div className="space-y-4 pt-2 border-t border-border/50">
             <div className="space-y-2">
@@ -177,7 +180,6 @@ const ChurchSettings = () => {
         )}
       </Card>
 
-      {/* ═══════ SEÇÃO 2: IA PROCESSAMENTO (CULTOS) ═══════ */}
       <Card className="p-6 rounded-xl space-y-5 max-w-2xl">
         <h3 className="font-heading text-lg font-semibold flex items-center gap-2">
           <Brain className="w-5 h-5 text-primary" /> IA de Processamento de Cultos
@@ -246,7 +248,6 @@ const ChurchSettings = () => {
         </div>
       </Card>
 
-      {/* ═══════ SEÇÃO 3: DADOS DA IGREJA ═══════ */}
       <Card className="p-6 rounded-xl space-y-5 max-w-2xl">
         <h3 className="font-heading text-lg font-semibold flex items-center gap-2">
           <Church className="w-5 h-5" /> Dados da Igreja
