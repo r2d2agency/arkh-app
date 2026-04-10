@@ -134,7 +134,7 @@ router.get('/ai-settings', async (req, res) => {
     const churchId = req.user.church_id;
     if (!churchId) return res.status(400).json({ error: 'No church' });
     const { rows } = await pool.query(
-      'SELECT ai_prompt_template, ai_temperature, ai_max_tokens FROM churches WHERE id = $1',
+      'SELECT ai_prompt_template, ai_temperature, ai_max_tokens, ai_assistant_enabled FROM churches WHERE id = $1',
       [churchId]
     );
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
