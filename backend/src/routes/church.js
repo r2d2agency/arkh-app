@@ -134,7 +134,7 @@ router.get('/ai-settings', async (req, res) => {
     const churchId = req.user.church_id;
     if (!churchId) return res.status(400).json({ error: 'No church' });
     const { rows } = await pool.query(
-      'SELECT ai_prompt_template, ai_temperature, ai_max_tokens, ai_assistant_enabled FROM churches WHERE id = $1',
+      'SELECT ai_prompt_template, ai_temperature, ai_max_tokens, ai_assistant_enabled, ai_assistant_prompt FROM churches WHERE id = $1',
       [churchId]
     );
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
@@ -151,14 +151,15 @@ router.put('/ai-settings', async (req, res) => {
     if (!churchId) return res.status(400).json({ error: 'No church' });
     if (req.user.role !== 'admin_church') return res.status(403).json({ error: 'Admin only' });
     
-    const { ai_prompt_template, ai_temperature, ai_max_tokens } = req.body;
+    const { ai_prompt_template, ai_temperature, ai_max_tokens, ai_assistant_prompt } = req.body;
     await pool.query(
       `UPDATE churches SET 
         ai_prompt_template = COALESCE($1, ai_prompt_template),
         ai_temperature = COALESCE($2, ai_temperature),
-        ai_max_tokens = COALESCE($3, ai_max_tokens)
-       WHERE id = $4`,
-      [ai_prompt_template || null, ai_temperature || null, ai_max_tokens || null, churchId]
+        ai_max_tokens = COALESCE($3, ai_max_tokens),
+        ai_assistant_prompt = $4
+       WHERE id = $5`,
+      [ai_prompt_template || null, ai_temperature || null, ai_max_tokens || null, ai_assistant_prompt ?? null, churchId]
     );
     res.json({ message: 'AI settings updated' });
   } catch (err) {
