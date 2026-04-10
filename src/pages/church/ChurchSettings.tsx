@@ -127,7 +127,9 @@ const ChurchSettings = () => {
         </div>
       </Card>
 
-
+      <Card className="p-6 rounded-xl space-y-5 max-w-2xl">
+        <h3 className="font-heading font-semibold flex items-center gap-2">
+          <Brain className="w-4 h-4 text-primary" /> Configurações de IA
         </h3>
         <p className="text-sm text-muted-foreground">
           Personalize como a IA processa as pregações da sua igreja. O prompt define o formato e profundidade da análise.
