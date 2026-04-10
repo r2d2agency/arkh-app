@@ -1,5 +1,18 @@
 const router = require('express').Router();
 const pool = require('../db/pool');
+const crypto = require('crypto');
+
+// Normaliza pergunta para cache (lowercase, sem acentos, sem pontuação extra)
+function normalizeQuestion(q) {
+  return q.trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ');
+}
+
+function hashQuestion(normalized) {
+  return crypto.createHash('sha256').update(normalized).digest('hex');
+}
 
 // ─── Check if AI Assistant is available for this user ───
 router.get('/status', async (req, res) => {
