@@ -70,7 +70,7 @@ const ChurchSettings = () => {
   };
 
   const handleReset = () => {
-    setSettings({ ai_prompt_template: null, ai_temperature: null, ai_max_tokens: null });
+    setSettings({ ai_prompt_template: null, ai_temperature: null, ai_max_tokens: null, ai_assistant_enabled: settings.ai_assistant_enabled });
   };
 
   if (!isAdmin) {
