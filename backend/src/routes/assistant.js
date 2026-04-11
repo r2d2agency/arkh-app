@@ -326,37 +326,85 @@ ${masterPrompt ? `\nPrompt mestre:\n${masterPrompt}` : ''}`;
     // If inside a specific service context, load it
     if (context_type === 'service' && context_id) {
       const { rows: svc } = await pool.query(
-        'SELECT title, ai_summary, transcription FROM services WHERE id = $1 AND church_id = $2',
+        'SELECT title, preacher, service_date, ai_summary, ai_topics, ai_key_verses, transcription FROM services WHERE id = $1 AND church_id = $2',
         [context_id, status.church_id]
       );
       if (svc.length) {
-        contextInfo = `\n\nContexto do culto "${svc[0].title}":\n${svc[0].ai_summary || ''}\n${svc[0].transcription?.substring(0, 2000) || ''}`;
+        const s = svc[0];
+        contextInfo = `\n\n=== CONTEXTO DO CULTO ===\nTítulo: "${s.title}"`;
+        if (s.preacher) contextInfo += `\nPregador: ${s.preacher}`;
+        if (s.service_date) contextInfo += `\nData: ${new Date(s.service_date).toLocaleDateString('pt-BR')}`;
+        if (s.ai_summary) contextInfo += `\nResumo: ${s.ai_summary}`;
+        if (s.ai_topics?.length) contextInfo += `\nTópicos: ${JSON.stringify(s.ai_topics)}`;
+        if (s.ai_key_verses?.length) contextInfo += `\nVersículos: ${JSON.stringify(s.ai_key_verses)}`;
+        if (s.transcription) contextInfo += `\nTranscrição completa:\n${s.transcription.substring(0, 6000)}`;
       }
     }
 
-    // Search related services/sermons based on the user message
+    // Search related services/sermons based on the user message — use transcriptions as knowledge base
     if (context_type !== 'service') {
       try {
         const keywords = message.replace(/[^a-zA-ZÀ-ú0-9\s]/g, '').split(/\s+/).filter(w => w.length > 3).slice(0, 5);
         if (keywords.length > 0) {
           const searchQuery = keywords.join(' | ');
           const { rows: foundServices } = await pool.query(`
-            SELECT id, title, date, ai_summary
+            SELECT id, title, service_date, preacher, ai_summary, 
+                   SUBSTRING(transcription FROM 1 FOR 3000) as transcription_excerpt
             FROM services
-            WHERE church_id = $1
+            WHERE church_id = $1 AND ai_status = 'completed'
               AND (
                 to_tsvector('portuguese', COALESCE(title,'') || ' ' || COALESCE(ai_summary,'') || ' ' || COALESCE(transcription,''))
                 @@ to_tsquery('portuguese', $2)
               )
-            ORDER BY date DESC
+            ORDER BY service_date DESC NULLS LAST
             LIMIT 3
           `, [status.church_id, searchQuery]);
 
           if (foundServices.length) {
-            relatedServices = foundServices.map(s => ({ id: s.id, title: s.title, date: s.date }));
-            contextInfo += `\n\nCultos/pregações relacionados encontrados na igreja:\n${foundServices.map(s =>
-              `- "${s.title}" (${s.date ? new Date(s.date).toLocaleDateString('pt-BR') : ''}): ${(s.ai_summary || '').substring(0, 200)}`
-            ).join('\n')}`;
+            relatedServices = foundServices.map(s => ({ id: s.id, title: s.title, date: s.service_date }));
+            contextInfo += `\n\n=== BASE DE CONHECIMENTO: Cultos/pregações da igreja ===\n`;
+            contextInfo += foundServices.map(s => {
+              let entry = `--- Culto: "${s.title}"`;
+              if (s.preacher) entry += ` | Pregador: ${s.preacher}`;
+              if (s.service_date) entry += ` | Data: ${new Date(s.service_date).toLocaleDateString('pt-BR')}`;
+              entry += `\nResumo: ${(s.ai_summary || 'Sem resumo').substring(0, 300)}`;
+              if (s.transcription_excerpt) {
+                entry += `\nTrecho da transcrição: ${s.transcription_excerpt}`;
+              }
+              return entry;
+            }).join('\n\n');
+          }
+        }
+
+        // Fallback: if no full-text results, try ILIKE
+        if (!relatedServices.length) {
+          const likeTerms = message.replace(/[^a-zA-ZÀ-ú0-9\s]/g, '').split(/\s+/).filter(w => w.length > 3).slice(0, 3);
+          if (likeTerms.length > 0) {
+            const likeClauses = likeTerms.map((_, i) => `(COALESCE(title,'') || ' ' || COALESCE(ai_summary,'') || ' ' || COALESCE(transcription,'')) ILIKE $${i + 2}`);
+            const likeParams = likeTerms.map(t => `%${t}%`);
+            const { rows: fallbackServices } = await pool.query(`
+              SELECT id, title, service_date, preacher, ai_summary,
+                     SUBSTRING(transcription FROM 1 FOR 3000) as transcription_excerpt
+              FROM services
+              WHERE church_id = $1 AND ai_status = 'completed' AND (${likeClauses.join(' OR ')})
+              ORDER BY service_date DESC NULLS LAST
+              LIMIT 3
+            `, [status.church_id, ...likeParams]);
+
+            if (fallbackServices.length) {
+              relatedServices = fallbackServices.map(s => ({ id: s.id, title: s.title, date: s.service_date }));
+              contextInfo += `\n\n=== BASE DE CONHECIMENTO: Cultos/pregações da igreja ===\n`;
+              contextInfo += fallbackServices.map(s => {
+                let entry = `--- Culto: "${s.title}"`;
+                if (s.preacher) entry += ` | Pregador: ${s.preacher}`;
+                if (s.service_date) entry += ` | Data: ${new Date(s.service_date).toLocaleDateString('pt-BR')}`;
+                entry += `\nResumo: ${(s.ai_summary || 'Sem resumo').substring(0, 300)}`;
+                if (s.transcription_excerpt) {
+                  entry += `\nTrecho da transcrição: ${s.transcription_excerpt}`;
+                }
+                return entry;
+              }).join('\n\n');
+            }
           }
         }
       } catch (searchErr) {
@@ -366,14 +414,18 @@ ${masterPrompt ? `\nPrompt mestre:\n${masterPrompt}` : ''}`;
 
     const systemPrompt = `Você é o Assistente ARKHÉ, IA da plataforma ARKHÉ para igrejas.
 
-REGRAS OBRIGATÓRIAS DE RESPOSTA:
+REGRAS OBRIGATÓRIAS:
 - Seja CURTO e DIRETO. Máximo 3-4 parágrafos curtos.
 - Use frases objetivas. Nada de introduções longas.
 - Cite versículos de forma inline (ex: "Jo 3:16").
-- Se encontrou cultos/pregações relacionados, MENCIONE brevemente.
-- Responda em português do Brasil.
+- Responda em português do Brasil. Vá direto ao ponto.
 - Não repita a pergunta do usuário.
-- Vá direto ao ponto.
+
+BASE DE DADOS:
+- Você tem acesso às transcrições e resumos dos cultos da igreja abaixo.
+- USE essas informações como base para responder. Priorize conteúdo dos cultos.
+- Se encontrou cultos relacionados, MENCIONE o título e pregador brevemente.
+- Se a resposta está nas transcrições, cite o trecho relevante.
 ${contextInfo}
 ${masterPrompt ? `\nPrompt mestre:\n${masterPrompt}` : ''}
 ${status.ai_assistant_prompt ? `\nContexto da igreja:\n${status.ai_assistant_prompt}` : ''}`;
