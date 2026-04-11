@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
-import { MessageCircle, X, Send, Loader2, Sparkles, Bot, User, Minimize2, Maximize2, Trash2 } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { MessageCircle, X, Send, Loader2, Sparkles, Bot, User, Minimize2, Maximize2, Trash2, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
@@ -8,11 +8,18 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 
+interface RelatedService {
+  id: string;
+  title: string;
+  date?: string;
+}
+
 interface Message {
   id?: string;
   role: 'user' | 'assistant';
   content: string;
   created_at?: string;
+  related_services?: RelatedService[];
 }
 
 interface AssistantStatus {
@@ -32,6 +39,7 @@ interface AIAssistantProps {
 
 export default function AIAssistant({ contextType = 'general', contextId, contextTitle }: AIAssistantProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [status, setStatus] = useState<AssistantStatus | null>(null);
@@ -80,14 +88,14 @@ export default function AIAssistant({ contextType = 'general', contextId, contex
     setSending(true);
 
     try {
-      const data = await api.post<{ conversation_id: string; message: string }>('/api/church/assistant/chat', {
+      const data = await api.post<{ conversation_id: string; message: string; related_services?: RelatedService[] }>('/api/church/assistant/chat', {
         message: msg,
         conversation_id: conversationId,
         context_type: contextType,
         context_id: contextId,
       });
       setConversationId(data.conversation_id);
-      setMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: data.message, related_services: data.related_services }]);
       setStatus(prev => prev ? { ...prev, used_today: prev.used_today + 1, remaining: Math.max(0, prev.remaining - 1) } : prev);
     } catch (err: any) {
       if (err.message?.includes('Limite')) {
@@ -225,6 +233,22 @@ export default function AIAssistant({ contextType = 'general', contextId, contex
                     }`}
                   >
                     <p className="whitespace-pre-wrap">{msg.content}</p>
+                    {msg.related_services && msg.related_services.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-border/30 flex flex-col gap-1.5">
+                        <span className="text-xs text-muted-foreground font-medium">📖 Pregações relacionadas:</span>
+                        {msg.related_services.map(svc => (
+                          <button
+                            key={svc.id}
+                            onClick={() => { navigate(`/church/services/${svc.id}`); setOpen(false); }}
+                            className="flex items-center gap-1.5 text-xs text-primary hover:underline font-medium text-left"
+                          >
+                            <BookOpen className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{svc.title}</span>
+                            {svc.date && <span className="text-muted-foreground shrink-0">({new Date(svc.date).toLocaleDateString('pt-BR')})</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   {msg.role === 'user' && (
                     <div className="w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center shrink-0 mt-1">
