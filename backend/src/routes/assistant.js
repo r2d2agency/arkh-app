@@ -211,12 +211,9 @@ router.post('/chat', async (req, res) => {
     const masterPrompt = await getMasterPrompt();
 
     if (req.user.role === 'super_admin') {
-      const systemPrompt = `Você é o Assistente de Suporte ARKHÉ para o Super Admin.
-Sua função é ajudar com dúvidas sobre a plataforma, configuração, planos, IA, igrejas, membros e operação geral.
-- Responda em português do Brasil
-- Seja objetivo, prático e claro
-- Quando a pergunta for funcional, explique passo a passo
-- Quando a pergunta for sobre produto, priorize contexto de SaaS para igrejas
+const systemPrompt = `Você é o Assistente ARKHÉ para Super Admin.
+REGRAS: Seja CURTO e DIRETO. Máximo 3-4 parágrafos. Responda em pt-BR. Vá direto ao ponto.
+Ajude com: plataforma, config, planos, IA, igrejas, membros.
 ${masterPrompt ? `\nPrompt mestre:\n${masterPrompt}` : ''}`;
 
       const aiResponse = await generateAIResponse(
@@ -324,33 +321,61 @@ ${masterPrompt ? `\nPrompt mestre:\n${masterPrompt}` : ''}`;
     );
 
     let contextInfo = '';
+    let relatedServices = [];
+
+    // If inside a specific service context, load it
     if (context_type === 'service' && context_id) {
       const { rows: svc } = await pool.query(
         'SELECT title, ai_summary, transcription FROM services WHERE id = $1 AND church_id = $2',
         [context_id, status.church_id]
       );
       if (svc.length) {
-        contextInfo = `\n\nContexto do culto "${svc[0].title}":\n${svc[0].ai_summary || ''}\n${svc[0].transcription?.substring(0, 3000) || ''}`;
+        contextInfo = `\n\nContexto do culto "${svc[0].title}":\n${svc[0].ai_summary || ''}\n${svc[0].transcription?.substring(0, 2000) || ''}`;
       }
     }
 
-    const systemPrompt = `Você é o Assistente ARKHÉ, uma IA integrada à plataforma ARKHÉ para igrejas.
-Sua função é ajudar membros da igreja com:
-- Explicações bíblicas e teológicas
-- Contextualização de versículos
-- Aplicações práticas
-- Organização de estudos e anotações
-- Perguntas sobre a fé cristã
+    // Search related services/sermons based on the user message
+    if (context_type !== 'service') {
+      try {
+        const keywords = message.replace(/[^a-zA-ZÀ-ú0-9\s]/g, '').split(/\s+/).filter(w => w.length > 3).slice(0, 5);
+        if (keywords.length > 0) {
+          const searchQuery = keywords.join(' | ');
+          const { rows: foundServices } = await pool.query(`
+            SELECT id, title, date, ai_summary
+            FROM services
+            WHERE church_id = $1
+              AND (
+                to_tsvector('portuguese', COALESCE(title,'') || ' ' || COALESCE(ai_summary,'') || ' ' || COALESCE(transcription,''))
+                @@ to_tsquery('portuguese', $2)
+              )
+            ORDER BY date DESC
+            LIMIT 3
+          `, [status.church_id, searchQuery]);
 
-Diretrizes:
-- Use linguagem clara e acessível
-- Sempre cite referências bíblicas quando relevante
-- Seja respeitoso e acolhedor
-- Não assuma posições doutrinárias rígidas
-- Foque em explicação e orientação
-- Responda em português do Brasil
+          if (foundServices.length) {
+            relatedServices = foundServices.map(s => ({ id: s.id, title: s.title, date: s.date }));
+            contextInfo += `\n\nCultos/pregações relacionados encontrados na igreja:\n${foundServices.map(s =>
+              `- "${s.title}" (${s.date ? new Date(s.date).toLocaleDateString('pt-BR') : ''}): ${(s.ai_summary || '').substring(0, 200)}`
+            ).join('\n')}`;
+          }
+        }
+      } catch (searchErr) {
+        console.error('Service search error:', searchErr);
+      }
+    }
+
+    const systemPrompt = `Você é o Assistente ARKHÉ, IA da plataforma ARKHÉ para igrejas.
+
+REGRAS OBRIGATÓRIAS DE RESPOSTA:
+- Seja CURTO e DIRETO. Máximo 3-4 parágrafos curtos.
+- Use frases objetivas. Nada de introduções longas.
+- Cite versículos de forma inline (ex: "Jo 3:16").
+- Se encontrou cultos/pregações relacionados, MENCIONE brevemente.
+- Responda em português do Brasil.
+- Não repita a pergunta do usuário.
+- Vá direto ao ponto.
 ${contextInfo}
-${masterPrompt ? `\nPrompt mestre do sistema:\n${masterPrompt}` : ''}
+${masterPrompt ? `\nPrompt mestre:\n${masterPrompt}` : ''}
 ${status.ai_assistant_prompt ? `\nContexto da igreja:\n${status.ai_assistant_prompt}` : ''}`;
 
     const maxTokens = status.max_tokens_per_msg || 2000;
@@ -393,6 +418,7 @@ ${status.ai_assistant_prompt ? `\nContexto da igreja:\n${status.ai_assistant_pro
     res.json({
       conversation_id: convId,
       message: aiResponse,
+      related_services: relatedServices.length ? relatedServices : undefined,
     });
   } catch (err) {
     console.error('AI Assistant error:', err);
