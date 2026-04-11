@@ -326,11 +326,18 @@ ${masterPrompt ? `\nPrompt mestre:\n${masterPrompt}` : ''}`;
     // If inside a specific service context, load it
     if (context_type === 'service' && context_id) {
       const { rows: svc } = await pool.query(
-        'SELECT title, ai_summary, transcription FROM services WHERE id = $1 AND church_id = $2',
+        'SELECT title, preacher, service_date, ai_summary, ai_topics, ai_key_verses, transcription FROM services WHERE id = $1 AND church_id = $2',
         [context_id, status.church_id]
       );
       if (svc.length) {
-        contextInfo = `\n\nContexto do culto "${svc[0].title}":\n${svc[0].ai_summary || ''}\n${svc[0].transcription?.substring(0, 2000) || ''}`;
+        const s = svc[0];
+        contextInfo = `\n\n=== CONTEXTO DO CULTO ===\nTítulo: "${s.title}"`;
+        if (s.preacher) contextInfo += `\nPregador: ${s.preacher}`;
+        if (s.service_date) contextInfo += `\nData: ${new Date(s.service_date).toLocaleDateString('pt-BR')}`;
+        if (s.ai_summary) contextInfo += `\nResumo: ${s.ai_summary}`;
+        if (s.ai_topics?.length) contextInfo += `\nTópicos: ${JSON.stringify(s.ai_topics)}`;
+        if (s.ai_key_verses?.length) contextInfo += `\nVersículos: ${JSON.stringify(s.ai_key_verses)}`;
+        if (s.transcription) contextInfo += `\nTranscrição completa:\n${s.transcription.substring(0, 6000)}`;
       }
     }
 
