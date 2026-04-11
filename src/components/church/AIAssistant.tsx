@@ -50,6 +50,10 @@ export default function AIAssistant({ contextType = 'general', contextId, contex
   const [conversationId, setConversationId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const serviceContextMatch = !contextId ? location.pathname.match(/^\/church\/services\/([^/?#]+)/) : null;
+  const effectiveContextType = contextId ? contextType : serviceContextMatch ? 'service' : contextType;
+  const effectiveContextId = contextId ?? serviceContextMatch?.[1];
+  const contextKey = `${effectiveContextType}:${effectiveContextId ?? 'general'}`;
 
   const checkStatus = async () => {
     try {
@@ -75,6 +79,12 @@ export default function AIAssistant({ contextType = 'general', contextId, contex
   }, []);
 
   useEffect(() => {
+    setMessages([]);
+    setConversationId(null);
+    setInput('');
+  }, [contextKey]);
+
+  useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
@@ -91,8 +101,8 @@ export default function AIAssistant({ contextType = 'general', contextId, contex
       const data = await api.post<{ conversation_id: string; message: string; related_services?: RelatedService[] }>('/api/church/assistant/chat', {
         message: msg,
         conversation_id: conversationId,
-        context_type: contextType,
-        context_id: contextId,
+        context_type: effectiveContextType,
+        context_id: effectiveContextId,
       });
       setConversationId(data.conversation_id);
       setMessages(prev => [...prev, { role: 'assistant', content: data.message, related_services: data.related_services }]);
@@ -125,13 +135,13 @@ export default function AIAssistant({ contextType = 'general', contextId, contex
   };
 
   const getSuggestions = () => {
-    if (contextType === 'service') {
+    if (effectiveContextType === 'service') {
       return ['Explique o ponto principal', 'Contexto bíblico', 'Aplicação prática', 'Versículos relacionados'];
     }
-    if (contextType === 'study') {
+    if (effectiveContextType === 'study') {
       return ['Resuma este estudo', 'Gere perguntas', 'Temas relacionados', 'Aplicações'];
     }
-    if (contextType === 'notebook') {
+    if (effectiveContextType === 'notebook') {
       return ['Organize minhas notas', 'Crie um estudo estruturado', 'Sugira versículos', 'Melhore o texto'];
     }
     return ['O que a Bíblia fala sobre fé?', 'Explique Romanos 8', 'Estudo sobre oração', 'Contexto de João 3:16'];
