@@ -334,29 +334,70 @@ ${masterPrompt ? `\nPrompt mestre:\n${masterPrompt}` : ''}`;
       }
     }
 
-    // Search related services/sermons based on the user message
+    // Search related services/sermons based on the user message — use transcriptions as knowledge base
     if (context_type !== 'service') {
       try {
         const keywords = message.replace(/[^a-zA-ZÀ-ú0-9\s]/g, '').split(/\s+/).filter(w => w.length > 3).slice(0, 5);
         if (keywords.length > 0) {
           const searchQuery = keywords.join(' | ');
           const { rows: foundServices } = await pool.query(`
-            SELECT id, title, date, ai_summary
+            SELECT id, title, service_date, preacher, ai_summary, 
+                   SUBSTRING(transcription FROM 1 FOR 3000) as transcription_excerpt
             FROM services
-            WHERE church_id = $1
+            WHERE church_id = $1 AND ai_status = 'completed'
               AND (
                 to_tsvector('portuguese', COALESCE(title,'') || ' ' || COALESCE(ai_summary,'') || ' ' || COALESCE(transcription,''))
                 @@ to_tsquery('portuguese', $2)
               )
-            ORDER BY date DESC
+            ORDER BY service_date DESC NULLS LAST
             LIMIT 3
           `, [status.church_id, searchQuery]);
 
           if (foundServices.length) {
-            relatedServices = foundServices.map(s => ({ id: s.id, title: s.title, date: s.date }));
-            contextInfo += `\n\nCultos/pregações relacionados encontrados na igreja:\n${foundServices.map(s =>
-              `- "${s.title}" (${s.date ? new Date(s.date).toLocaleDateString('pt-BR') : ''}): ${(s.ai_summary || '').substring(0, 200)}`
-            ).join('\n')}`;
+            relatedServices = foundServices.map(s => ({ id: s.id, title: s.title, date: s.service_date }));
+            contextInfo += `\n\n=== BASE DE CONHECIMENTO: Cultos/pregações da igreja ===\n`;
+            contextInfo += foundServices.map(s => {
+              let entry = `--- Culto: "${s.title}"`;
+              if (s.preacher) entry += ` | Pregador: ${s.preacher}`;
+              if (s.service_date) entry += ` | Data: ${new Date(s.service_date).toLocaleDateString('pt-BR')}`;
+              entry += `\nResumo: ${(s.ai_summary || 'Sem resumo').substring(0, 300)}`;
+              if (s.transcription_excerpt) {
+                entry += `\nTrecho da transcrição: ${s.transcription_excerpt}`;
+              }
+              return entry;
+            }).join('\n\n');
+          }
+        }
+
+        // Fallback: if no full-text results, try ILIKE
+        if (!relatedServices.length) {
+          const likeTerms = message.replace(/[^a-zA-ZÀ-ú0-9\s]/g, '').split(/\s+/).filter(w => w.length > 3).slice(0, 3);
+          if (likeTerms.length > 0) {
+            const likeClauses = likeTerms.map((_, i) => `(COALESCE(title,'') || ' ' || COALESCE(ai_summary,'') || ' ' || COALESCE(transcription,'')) ILIKE $${i + 2}`);
+            const likeParams = likeTerms.map(t => `%${t}%`);
+            const { rows: fallbackServices } = await pool.query(`
+              SELECT id, title, service_date, preacher, ai_summary,
+                     SUBSTRING(transcription FROM 1 FOR 3000) as transcription_excerpt
+              FROM services
+              WHERE church_id = $1 AND ai_status = 'completed' AND (${likeClauses.join(' OR ')})
+              ORDER BY service_date DESC NULLS LAST
+              LIMIT 3
+            `, [status.church_id, ...likeParams]);
+
+            if (fallbackServices.length) {
+              relatedServices = fallbackServices.map(s => ({ id: s.id, title: s.title, date: s.service_date }));
+              contextInfo += `\n\n=== BASE DE CONHECIMENTO: Cultos/pregações da igreja ===\n`;
+              contextInfo += fallbackServices.map(s => {
+                let entry = `--- Culto: "${s.title}"`;
+                if (s.preacher) entry += ` | Pregador: ${s.preacher}`;
+                if (s.service_date) entry += ` | Data: ${new Date(s.service_date).toLocaleDateString('pt-BR')}`;
+                entry += `\nResumo: ${(s.ai_summary || 'Sem resumo').substring(0, 300)}`;
+                if (s.transcription_excerpt) {
+                  entry += `\nTrecho da transcrição: ${s.transcription_excerpt}`;
+                }
+                return entry;
+              }).join('\n\n');
+            }
           }
         }
       } catch (searchErr) {
