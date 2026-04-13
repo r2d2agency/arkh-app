@@ -1,6 +1,8 @@
 const router = require('express').Router();
 const pool = require('../db/pool');
-const { addWeeks, addMonths, isBefore, parseISO } = require('date-fns');
+
+function addWeeks(date, n) { const d = new Date(date); d.setDate(d.getDate() + n * 7); return d; }
+function addMonths(date, n) { const d = new Date(date); d.setMonth(d.getMonth() + n); return d; }
 
 // GET /api/church/events
 router.get('/', async (req, res) => {
@@ -44,8 +46,8 @@ router.post('/', async (req, res) => {
 
     // Generate recurring instances
     if (recurrence_rule && recurrence_until) {
-      let current = parseISO(starts_at);
-      const until = parseISO(recurrence_until);
+      let current = new Date(starts_at);
+      const until = new Date(recurrence_until);
       const duration = ends_at ? (new Date(ends_at).getTime() - new Date(starts_at).getTime()) : 0;
 
       const advance = (d) => {
@@ -56,7 +58,7 @@ router.post('/', async (req, res) => {
       };
 
       current = advance(current);
-      while (isBefore(current, until)) {
+      while (current < until) {
         const newEnd = duration ? new Date(current.getTime() + duration).toISOString() : null;
         const { rows: r } = await pool.query(
           `INSERT INTO events (church_id, title, description, location, event_type, starts_at, ends_at, all_day, recurrence_parent_id, created_by)
