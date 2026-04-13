@@ -42,7 +42,8 @@ const ChurchDashboard = () => {
     Promise.all([
       api.get<Service[]>('/api/church/services').catch(() => []),
       api.get<ChurchInfo>('/api/church/info').catch(() => null),
-    ]).then(([svc, info]) => {
+      api.get<Event[]>('/api/church/events').catch(() => []),
+    ]).then(([svc, info, evts]) => {
       const sorted = (svc || []).sort((a: Service, b: Service) => {
         const dateA = new Date(a.service_date || a.created_at).getTime();
         const dateB = new Date(b.service_date || b.created_at).getTime();
@@ -50,6 +51,13 @@ const ChurchDashboard = () => {
       });
       setServices(sorted);
       setChurchInfo(info);
+      // Filter only future events and sort ascending
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      const upcoming = (evts || [])
+        .filter(e => new Date(e.event_date) >= now)
+        .sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime());
+      setEvents(upcoming);
     }).finally(() => setLoading(false));
   }, []);
 
