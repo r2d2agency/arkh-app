@@ -102,6 +102,49 @@ const ChurchDashboard = () => {
         </Link>
       </div>
 
+      {/* Upcoming Events */}
+      {events.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-heading text-lg font-semibold flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-primary" />
+              Próximos Eventos
+            </h2>
+            <Link to="/church/agenda" className="text-xs text-primary font-medium flex items-center gap-1">
+              Ver agenda <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {events.slice(0, 3).map(evt => {
+              const evtDate = new Date(evt.event_date + 'T00:00:00');
+              const dayNum = evtDate.getDate();
+              const monthShort = evtDate.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
+              const weekDay = evtDate.toLocaleDateString('pt-BR', { weekday: 'short' });
+              return (
+                <Card key={evt.id} className="rounded-xl overflow-hidden card-hover border-primary/15">
+                  <div className="flex gap-3 p-3 items-center">
+                    <div className="w-14 h-14 rounded-xl bg-primary/10 flex flex-col items-center justify-center shrink-0">
+                      <span className="text-lg font-bold text-primary leading-none">{dayNum}</span>
+                      <span className="text-[10px] font-semibold text-primary/70 uppercase">{monthShort}</span>
+                    </div>
+                    <div className="flex-1 min-w-0 space-y-0.5">
+                      <h3 className="font-medium text-sm truncate">{evt.title}</h3>
+                      <p className="text-xs text-muted-foreground capitalize">{weekDay}{evt.event_time ? ` • ${evt.event_time.slice(0, 5)}` : ''}</p>
+                      {evt.location && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
+                          <MapPin className="w-3 h-3 shrink-0" />
+                          {evt.location}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Devotional Card */}
       <Card className="p-5 rounded-xl border-gold/20 bg-gold/5 space-y-3">
         <div className="flex items-center gap-2">
