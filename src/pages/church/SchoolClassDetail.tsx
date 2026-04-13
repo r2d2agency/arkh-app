@@ -118,6 +118,29 @@ const SchoolClassDetail = () => {
         )}
       </div>
 
+      {/* Block content for non-enrolled and pending users (admins can always see) */}
+      {!cls.is_enrolled && !cls.can_manage ? (
+        <Card className="p-8 text-center space-y-3">
+          {cls.is_pending ? (
+            <>
+              <Clock className="w-10 h-10 mx-auto text-amber-400" />
+              <h3 className="font-heading font-semibold text-foreground">Aguardando aprovação</h3>
+              <p className="text-sm text-muted-foreground">Sua solicitação de matrícula está sendo analisada pela liderança. Você terá acesso ao conteúdo assim que for aprovado.</p>
+            </>
+          ) : (
+            <>
+              <GraduationCap className="w-10 h-10 mx-auto text-muted-foreground/50" />
+              <h3 className="font-heading font-semibold text-foreground">Matrícula necessária</h3>
+              <p className="text-sm text-muted-foreground">Solicite sua matrícula para acessar as aulas e conteúdos desta classe.</p>
+              <Button size="sm" onClick={handleEnroll} disabled={enrolling} className="rounded-xl">
+                {enrolling ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+                Solicitar Matrícula
+              </Button>
+            </>
+          )}
+        </Card>
+      ) : (
+      <>
       {cls.is_enrolled && totalLessons > 0 && (
         <Card className="p-4">
           <div className="flex items-center justify-between mb-2">
