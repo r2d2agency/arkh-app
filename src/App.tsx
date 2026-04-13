@@ -49,6 +49,7 @@ import QuizListPage from "@/pages/church/QuizListPage";
 import QuizPlayPage from "@/pages/church/QuizPlayPage";
 import QuizAdminPage from "@/pages/church/QuizAdminPage";
 import AnnouncementsPage from "@/pages/church/AnnouncementsPage";
+import WorshipPage from "@/pages/church/WorshipPage";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -118,6 +119,7 @@ const AppRoutes = () => (
         <Route path="/church/onboarding" element={<OnboardingPage />} />
         <Route path="/church/quiz" element={<QuizListPage />} />
         <Route path="/church/quiz/:id" element={<QuizPlayPage />} />
+        <Route path="/church/worship" element={<WorshipPage />} />
       </Route>
 
       {/* Admin-only management pages (with sidebar layout) */}
