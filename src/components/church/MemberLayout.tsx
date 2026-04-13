@@ -2,6 +2,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import AIAssistant from '@/components/church/AIAssistant';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Home,
   Video,
@@ -24,6 +25,7 @@ import {
   GraduationCap,
   HelpCircle,
   Gamepad2,
+  Megaphone,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
@@ -42,6 +44,7 @@ const adminSidebarItems = [
   { path: '/church/manage-studies', label: 'Estudos Bíblicos', icon: BookOpen },
   { path: '/church/manage-school', label: 'Escola Bíblica', icon: GraduationCap },
   { path: '/church/agenda', label: 'Agenda / Eventos', icon: Calendar },
+  { path: '/church/announcements', label: 'Mural de Recados', icon: Megaphone },
   { path: '/church/groups', label: 'Grupos', icon: UsersRound },
   { path: '/church/polls', label: 'Enquetes', icon: BarChart3 },
   { path: '/church/manage-quizzes', label: 'Quizzes', icon: Gamepad2 },
@@ -58,6 +61,8 @@ const MemberLayout = () => {
   const [churchName, setChurchName] = useState<string>('');
   const [churchLogo, setChurchLogo] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [popupNotif, setPopupNotif] = useState<{ id: string; title: string; body: string } | null>(null);
+  const [lastNotifCheck, setLastNotifCheck] = useState<string | null>(null);
 
   const isAdmin = user?.role === 'admin_church' || user?.role === 'leader';
   const isSchoolRoute = location.pathname.startsWith('/church/school');
@@ -74,14 +79,29 @@ const MemberLayout = () => {
       .then(r => setUnreadCount(r.count))
       .catch(() => {});
     
-    // Poll every 30s
-    const interval = setInterval(() => {
+    // Poll every 30s for unread count and new announcements
+    const checkNotifications = () => {
       api.get<{ count: number }>('/api/church/notifications/unread-count')
         .then(r => setUnreadCount(r.count))
         .catch(() => {});
-    }, 30000);
+      // Check for new announcement notifications to show popup
+      api.get<Array<{ id: string; title: string; body: string; type: string; is_read: boolean; created_at: string }>>('/api/church/notifications')
+        .then(notifs => {
+          const announcements = notifs.filter(n => n.type === 'announcement' && !n.is_read);
+          if (announcements.length > 0) {
+            const newest = announcements[0];
+            if (!lastNotifCheck || newest.created_at > lastNotifCheck) {
+              setPopupNotif({ id: newest.id, title: newest.title, body: newest.body });
+              setLastNotifCheck(newest.created_at);
+            }
+          }
+        })
+        .catch(() => {});
+    };
+    checkNotifications();
+    const interval = setInterval(checkNotifications, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [lastNotifCheck]);
 
   const handleLogout = () => {
     logout();
@@ -206,6 +226,34 @@ const MemberLayout = () => {
           })}
         </div>
       </nav>
+
+      {/* Notification Popup */}
+      <Dialog open={!!popupNotif} onOpenChange={() => {
+        if (popupNotif) {
+          api.put(`/api/church/notifications/${popupNotif.id}/read`, {}).catch(() => {});
+          setUnreadCount(c => Math.max(0, c - 1));
+        }
+        setPopupNotif(null);
+      }}>
+        <DialogContent className="rounded-2xl max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bell className="w-5 h-5 text-primary" />
+              {popupNotif?.title}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground whitespace-pre-line">{popupNotif?.body}</p>
+          <Button className="rounded-xl w-full" onClick={() => {
+            if (popupNotif) {
+              api.put(`/api/church/notifications/${popupNotif.id}/read`, {}).catch(() => {});
+              setUnreadCount(c => Math.max(0, c - 1));
+            }
+            setPopupNotif(null);
+          }}>
+            Entendi
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

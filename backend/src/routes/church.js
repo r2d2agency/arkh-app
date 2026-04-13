@@ -325,10 +325,49 @@ router.get('/info', async (req, res) => {
   try {
     const churchId = req.user.church_id;
     if (!churchId) return res.status(400).json({ error: 'No church' });
-    const { rows } = await pool.query('SELECT id, name, slug, logo_url, status FROM churches WHERE id = $1', [churchId]);
+    const { rows } = await pool.query(
+      `SELECT id, name, slug, logo_url, status, address, city, state, region, lat, lng, whatsapp, phone, description, cover_url
+       FROM churches WHERE id = $1`,
+      [churchId]
+    );
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(rows[0]);
   } catch (err) {
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// PUT /api/church/info — update church info (address, description, etc.)
+router.put('/info', async (req, res) => {
+  try {
+    const churchId = req.user.church_id;
+    if (!churchId) return res.status(400).json({ error: 'No church' });
+    if (req.user.role !== 'admin_church') return res.status(403).json({ error: 'Admin only' });
+
+    const { name, address, city, state, region, lat, lng, whatsapp, phone, description, cover_url, domain } = req.body;
+    const { rows } = await pool.query(
+      `UPDATE churches SET
+        name = COALESCE($1, name),
+        address = COALESCE($2, address),
+        city = COALESCE($3, city),
+        state = COALESCE($4, state),
+        region = COALESCE($5, region),
+        lat = COALESCE($6, lat),
+        lng = COALESCE($7, lng),
+        whatsapp = COALESCE($8, whatsapp),
+        phone = COALESCE($9, phone),
+        description = COALESCE($10, description),
+        cover_url = COALESCE($11, cover_url),
+        domain = COALESCE($12, domain)
+       WHERE id = $13 RETURNING *`,
+      [name||null, address||null, city||null, state||null, region||null,
+       lat||null, lng||null, whatsapp||null, phone||null, description||null,
+       cover_url||null, domain||null, churchId]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Not found' });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error('PUT church info error:', err);
     res.status(500).json({ error: 'Internal error' });
   }
 });
@@ -366,6 +405,32 @@ router.post('/notes', async (req, res) => {
     res.status(201).json(rows[0]);
   } catch (err) {
     console.error('POST notes error:', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// PUT /api/church/notes/:id — update note (link/unlink service, edit)
+router.put('/notes/:id', async (req, res) => {
+  try {
+    const { title, content, service_id } = req.body;
+    const { rows } = await pool.query(
+      `UPDATE study_notes SET 
+        title = COALESCE($1, title),
+        content = COALESCE($2, content),
+        service_id = $3,
+        updated_at = NOW()
+       WHERE id = $4 AND user_id = $5 RETURNING *`,
+      [title || null, content || null, service_id === undefined ? null : (service_id || null), req.params.id, req.user.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Not found' });
+    // Fetch service title
+    if (rows[0].service_id) {
+      const { rows: svc } = await pool.query('SELECT title FROM services WHERE id = $1', [rows[0].service_id]);
+      rows[0].service_title = svc[0]?.title || null;
+    }
+    res.json(rows[0]);
+  } catch (err) {
+    console.error('PUT notes error:', err);
     res.status(500).json({ error: 'Internal error' });
   }
 });
