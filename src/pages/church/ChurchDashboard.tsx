@@ -34,6 +34,7 @@ interface ChurchInfo {
 const ChurchDashboard = () => {
   const { user } = useAuth();
   const [services, setServices] = useState<Service[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
   const [churchInfo, setChurchInfo] = useState<ChurchInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
