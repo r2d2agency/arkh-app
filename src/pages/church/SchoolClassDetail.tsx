@@ -289,6 +289,8 @@ const SchoolClassDetail = () => {
           </TabsContent>
         </Tabs>
       )}
+      </>
+      )}
     </div>
   );
 };
