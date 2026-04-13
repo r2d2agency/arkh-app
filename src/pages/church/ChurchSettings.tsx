@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Settings, Brain, Sparkles, Save, RotateCcw, Bot, Crown, MessageCircle, Church, MapPin, Phone, Loader2 } from 'lucide-react';
+import { Settings, Brain, Sparkles, Save, RotateCcw, Bot, Crown, MessageCircle, Church, MapPin, Phone, Loader2, QrCode, DollarSign } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
@@ -30,6 +31,10 @@ interface ChurchInfo {
   description: string | null;
   lat: number | null;
   lng: number | null;
+  pix_key_type: string | null;
+  pix_key: string | null;
+  pix_beneficiary: string | null;
+  pix_enabled: boolean;
 }
 
 const defaultProcessingPrompt = `Você é um teólogo e analista bíblico especializado...`;
@@ -46,6 +51,7 @@ const ChurchSettings = () => {
   const [churchInfo, setChurchInfo] = useState<ChurchInfo>({
     name: '', slug: '', domain: null, address: null, city: null, state: null,
     whatsapp: null, phone: null, description: null, lat: null, lng: null,
+    pix_key_type: null, pix_key: null, pix_beneficiary: null, pix_enabled: false,
   });
   const [togglingAssistant, setTogglingAssistant] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -169,6 +175,45 @@ const ChurchSettings = () => {
               <Input value={churchInfo.whatsapp || ''} onChange={e => setChurchInfo(s => ({ ...s, whatsapp: e.target.value }))} className="rounded-xl" placeholder="WhatsApp" />
               <Input value={churchInfo.phone || ''} onChange={e => setChurchInfo(s => ({ ...s, phone: e.target.value }))} className="rounded-xl" placeholder="Telefone" />
             </div>
+          </div>
+
+          {/* PIX */}
+          <div className="p-4 rounded-xl bg-muted/50 border border-border space-y-4">
+            <h4 className="font-medium text-sm flex items-center gap-2"><QrCode className="w-4 h-4 text-primary" /> Chave PIX — Ofertas e Dízimos</h4>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-foreground text-sm">Habilitar PIX para membros</p>
+                <p className="text-xs text-muted-foreground">Os membros verão a opção de contribuir via PIX</p>
+              </div>
+              <Switch checked={churchInfo.pix_enabled} onCheckedChange={v => setChurchInfo(s => ({ ...s, pix_enabled: v }))} />
+            </div>
+            {churchInfo.pix_enabled && (
+              <div className="space-y-3 pt-2 border-t border-border/50">
+                <div className="space-y-2">
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">Tipo da Chave</Label>
+                  <Select value={churchInfo.pix_key_type || ''} onValueChange={v => setChurchInfo(s => ({ ...s, pix_key_type: v }))}>
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue placeholder="Selecione o tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cpf">CPF</SelectItem>
+                      <SelectItem value="cnpj">CNPJ</SelectItem>
+                      <SelectItem value="email">E-mail</SelectItem>
+                      <SelectItem value="phone">Telefone</SelectItem>
+                      <SelectItem value="random">Chave aleatória</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">Chave PIX</Label>
+                  <Input value={churchInfo.pix_key || ''} onChange={e => setChurchInfo(s => ({ ...s, pix_key: e.target.value }))} className="rounded-xl" placeholder="Informe a chave PIX" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">Nome do Beneficiário</Label>
+                  <Input value={churchInfo.pix_beneficiary || ''} onChange={e => setChurchInfo(s => ({ ...s, pix_beneficiary: e.target.value }))} className="rounded-xl" placeholder="Nome que aparece na transferência" />
+                </div>
+              </div>
+            )}
           </div>
         </div>
         <Button onClick={handleSaveInfo} disabled={savingInfo} className="rounded-xl bg-primary hover:bg-primary/90 border-0 text-primary-foreground">

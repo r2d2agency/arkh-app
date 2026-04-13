@@ -326,7 +326,7 @@ router.get('/info', async (req, res) => {
     const churchId = req.user.church_id;
     if (!churchId) return res.status(400).json({ error: 'No church' });
     const { rows } = await pool.query(
-      `SELECT id, name, slug, logo_url, status, address, city, state, region, lat, lng, whatsapp, phone, description, cover_url
+      `SELECT id, name, slug, logo_url, status, address, city, state, region, lat, lng, whatsapp, phone, description, cover_url, pix_key_type, pix_key, pix_beneficiary, pix_enabled
        FROM churches WHERE id = $1`,
       [churchId]
     );
@@ -344,7 +344,7 @@ router.put('/info', async (req, res) => {
     if (!churchId) return res.status(400).json({ error: 'No church' });
     if (req.user.role !== 'admin_church') return res.status(403).json({ error: 'Admin only' });
 
-    const { name, address, city, state, region, lat, lng, whatsapp, phone, description, cover_url, domain } = req.body;
+    const { name, address, city, state, region, lat, lng, whatsapp, phone, description, cover_url, domain, pix_key_type, pix_key, pix_beneficiary, pix_enabled } = req.body;
     const { rows } = await pool.query(
       `UPDATE churches SET
         name = COALESCE($1, name),
@@ -358,11 +358,16 @@ router.put('/info', async (req, res) => {
         phone = COALESCE($9, phone),
         description = COALESCE($10, description),
         cover_url = COALESCE($11, cover_url),
-        domain = COALESCE($12, domain)
+        domain = COALESCE($12, domain),
+        pix_key_type = $14,
+        pix_key = $15,
+        pix_beneficiary = $16,
+        pix_enabled = COALESCE($17, pix_enabled)
        WHERE id = $13 RETURNING *`,
       [name||null, address||null, city||null, state||null, region||null,
        lat||null, lng||null, whatsapp||null, phone||null, description||null,
-       cover_url||null, domain||null, churchId]
+       cover_url||null, domain||null, churchId,
+       pix_key_type ?? null, pix_key ?? null, pix_beneficiary ?? null, pix_enabled ?? null]
     );
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(rows[0]);
