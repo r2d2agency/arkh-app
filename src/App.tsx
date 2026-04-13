@@ -48,6 +48,7 @@ import HelpPage from "@/pages/church/HelpPage";
 import QuizListPage from "@/pages/church/QuizListPage";
 import QuizPlayPage from "@/pages/church/QuizPlayPage";
 import QuizAdminPage from "@/pages/church/QuizAdminPage";
+import AnnouncementsPage from "@/pages/church/AnnouncementsPage";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -108,6 +109,7 @@ const AppRoutes = () => (
         <Route path="/church/password" element={<ChangePassword />} />
         <Route path="/church/polls" element={<PollsPage />} />
         <Route path="/church/agenda" element={<AgendaPage />} />
+        <Route path="/church/announcements" element={<AnnouncementsPage />} />
         <Route path="/church/groups/:id" element={<GroupDetailPage />} />
         <Route path="/church/school" element={<SchoolPage />} />
         <Route path="/church/school/:id" element={<SchoolClassDetail />} />
