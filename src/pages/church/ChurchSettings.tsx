@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Settings, Brain, Sparkles, Save, RotateCcw, Bot, Crown, MessageCircle, Church } from 'lucide-react';
+import { Settings, Brain, Sparkles, Save, RotateCcw, Bot, Crown, MessageCircle, Church, MapPin, Phone, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
@@ -18,56 +18,51 @@ interface AISettings {
   ai_assistant_prompt: string | null;
 }
 
-const defaultProcessingPrompt = `Você é um teólogo e analista bíblico especializado em pregações cristãs. Sua função é criar uma análise PROFUNDA, COMPLETA e DETALHADA de cada pregação.
+interface ChurchInfo {
+  name: string;
+  slug: string;
+  domain: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  whatsapp: string | null;
+  phone: string | null;
+  description: string | null;
+  lat: number | null;
+  lng: number | null;
+}
 
-Responda SEMPRE em JSON válido com a seguinte estrutura:
-{
-  "summary": "Resumo DETALHADO da pregação em 5-8 parágrafos completos...",
-  "theological_context": "Contexto teológico e histórico dos textos...",
-  "sermon_structure": [{"part": "...", "description": "..."}],
-  "topics": ["tópico 1", "tópico 2", ...],
-  "key_verses": [{"reference": "...", "text": "...", "context": "..."}],
-  "practical_applications": ["aplicação 1", ...],
-  "reflection_questions": ["pergunta 1?", ...],
-  "connections": [{"sermon_title": "...", "connection": "..."}]
-}`;
+const defaultProcessingPrompt = `Você é um teólogo e analista bíblico especializado...`;
 
-const defaultAssistantPrompt = `Descreva aqui informações sobre a doutrina, valores e identidade da sua igreja. Essas informações serão usadas pelo Assistente ARKHÉ para contextualizar respostas aos membros.
-
-Exemplo:
-- Nossa igreja é da denominação Batista
-- Cremos na Trindade, salvação pela graça e autoridade das Escrituras
-- Valorizamos comunhão, missões e discipulado`;
+const defaultAssistantPrompt = `Descreva aqui informações sobre a doutrina, valores e identidade da sua igreja.`;
 
 const ChurchSettings = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [settings, setSettings] = useState<AISettings>({
-    ai_prompt_template: null,
-    ai_temperature: null,
-    ai_max_tokens: null,
-    ai_assistant_enabled: false,
-    ai_assistant_prompt: null,
+    ai_prompt_template: null, ai_temperature: null, ai_max_tokens: null,
+    ai_assistant_enabled: false, ai_assistant_prompt: null,
+  });
+  const [churchInfo, setChurchInfo] = useState<ChurchInfo>({
+    name: '', slug: '', domain: null, address: null, city: null, state: null,
+    whatsapp: null, phone: null, description: null, lat: null, lng: null,
   });
   const [togglingAssistant, setTogglingAssistant] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savingInfo, setSavingInfo] = useState(false);
 
   const isAdmin = user?.role === 'admin_church';
 
   useEffect(() => {
-    const fetchSettings = async () => {
-      setLoading(true);
-      try {
-        const data = await api.get<AISettings>('/api/church/ai-settings');
-        setSettings(data);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchSettings();
+    setLoading(true);
+    Promise.all([
+      api.get<AISettings>('/api/church/ai-settings'),
+      api.get<ChurchInfo>('/api/church/info'),
+    ])
+      .then(([ai, info]) => { setSettings(ai); setChurchInfo(info); })
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }, []);
 
   const notifyAssistantRefresh = () => {
@@ -82,9 +77,18 @@ const ChurchSettings = () => {
       toast({ title: 'Configurações salvas com sucesso!' });
     } catch (err: any) {
       toast({ title: err.message || 'Erro ao salvar', variant: 'destructive' });
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
+  };
+
+  const handleSaveInfo = async () => {
+    setSavingInfo(true);
+    try {
+      const updated = await api.put<ChurchInfo>('/api/church/info', churchInfo);
+      setChurchInfo(updated);
+      toast({ title: 'Dados da igreja salvos!' });
+    } catch (err: any) {
+      toast({ title: err.message || 'Erro ao salvar', variant: 'destructive' });
+    } finally { setSavingInfo(false); }
   };
 
   const handleResetProcessing = () => {
@@ -113,6 +117,67 @@ const ChurchSettings = () => {
         <p className="text-muted-foreground">Configurações gerais da sua igreja</p>
       </div>
 
+      {/* Church Data */}
+      <Card className="p-6 rounded-xl space-y-5 max-w-2xl">
+        <h3 className="font-heading text-lg font-semibold flex items-center gap-2">
+          <Church className="w-5 h-5" /> Dados da Igreja
+        </h3>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2 col-span-2">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Nome da Igreja</Label>
+              <Input value={churchInfo.name || ''} onChange={e => setChurchInfo(s => ({ ...s, name: e.target.value }))} className="rounded-xl" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Slug</Label>
+              <Input value={churchInfo.slug || ''} className="rounded-xl" disabled />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Domínio personalizado</Label>
+              <Input value={churchInfo.domain || ''} onChange={e => setChurchInfo(s => ({ ...s, domain: e.target.value }))} className="rounded-xl" placeholder="app.minhaigreja.com.br" />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Descrição da Igreja</Label>
+            <Textarea
+              value={churchInfo.description || ''}
+              onChange={e => setChurchInfo(s => ({ ...s, description: e.target.value }))}
+              className="rounded-xl min-h-[80px]"
+              placeholder="Uma breve descrição da sua igreja para aparecer no catálogo..."
+            />
+          </div>
+
+          <div className="p-4 rounded-xl bg-muted/50 border border-border space-y-4">
+            <h4 className="font-medium text-sm flex items-center gap-2"><MapPin className="w-4 h-4 text-primary" /> Endereço</h4>
+            <div className="space-y-2">
+              <Input value={churchInfo.address || ''} onChange={e => setChurchInfo(s => ({ ...s, address: e.target.value }))} className="rounded-xl" placeholder="Rua, número, bairro" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Input value={churchInfo.city || ''} onChange={e => setChurchInfo(s => ({ ...s, city: e.target.value }))} className="rounded-xl" placeholder="Cidade" />
+              <Input value={churchInfo.state || ''} onChange={e => setChurchInfo(s => ({ ...s, state: e.target.value }))} className="rounded-xl" placeholder="Estado" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Input type="number" step="any" value={churchInfo.lat ?? ''} onChange={e => setChurchInfo(s => ({ ...s, lat: e.target.value ? parseFloat(e.target.value) : null }))} className="rounded-xl" placeholder="Latitude" />
+              <Input type="number" step="any" value={churchInfo.lng ?? ''} onChange={e => setChurchInfo(s => ({ ...s, lng: e.target.value ? parseFloat(e.target.value) : null }))} className="rounded-xl" placeholder="Longitude" />
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl bg-muted/50 border border-border space-y-4">
+            <h4 className="font-medium text-sm flex items-center gap-2"><Phone className="w-4 h-4 text-primary" /> Contato</h4>
+            <div className="grid grid-cols-2 gap-3">
+              <Input value={churchInfo.whatsapp || ''} onChange={e => setChurchInfo(s => ({ ...s, whatsapp: e.target.value }))} className="rounded-xl" placeholder="WhatsApp" />
+              <Input value={churchInfo.phone || ''} onChange={e => setChurchInfo(s => ({ ...s, phone: e.target.value }))} className="rounded-xl" placeholder="Telefone" />
+            </div>
+          </div>
+        </div>
+        <Button onClick={handleSaveInfo} disabled={savingInfo} className="rounded-xl bg-primary hover:bg-primary/90 border-0 text-primary-foreground">
+          {savingInfo ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+          Salvar dados da igreja
+        </Button>
+      </Card>
+
+      {/* AI Assistant */}
       <Card className="p-6 rounded-xl space-y-5 max-w-2xl border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
         <h3 className="font-heading text-lg font-semibold flex items-center gap-2">
           <Bot className="w-5 h-5 text-primary" /> IA Assistente
@@ -120,10 +185,7 @@ const ChurchSettings = () => {
             <Crown className="w-3 h-3" /> Premium
           </span>
         </h3>
-        <p className="text-sm text-muted-foreground">
-          O Assistente ARKHÉ permite que os membros conversem com a IA, tirem dúvidas bíblicas e aprofundem estudos.
-          Disponível em planos premium.
-        </p>
+        <p className="text-sm text-muted-foreground">O Assistente ARKHÉ permite que os membros conversem com a IA.</p>
 
         <div className="flex items-center justify-between p-4 rounded-xl bg-muted/50 border border-border">
           <div>
@@ -142,9 +204,7 @@ const ChurchSettings = () => {
                 toast({ title: data.ai_assistant_enabled ? 'IA Assistente ativada!' : 'IA Assistente desativada' });
               } catch (err: any) {
                 toast({ title: err.message || 'Erro ao alterar', variant: 'destructive' });
-              } finally {
-                setTogglingAssistant(false);
-              }
+              } finally { setTogglingAssistant(false); }
             }}
           />
         </div>
@@ -153,7 +213,7 @@ const ChurchSettings = () => {
           <div className="space-y-4 pt-2 border-t border-border/50">
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                <MessageCircle className="w-3 h-3" /> Contexto da Igreja (Doutrina / Descrição)
+                <MessageCircle className="w-3 h-3" /> Contexto da Igreja
               </Label>
               <Textarea
                 placeholder={defaultAssistantPrompt}
@@ -162,15 +222,10 @@ const ChurchSettings = () => {
                 className="rounded-xl min-h-[140px] text-sm"
                 rows={6}
               />
-              <p className="text-[11px] text-muted-foreground">
-                Descreva a doutrina, valores e identidade da sua igreja. Esse texto complementa o prompt principal (definido pelo Super Admin)
-                e ajuda o assistente a dar respostas alinhadas com a sua denominação.
-              </p>
             </div>
             <div className="flex gap-2">
               <Button onClick={handleSave} disabled={saving} size="sm" className="rounded-xl bg-primary hover:bg-primary/90 border-0 text-primary-foreground">
-                <Save className="w-4 h-4 mr-2" />
-                {saving ? 'Salvando...' : 'Salvar'}
+                <Save className="w-4 h-4 mr-2" /> {saving ? 'Salvando...' : 'Salvar'}
               </Button>
               <Button variant="outline" onClick={handleResetAssistant} size="sm" className="rounded-xl">
                 <RotateCcw className="w-4 h-4 mr-2" /> Limpar
@@ -180,14 +235,12 @@ const ChurchSettings = () => {
         )}
       </Card>
 
+      {/* AI Processing */}
       <Card className="p-6 rounded-xl space-y-5 max-w-2xl">
         <h3 className="font-heading text-lg font-semibold flex items-center gap-2">
           <Brain className="w-5 h-5 text-primary" /> IA de Processamento de Cultos
         </h3>
-        <p className="text-sm text-muted-foreground">
-          Configure como a IA gera resumos, pontos-chave e análises dos cultos. Este prompt é usado na <strong>IA Passiva</strong> (incluída no plano gratuito).
-        </p>
-
+        <p className="text-sm text-muted-foreground">Configure como a IA gera resumos e análises dos cultos.</p>
         <div className="space-y-4">
           <div className="space-y-2">
             <Label className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
@@ -200,73 +253,34 @@ const ChurchSettings = () => {
               className="rounded-xl min-h-[180px] font-mono text-xs"
               rows={10}
             />
-            <p className="text-[11px] text-muted-foreground">
-              Deixe vazio para usar o prompt padrão do sistema. O prompt deve instruir a IA a retornar JSON válido com resumo, versículos, etc.
-            </p>
           </div>
-
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wider text-muted-foreground">Temperatura</Label>
-              <Input
-                type="number"
-                min="0"
-                max="2"
-                step="0.1"
-                placeholder="0.7 (padrão)"
+              <Input type="number" min="0" max="2" step="0.1" placeholder="0.7 (padrão)"
                 value={settings.ai_temperature ?? ''}
                 onChange={e => setSettings(s => ({ ...s, ai_temperature: e.target.value ? parseFloat(e.target.value) : null }))}
                 className="rounded-xl"
               />
-              <p className="text-[11px] text-muted-foreground">0 = mais focado, 2 = mais criativo</p>
             </div>
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wider text-muted-foreground">Max Tokens</Label>
-              <Input
-                type="number"
-                min="1000"
-                max="32000"
-                step="1000"
-                placeholder="8192 (padrão)"
+              <Input type="number" min="1000" max="32000" step="1000" placeholder="8192 (padrão)"
                 value={settings.ai_max_tokens ?? ''}
                 onChange={e => setSettings(s => ({ ...s, ai_max_tokens: e.target.value ? parseInt(e.target.value) : null }))}
                 className="rounded-xl"
               />
-              <p className="text-[11px] text-muted-foreground">Mais tokens = resposta mais longa</p>
             </div>
           </div>
         </div>
-
         <div className="flex gap-2 pt-2">
           <Button onClick={handleSave} disabled={saving} className="rounded-xl bg-primary hover:bg-primary/90 border-0 text-primary-foreground">
-            <Save className="w-4 h-4 mr-2" />
-            {saving ? 'Salvando...' : 'Salvar configurações'}
+            <Save className="w-4 h-4 mr-2" /> {saving ? 'Salvando...' : 'Salvar configurações'}
           </Button>
           <Button variant="outline" onClick={handleResetProcessing} className="rounded-xl">
             <RotateCcw className="w-4 h-4 mr-2" /> Restaurar padrão
           </Button>
         </div>
-      </Card>
-
-      <Card className="p-6 rounded-xl space-y-5 max-w-2xl">
-        <h3 className="font-heading text-lg font-semibold flex items-center gap-2">
-          <Church className="w-5 h-5" /> Dados da Igreja
-        </h3>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Nome da Igreja</Label>
-            <Input placeholder="Nome da igreja" className="rounded-xl" />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Slug</Label>
-            <Input placeholder="slug-da-igreja" className="rounded-xl" disabled />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Domínio personalizado</Label>
-            <Input placeholder="app.minhaigreja.com.br" className="rounded-xl" />
-          </div>
-        </div>
-        <Button className="rounded-xl bg-primary hover:bg-primary/90 border-0 text-primary-foreground">Salvar configurações</Button>
       </Card>
     </div>
   );
