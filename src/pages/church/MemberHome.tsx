@@ -530,6 +530,40 @@ const MemberHome = () => {
         </div>
       )}
 
+      {/* Recados */}
+      {announcements.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-heading text-lg font-semibold flex items-center gap-2">
+              <Megaphone className="w-5 h-5 text-primary" /> Recados
+            </h2>
+            <Link to="/church/announcements" className="text-xs text-primary font-medium flex items-center gap-1">
+              Ver todos <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {announcements.map(ann => (
+              <Link key={ann.id} to="/church/announcements">
+                <Card className={`p-3 rounded-xl card-hover ${ann.is_pinned ? 'border-primary/30 bg-primary/5' : ''}`}>
+                  <div className="flex items-start gap-3">
+                    {ann.image_url && (
+                      <img src={ann.image_url} alt="" className="w-14 h-14 rounded-lg object-cover shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0 space-y-0.5">
+                      <h3 className="text-sm font-medium truncate">{ann.title}</h3>
+                      {ann.body && (
+                        <p className="text-xs text-muted-foreground line-clamp-2">{ann.body}</p>
+                      )}
+                      <p className="text-[10px] text-muted-foreground">{ann.author_name || 'Admin'}</p>
+                    </div>
+                  </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-heading text-lg font-semibold">Últimos Cultos</h2>
