@@ -1,9 +1,18 @@
 import { Card } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
-import { Video, BookOpen, ArrowRight, Play, Clock, Heart, BookMarked, Sparkles } from 'lucide-react';
+import { Video, BookOpen, ArrowRight, Play, Clock, Heart, Calendar, MapPin, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+
+interface Event {
+  id: string;
+  title: string;
+  description: string | null;
+  event_date: string;
+  event_time: string | null;
+  location: string | null;
+}
 
 interface Service {
   id: string;
