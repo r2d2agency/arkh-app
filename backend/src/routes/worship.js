@@ -46,14 +46,14 @@ router.post('/', async (req, res) => {
     if (req.user.role !== 'admin_church' && req.user.role !== 'leader' && req.user.role !== 'super_admin') {
       return res.status(403).json({ error: 'Forbidden' });
     }
-    const { title, artist, composer, category, youtube_url, lyrics, chords, bpm, tone, tags } = req.body;
+    const { title, artist, composer, category, youtube_url, lyrics, chords, bpm, tone, tags, start_time, end_time } = req.body;
     if (!title) return res.status(400).json({ error: 'title required' });
     const { rows } = await pool.query(
-      `INSERT INTO worship_songs (church_id, title, artist, composer, category, youtube_url, lyrics, chords, bpm, tone, tags, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+      `INSERT INTO worship_songs (church_id, title, artist, composer, category, youtube_url, lyrics, chords, bpm, tone, tags, start_time, end_time, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
       [req.user.church_id, title, artist || null, composer || null, category || 'Adoração',
        youtube_url || null, lyrics || null, chords || null, bpm || null, tone || null,
-       tags || null, req.user.id]
+       tags || null, start_time || 0, end_time || null, req.user.id]
     );
     res.status(201).json(rows[0]);
   } catch (err) {
@@ -68,13 +68,13 @@ router.put('/:id', async (req, res) => {
     if (req.user.role !== 'admin_church' && req.user.role !== 'leader' && req.user.role !== 'super_admin') {
       return res.status(403).json({ error: 'Forbidden' });
     }
-    const { title, artist, composer, category, youtube_url, lyrics, chords, bpm, tone, tags } = req.body;
+    const { title, artist, composer, category, youtube_url, lyrics, chords, bpm, tone, tags, start_time, end_time } = req.body;
     const { rows } = await pool.query(
       `UPDATE worship_songs SET title=COALESCE($1,title), artist=$2, composer=$3, category=COALESCE($4,category),
-       youtube_url=$5, lyrics=$6, chords=$7, bpm=$8, tone=$9, tags=$10, updated_at=NOW()
-       WHERE id=$11 AND church_id=$12 RETURNING *`,
+       youtube_url=$5, lyrics=$6, chords=$7, bpm=$8, tone=$9, tags=$10, start_time=$11, end_time=$12, updated_at=NOW()
+       WHERE id=$13 AND church_id=$14 RETURNING *`,
       [title, artist||null, composer||null, category, youtube_url||null, lyrics||null, chords||null,
-       bpm||null, tone||null, tags||null, req.params.id, req.user.church_id]
+       bpm||null, tone||null, tags||null, start_time||0, end_time||null, req.params.id, req.user.church_id]
     );
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(rows[0]);
@@ -192,6 +192,67 @@ Retorne APENAS o JSON, sem markdown.`;
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao identificar louvor' });
+  }
+});
+
+// ========== FAVORITES ==========
+
+// GET favorites
+router.get('/favorites', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT wf.*, ws.title, ws.artist, ws.category, ws.youtube_url, ws.tone, ws.bpm, ws.start_time, ws.end_time
+       FROM worship_favorites wf
+       JOIN worship_songs ws ON wf.song_id = ws.id
+       WHERE wf.user_id = $1
+       ORDER BY wf.position ASC, wf.created_at ASC`,
+      [req.user.id]
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// POST toggle favorite
+router.post('/favorites', async (req, res) => {
+  try {
+    const { song_id } = req.body;
+    if (!song_id) return res.status(400).json({ error: 'song_id required' });
+    // Check if exists
+    const { rows: existing } = await pool.query(
+      'SELECT id FROM worship_favorites WHERE user_id=$1 AND song_id=$2', [req.user.id, song_id]
+    );
+    if (existing.length) {
+      await pool.query('DELETE FROM worship_favorites WHERE id=$1', [existing[0].id]);
+      return res.json({ removed: true });
+    }
+    // Get max position
+    const { rows: maxRows } = await pool.query(
+      'SELECT COALESCE(MAX(position),0)+1 as next_pos FROM worship_favorites WHERE user_id=$1', [req.user.id]
+    );
+    const { rows } = await pool.query(
+      'INSERT INTO worship_favorites (user_id, song_id, position) VALUES ($1,$2,$3) RETURNING *',
+      [req.user.id, song_id, maxRows[0].next_pos]
+    );
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// PUT reorder favorites
+router.put('/favorites/reorder', async (req, res) => {
+  try {
+    const { order } = req.body; // array of { id, position }
+    if (!Array.isArray(order)) return res.status(400).json({ error: 'order array required' });
+    for (const item of order) {
+      await pool.query('UPDATE worship_favorites SET position=$1 WHERE id=$2 AND user_id=$3',
+        [item.position, item.id, req.user.id]);
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal error' });
   }
 });
 
