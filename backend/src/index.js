@@ -52,6 +52,7 @@ app.use('/api/church/devotional', authenticate, require('./routes/devotional'));
 app.use('/api/church/suggestions', authenticate, require('./routes/suggestions'));
 app.use('/api/church/quizzes', authenticate, require('./routes/quizzes'));
 app.use('/api/church/notifications', authenticate, require('./routes/notifications'));
+app.use('/api/church/announcements', authenticate, require('./routes/announcements'));
 app.use('/api/church/assistant', authenticate, require('./routes/assistant'));
 
 app.use((err, req, res, next) => {
