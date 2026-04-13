@@ -102,13 +102,50 @@ const AnnouncementsPage = () => {
     setMediaPreviews([]);
   };
 
+  const handleFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setMediaFiles(prev => [...prev, ...files]);
+    files.forEach(f => {
+      const reader = new FileReader();
+      reader.onload = ev => setMediaPreviews(prev => [...prev, ev.target?.result as string]);
+      reader.readAsDataURL(f);
+    });
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const removeFile = (idx: number) => {
+    setMediaFiles(prev => prev.filter((_, i) => i !== idx));
+    setMediaPreviews(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const uploadFiles = async (): Promise<string[]> => {
+    if (mediaFiles.length === 0) return [];
+    const formData = new FormData();
+    mediaFiles.forEach(f => formData.append('files', f));
+    const token = localStorage.getItem('token');
+    const apiUrl = import.meta.env.VITE_API_URL || '';
+    const res = await fetch(`${apiUrl}/api/church/upload`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+    if (!res.ok) throw new Error('Upload failed');
+    const data = await res.json();
+    return data.urls;
+  };
+
   const handleCreate = async () => {
     if (!form.title.trim()) return toast.error('Título obrigatório');
     setSubmitting(true);
     try {
+      setUploading(mediaFiles.length > 0);
+      const uploadedUrls = await uploadFiles();
+      const allMedia = [...form.media_urls, ...uploadedUrls];
       const payload = {
         ...form,
-        image_url: form.image_url || (form.media_urls.length > 0 ? form.media_urls[0] : null),
+        media_urls: allMedia,
+        image_url: allMedia.length > 0 ? allMedia[0] : null,
         event_date: form.event_date ? format(form.event_date, 'yyyy-MM-dd') : null,
         event_time: form.event_time || null,
       };
@@ -121,6 +158,7 @@ const AnnouncementsPage = () => {
       toast.error('Erro ao publicar');
     } finally {
       setSubmitting(false);
+      setUploading(false);
     }
   };
 
@@ -134,15 +172,6 @@ const AnnouncementsPage = () => {
       toast.error('Erro ao remover');
     }
   };
-
-  const addMediaUrl = () => {
-    if (!newMediaUrl.trim()) return;
-    setForm(f => ({ ...f, media_urls: [...f.media_urls, newMediaUrl.trim()] }));
-    setNewMediaUrl('');
-  };
-
-  const removeMediaUrl = (idx: number) => {
-    setForm(f => ({ ...f, media_urls: f.media_urls.filter((_, i) => i !== idx) }));
   };
 
   // Sort: pinned first, then by date
