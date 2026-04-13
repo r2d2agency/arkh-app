@@ -194,16 +194,33 @@ const ChurchSettings = () => {
           <div className="p-4 rounded-xl bg-muted/50 border border-border space-y-4">
             <h4 className="font-medium text-sm flex items-center gap-2"><MapPin className="w-4 h-4 text-primary" /> Endereço</h4>
             <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">CEP</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={churchInfo.cep || ''}
+                  onChange={e => {
+                    const v = e.target.value.replace(/\D/g, '').slice(0, 8);
+                    const formatted = v.length > 5 ? `${v.slice(0, 5)}-${v.slice(5)}` : v;
+                    setChurchInfo(s => ({ ...s, cep: formatted }));
+                    if (v.length === 8) lookupCep(v);
+                  }}
+                  className="rounded-xl max-w-[160px]"
+                  placeholder="00000-000"
+                  maxLength={9}
+                />
+                {fetchingCep && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground self-center" />}
+              </div>
+            </div>
+            <div className="space-y-2">
               <Input value={churchInfo.address || ''} onChange={e => setChurchInfo(s => ({ ...s, address: e.target.value }))} className="rounded-xl" placeholder="Rua, número, bairro" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Input value={churchInfo.city || ''} onChange={e => setChurchInfo(s => ({ ...s, city: e.target.value }))} className="rounded-xl" placeholder="Cidade" />
               <Input value={churchInfo.state || ''} onChange={e => setChurchInfo(s => ({ ...s, state: e.target.value }))} className="rounded-xl" placeholder="Estado" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Input type="number" step="any" value={churchInfo.lat ?? ''} onChange={e => setChurchInfo(s => ({ ...s, lat: e.target.value ? parseFloat(e.target.value) : null }))} className="rounded-xl" placeholder="Latitude" />
-              <Input type="number" step="any" value={churchInfo.lng ?? ''} onChange={e => setChurchInfo(s => ({ ...s, lng: e.target.value ? parseFloat(e.target.value) : null }))} className="rounded-xl" placeholder="Longitude" />
-            </div>
+            {churchInfo.lat && churchInfo.lng && (
+              <p className="text-[11px] text-muted-foreground">📍 Coordenadas: {churchInfo.lat.toFixed(6)}, {churchInfo.lng.toFixed(6)} (geradas automaticamente)</p>
+            )}
           </div>
 
           <div className="p-4 rounded-xl bg-muted/50 border border-border space-y-4">
