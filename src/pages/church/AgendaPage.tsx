@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Calendar, Plus, Trash2, Loader2, MapPin, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, Plus, Trash2, Loader2, MapPin, Clock, ChevronLeft, ChevronRight, Repeat } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
@@ -42,7 +42,7 @@ const AgendaPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     title: '', description: '', location: '', event_type: 'general',
-    starts_at: '', ends_at: '', all_day: false,
+    starts_at: '', ends_at: '', all_day: false, recurrence_rule: '', recurrence_until: '',
   });
 
   const isAdmin = user?.role === 'admin_church' || user?.role === 'leader';
@@ -66,7 +66,7 @@ const AgendaPage = () => {
     try {
       const ev = await api.post<Event>('/api/church/events', form);
       setEvents(prev => [...prev, ev].sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()));
-      setForm({ title: '', description: '', location: '', event_type: 'general', starts_at: '', ends_at: '', all_day: false });
+      setForm({ title: '', description: '', location: '', event_type: 'general', starts_at: '', ends_at: '', all_day: false, recurrence_rule: '', recurrence_until: '' });
       setCreateOpen(false);
       toast({ title: 'Evento criado!' });
     } catch { toast({ title: 'Erro ao criar evento', variant: 'destructive' }); }
@@ -276,6 +276,28 @@ const AgendaPage = () => {
                 <Label>Fim (opcional)</Label>
                 <Input type="datetime-local" value={form.ends_at} onChange={e => setForm(f => ({ ...f, ends_at: e.target.value }))} className="rounded-xl" />
               </div>
+            </div>
+
+            {/* Recurrence */}
+            <div className="space-y-2 p-3 rounded-xl bg-muted/50 border border-border">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <Repeat className="w-3.5 h-3.5" /> Recorrência
+              </Label>
+              <Select value={form.recurrence_rule} onValueChange={v => setForm(f => ({ ...f, recurrence_rule: v }))}>
+                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Sem recorrência" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem recorrência</SelectItem>
+                  <SelectItem value="weekly">Semanal</SelectItem>
+                  <SelectItem value="biweekly">Quinzenal</SelectItem>
+                  <SelectItem value="monthly">Mensal</SelectItem>
+                </SelectContent>
+              </Select>
+              {form.recurrence_rule && form.recurrence_rule !== 'none' && (
+                <div className="space-y-2">
+                  <Label className="text-xs">Repetir até</Label>
+                  <Input type="date" value={form.recurrence_until} onChange={e => setForm(f => ({ ...f, recurrence_until: e.target.value }))} className="rounded-xl" />
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
