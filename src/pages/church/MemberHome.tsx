@@ -121,8 +121,11 @@ const MemberHome = () => {
   const [continueWatching, setContinueWatching] = useState<ContinueWatching[]>([]);
   const [schoolClasses, setSchoolClasses] = useState<SchoolClassPreview[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  const [showChurchSheet, setShowChurchSheet] = useState(false);
+  const [pixCopied, setPixCopied] = useState(false);
 
   useEffect(() => {
     const now = new Date();
@@ -134,7 +137,8 @@ const MemberHome = () => {
       api.get<ContinueWatching[]>('/api/church/suggestions/continue-watching').catch(() => []),
       api.get<SchoolClassPreview[]>('/api/church/school/classes').catch(() => []),
       api.get<UpcomingEvent[]>(`/api/church/events?month=${month}`).catch(() => []),
-    ]).then(([svc, info, dev, cw, school, events]) => {
+      api.get<Announcement[]>('/api/church/announcements').catch(() => []),
+    ]).then(([svc, info, dev, cw, school, events, ann]) => {
       setServices(svc || []);
       setChurchInfo(info);
       setDevotional(dev);
@@ -142,6 +146,13 @@ const MemberHome = () => {
       setSchoolClasses(school || []);
       const futureEvents = (events || []).filter(e => new Date(e.starts_at) >= now);
       setUpcomingEvents(futureEvents.slice(0, 5));
+      // Sort: pinned first, then recent
+      const sorted = (ann || []).sort((a, b) => {
+        if (a.is_pinned && !b.is_pinned) return -1;
+        if (!a.is_pinned && b.is_pinned) return 1;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+      setAnnouncements(sorted.slice(0, 3));
     }).finally(() => setLoading(false));
   }, []);
 
@@ -152,13 +163,131 @@ const MemberHome = () => {
     return 'Boa noite';
   };
 
+  const copyPix = () => {
+    if (churchInfo?.pix_key) {
+      navigator.clipboard.writeText(churchInfo.pix_key);
+      setPixCopied(true);
+      toast('Chave PIX copiada!');
+      setTimeout(() => setPixCopied(false), 2000);
+    }
+  };
+
+  const openMaps = () => {
+    if (churchInfo?.lat && churchInfo?.lng) {
+      window.open(`https://www.google.com/maps/dir/?api=1&destination=${churchInfo.lat},${churchInfo.lng}`, '_blank');
+    } else if (churchInfo?.address) {
+      window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(churchInfo.address + (churchInfo.city ? ', ' + churchInfo.city : ''))}`, '_blank');
+    }
+  };
+
+  const pixTypeLabel: Record<string, string> = {
+    cpf: 'CPF', cnpj: 'CNPJ', email: 'E-mail', phone: 'Telefone', random: 'Aleatória',
+  };
+
   return (
     <div className="space-y-6 animate-fade-in p-4">
-      <div className="space-y-1 pt-1">
-        <p className="text-sm text-muted-foreground">{churchInfo?.name || 'Minha Igreja'}</p>
-        <h1 className="font-heading text-2xl font-bold">
-          {greeting()}, {user?.name?.split(' ')[0]} 👋
-        </h1>
+      {/* Church Info Sheet */}
+      {showChurchSheet && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowChurchSheet(false)} />
+          <div className="relative bg-background rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[85vh] overflow-y-auto p-6 space-y-5 animate-fade-in">
+            <div className="flex items-center justify-between">
+              <h2 className="font-heading text-lg font-bold flex items-center gap-2">
+                <Church className="w-5 h-5 text-primary" />
+                {churchInfo?.name || 'Igreja'}
+              </h2>
+              <button onClick={() => setShowChurchSheet(false)} className="p-1 rounded-lg hover:bg-muted">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {(churchInfo?.address || (churchInfo?.lat && churchInfo?.lng)) && (
+              <button onClick={openMaps} className="w-full flex items-center gap-3 p-4 rounded-xl bg-primary/10 hover:bg-primary/20 transition-colors text-left">
+                <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
+                  <Navigation className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm">Como chegar</p>
+                  <p className="text-xs text-muted-foreground truncate">{churchInfo.address}{churchInfo.city ? `, ${churchInfo.city}` : ''}</p>
+                </div>
+                <ExternalLink className="w-4 h-4 text-muted-foreground shrink-0" />
+              </button>
+            )}
+
+            {churchInfo?.pix_enabled && churchInfo?.pix_key && (
+              <div className="space-y-3">
+                <h3 className="font-heading text-sm font-semibold flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-gold" />
+                  Oferta & Dízimo
+                </h3>
+                <div className="p-4 rounded-xl border border-gold/20 bg-gold/5 space-y-3">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">
+                      Chave PIX ({pixTypeLabel[churchInfo.pix_key_type || ''] || churchInfo.pix_key_type})
+                    </p>
+                    <p className="font-mono text-sm font-medium break-all">{churchInfo.pix_key}</p>
+                    {churchInfo.pix_beneficiary && (
+                      <p className="text-xs text-muted-foreground">Favorecido: {churchInfo.pix_beneficiary}</p>
+                    )}
+                  </div>
+                  <Button onClick={copyPix} variant="outline" className="w-full rounded-xl border-gold/30 hover:bg-gold/10" size="sm">
+                    {pixCopied ? <Check className="w-4 h-4 mr-2 text-green-500" /> : <Copy className="w-4 h-4 mr-2" />}
+                    {pixCopied ? 'Copiada!' : 'Copiar chave PIX'}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {(churchInfo?.phone || churchInfo?.whatsapp) && (
+              <div className="space-y-3">
+                <h3 className="font-heading text-sm font-semibold flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-primary" />
+                  Contatos
+                </h3>
+                <div className="space-y-2">
+                  {churchInfo.phone && (
+                    <a href={`tel:${churchInfo.phone}`} className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 hover:bg-muted transition-colors">
+                      <Phone className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm">{churchInfo.phone}</span>
+                    </a>
+                  )}
+                  {churchInfo.whatsapp && (
+                    <a href={`https://wa.me/${churchInfo.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer"
+                       className="flex items-center gap-3 p-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors">
+                      <span className="text-sm">WhatsApp</span>
+                      <ExternalLink className="w-3 h-3 text-muted-foreground ml-auto" />
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <Link to="/church/groups" onClick={() => setShowChurchSheet(false)}
+              className="flex items-center gap-3 p-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors">
+              <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center shrink-0">
+                <Users className="w-5 h-5 text-purple-500" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-sm">Grupos da igreja</p>
+                <p className="text-xs text-muted-foreground">Células, ministérios e mais</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-muted-foreground" />
+            </Link>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between pt-1">
+        <div className="space-y-1">
+          <p className="text-sm text-muted-foreground">{churchInfo?.name || 'Minha Igreja'}</p>
+          <h1 className="font-heading text-2xl font-bold">
+            {greeting()}, {user?.name?.split(' ')[0]} 👋
+          </h1>
+        </div>
+        <button onClick={() => setShowChurchSheet(true)}
+          className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors shrink-0">
+          <Church className="w-5 h-5 text-primary" />
+        </button>
       </div>
 
       <Card className="p-4 rounded-2xl border-primary/10 space-y-3">
