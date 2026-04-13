@@ -24,6 +24,7 @@ import {
   GraduationCap,
   HelpCircle,
   Gamepad2,
+  Megaphone,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
@@ -42,6 +43,7 @@ const adminSidebarItems = [
   { path: '/church/manage-studies', label: 'Estudos Bíblicos', icon: BookOpen },
   { path: '/church/manage-school', label: 'Escola Bíblica', icon: GraduationCap },
   { path: '/church/agenda', label: 'Agenda / Eventos', icon: Calendar },
+  { path: '/church/announcements', label: 'Mural de Recados', icon: Megaphone },
   { path: '/church/groups', label: 'Grupos', icon: UsersRound },
   { path: '/church/polls', label: 'Enquetes', icon: BarChart3 },
   { path: '/church/manage-quizzes', label: 'Quizzes', icon: Gamepad2 },
