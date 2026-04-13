@@ -223,9 +223,9 @@ const WorshipPage = () => {
   const getEmbedUrl = (song: Song) => {
     const ytId = song.youtube_url ? getYoutubeId(song.youtube_url) : null;
     if (!ytId) return null;
-    const params = new URLSearchParams({ autoplay: '1', enablejsapi: '1' });
+    const params = new URLSearchParams({ autoplay: '1', enablejsapi: '1', origin: window.location.origin });
     if (song.start_time) params.set('start', String(song.start_time));
-    if (song.end_time) params.set('end', String(song.end_time));
+    // Don't rely on YouTube's 'end' param — we enforce it via the IFrame API below
     return `https://www.youtube.com/embed/${ytId}?${params}`;
   };
 
@@ -247,6 +247,66 @@ const WorshipPage = () => {
     : songs;
   const currentIdx = detailSong ? currentList.findIndex(s => s.id === detailSong.id) : -1;
   const hasNext = currentIdx >= 0 && currentIdx < currentList.length - 1;
+
+  // Use YouTube IFrame API to enforce end_time
+  useEffect(() => {
+    if (!detailSong?.end_time || !detailSong.youtube_url) return;
+    const ytId = getYoutubeId(detailSong.youtube_url);
+    if (!ytId) return;
+
+    const endTime = detailSong.end_time;
+    let intervalId: ReturnType<typeof setInterval>;
+
+    const checkTime = () => {
+      const iframe = playerRef.current;
+      if (!iframe?.contentWindow) return;
+      iframe.contentWindow.postMessage(JSON.stringify({
+        event: 'command',
+        func: 'getCurrentTime',
+        args: [],
+      }), '*');
+    };
+
+    const handleMessage = (e: MessageEvent) => {
+      try {
+        const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+        if (data?.event === 'infoDelivery' && data?.info?.currentTime != null) {
+          const currentTime = data.info.currentTime;
+          if (currentTime >= endTime) {
+            const iframe = playerRef.current;
+            if (iframe?.contentWindow) {
+              iframe.contentWindow.postMessage(JSON.stringify({
+                event: 'command',
+                func: 'pauseVideo',
+                args: [],
+              }), '*');
+            }
+            clearInterval(intervalId);
+            if (autoPlayNext && hasNext) {
+              setTimeout(() => playNext(), 1000);
+            }
+          }
+        }
+      } catch {}
+    };
+
+    window.addEventListener('message', handleMessage);
+    const startTimeout = setTimeout(() => {
+      const iframe = playerRef.current;
+      if (iframe?.contentWindow) {
+        iframe.contentWindow.postMessage(JSON.stringify({
+          event: 'listening',
+        }), '*');
+      }
+      intervalId = setInterval(checkTime, 500);
+    }, 2000);
+
+    return () => {
+      window.removeEventListener('message', handleMessage);
+      clearTimeout(startTimeout);
+      clearInterval(intervalId);
+    };
+  }, [detailSong?.id, detailSong?.end_time, autoPlayNext, hasNext, playNext]);
 
   return (
     <div className="p-4 space-y-4 animate-fade-in">
