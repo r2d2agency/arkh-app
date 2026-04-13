@@ -80,11 +80,15 @@ const SchoolPage = () => {
     try {
       await api.put(`/api/church/school/enrollments/${enrollmentId}/approve`, {});
       toast.success('Matrícula aprovada!');
-      loadData();
+      // Remove from pending list immediately for better UX
+      setPending(prev => prev.filter(p => p.enrollment_id !== enrollmentId));
+      // Reload classes to update counts
+      api.get<SchoolClass[]>('/api/church/school/classes').then(setClasses).catch(() => {});
     } catch (err: any) {
-      toast.error(err.message || 'Erro');
+      toast.error(err.message || 'Erro ao aprovar');
+    } finally {
+      setProcessingId(null);
     }
-    setProcessingId(null);
   };
 
   const handleReject = async (enrollmentId: string) => {
@@ -92,11 +96,13 @@ const SchoolPage = () => {
     try {
       await api.put(`/api/church/school/enrollments/${enrollmentId}/reject`, {});
       toast.success('Matrícula recusada');
-      loadData();
+      setPending(prev => prev.filter(p => p.enrollment_id !== enrollmentId));
+      api.get<SchoolClass[]>('/api/church/school/classes').then(setClasses).catch(() => {});
     } catch (err: any) {
-      toast.error(err.message || 'Erro');
+      toast.error(err.message || 'Erro ao recusar');
+    } finally {
+      setProcessingId(null);
     }
-    setProcessingId(null);
   };
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;

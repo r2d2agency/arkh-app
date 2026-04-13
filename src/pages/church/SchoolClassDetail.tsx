@@ -64,9 +64,10 @@ const SchoolClassDetail = () => {
       toast.success('Matrícula aprovada!');
       load();
     } catch (err: any) {
-      toast.error(err.message || 'Erro');
+      toast.error(err.message || 'Erro ao aprovar');
+    } finally {
+      setProcessingEnrollment(null);
     }
-    setProcessingEnrollment(null);
   };
 
   const handleReject = async (enrollmentId: string) => {
@@ -76,9 +77,10 @@ const SchoolClassDetail = () => {
       toast.success('Matrícula recusada');
       load();
     } catch (err: any) {
-      toast.error(err.message || 'Erro');
+      toast.error(err.message || 'Erro ao recusar');
+    } finally {
+      setProcessingEnrollment(null);
     }
-    setProcessingEnrollment(null);
   };
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
