@@ -26,6 +26,7 @@ import {
   HelpCircle,
   Gamepad2,
   Megaphone,
+  Music,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
@@ -34,7 +35,7 @@ import logoImg from '@/assets/logo.png';
 const memberBottomNav = [
   { path: '/church', label: 'Início', icon: Home },
   { path: '/church/services', label: 'Cultos', icon: Video },
-  { path: '/church/agenda', label: 'Agenda', icon: Calendar },
+  { path: '/church/worship', label: 'Louvores', icon: Music },
   { path: '/church/studies', label: 'Estudar', icon: BookOpen },
   { path: '/church/profile', label: 'Perfil', icon: User },
 ];
