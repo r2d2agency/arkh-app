@@ -93,10 +93,14 @@ const AnnouncementsPage = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  const resetForm = () => setForm({
-    title: '', body: '', image_url: '', media_urls: [], video_url: '',
-    event_date: null, event_time: '', is_pinned: false, notify_members: false,
-  });
+  const resetForm = () => {
+    setForm({
+      title: '', body: '', media_urls: [], video_url: '',
+      event_date: null, event_time: '', is_pinned: false, notify_members: false,
+    });
+    setMediaFiles([]);
+    setMediaPreviews([]);
+  };
 
   const handleCreate = async () => {
     if (!form.title.trim()) return toast.error('Título obrigatório');
