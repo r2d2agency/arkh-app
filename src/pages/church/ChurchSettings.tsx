@@ -50,10 +50,11 @@ const ChurchSettings = () => {
     ai_assistant_enabled: false, ai_assistant_prompt: null,
   });
   const [churchInfo, setChurchInfo] = useState<ChurchInfo>({
-    name: '', slug: '', domain: null, address: null, city: null, state: null,
+    name: '', slug: '', domain: null, address: null, city: null, state: null, cep: null,
     whatsapp: null, phone: null, description: null, lat: null, lng: null,
     pix_key_type: null, pix_key: null, pix_beneficiary: null, pix_enabled: false,
   });
+  const [fetchingCep, setFetchingCep] = useState(false);
   const [togglingAssistant, setTogglingAssistant] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
