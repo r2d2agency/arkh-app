@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import {
-  BookOpen, Plus, Save, Sparkles, BookMarked, MessageSquare,
-  Search, Trash2, Edit3, X, Clock, Loader2, Video,
+  BookOpen, Plus, Save, BookMarked, Search, Trash2, Edit3, X, Clock, Loader2, Video, Link2,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
@@ -23,18 +24,30 @@ interface Note {
   created_at: string;
 }
 
+interface ServiceOption {
+  id: string;
+  title: string;
+}
+
 const NotebookPage = () => {
   const [notes, setNotes] = useState<Note[]>([]);
+  const [services, setServices] = useState<ServiceOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newContent, setNewContent] = useState('');
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [linkingNote, setLinkingNote] = useState<Note | null>(null);
+  const [selectedServiceId, setSelectedServiceId] = useState<string>('');
 
   useEffect(() => {
-    api.get<Note[]>('/api/church/notes')
-      .then(setNotes)
+    Promise.all([
+      api.get<Note[]>('/api/church/notes'),
+      api.get<ServiceOption[]>('/api/church/services'),
+    ])
+      .then(([n, s]) => { setNotes(n); setServices(s); })
       .catch(() => toast.error('Erro ao carregar caderno'))
       .finally(() => setLoading(false));
   }, []);
@@ -70,6 +83,26 @@ const NotebookPage = () => {
     }
   };
 
+  const openLinkDialog = (note: Note) => {
+    setLinkingNote(note);
+    setSelectedServiceId(note.service_id || '');
+    setLinkDialogOpen(true);
+  };
+
+  const handleLinkService = async () => {
+    if (!linkingNote) return;
+    try {
+      const updated = await api.put<Note>(`/api/church/notes/${linkingNote.id}`, {
+        service_id: selectedServiceId || null,
+      });
+      setNotes(prev => prev.map(n => n.id === linkingNote.id ? { ...n, service_id: updated.service_id, service_title: updated.service_title } : n));
+      setLinkDialogOpen(false);
+      toast.success(selectedServiceId ? 'Culto vinculado!' : 'Vínculo removido');
+    } catch {
+      toast.error('Erro ao vincular');
+    }
+  };
+
   const generalNotes = notes.filter(n => n.note_type === 'note' || !n.note_type);
   const verseNotes = notes.filter(n => n.note_type === 'verse');
 
@@ -85,11 +118,7 @@ const NotebookPage = () => {
           <h1 className="font-heading text-2xl font-bold">Meu Caderno</h1>
           <p className="text-sm text-muted-foreground">Anotações, versículos e estudos pessoais</p>
         </div>
-        <Button
-          size="sm"
-          className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground"
-          onClick={() => setCreating(true)}
-        >
+        <Button size="sm" className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setCreating(true)}>
           <Plus className="w-4 h-4 mr-1" /> Nova
         </Button>
       </div>
@@ -109,28 +138,11 @@ const NotebookPage = () => {
             <Card className="p-4 rounded-2xl space-y-3 border-primary/20">
               <div className="flex items-center justify-between">
                 <h3 className="font-heading text-sm font-semibold">Nova anotação</h3>
-                <button onClick={() => setCreating(false)}>
-                  <X className="w-4 h-4 text-muted-foreground" />
-                </button>
+                <button onClick={() => setCreating(false)}><X className="w-4 h-4 text-muted-foreground" /></button>
               </div>
-              <Input
-                placeholder="Título (opcional)"
-                value={newTitle}
-                onChange={e => setNewTitle(e.target.value)}
-                className="rounded-xl bg-muted/30 border-0"
-              />
-              <Textarea
-                placeholder="Escreva seus pensamentos, reflexões, estudos..."
-                value={newContent}
-                onChange={e => setNewContent(e.target.value)}
-                className="rounded-xl min-h-[120px] bg-muted/30 border-0 resize-none"
-              />
-              <Button
-                size="sm"
-                className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground"
-                onClick={handleCreate}
-                disabled={saving}
-              >
+              <Input placeholder="Título (opcional)" value={newTitle} onChange={e => setNewTitle(e.target.value)} className="rounded-xl bg-muted/30 border-0" />
+              <Textarea placeholder="Escreva seus pensamentos, reflexões, estudos..." value={newContent} onChange={e => setNewContent(e.target.value)} className="rounded-xl min-h-[120px] bg-muted/30 border-0 resize-none" />
+              <Button size="sm" className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground" onClick={handleCreate} disabled={saving}>
                 {saving ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1" />}
                 Salvar
               </Button>
@@ -140,26 +152,17 @@ const NotebookPage = () => {
           {generalNotes.length > 3 && (
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar anotações..."
-                className="pl-9 rounded-xl bg-muted/50 border-0"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
+              <Input placeholder="Buscar anotações..." className="pl-9 rounded-xl bg-muted/50 border-0" value={search} onChange={e => setSearch(e.target.value)} />
             </div>
           )}
 
           {loading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-            </div>
+            <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
           ) : filteredNotes.length === 0 && !creating ? (
             <Card className="p-8 rounded-2xl text-center space-y-3">
               <BookOpen className="w-10 h-10 mx-auto text-muted-foreground/40" />
               <h3 className="font-heading font-semibold">Seu caderno está vazio</h3>
-              <p className="text-sm text-muted-foreground">
-                Comece escrevendo suas reflexões ou salve versículos dos cultos.
-              </p>
+              <p className="text-sm text-muted-foreground">Comece escrevendo suas reflexões ou salve versículos dos cultos.</p>
               <Button size="sm" variant="outline" className="rounded-xl" onClick={() => setCreating(true)}>
                 <Plus className="w-4 h-4 mr-1" /> Criar primeira anotação
               </Button>
@@ -170,9 +173,14 @@ const NotebookPage = () => {
                 <Card key={note.id} className="p-4 rounded-2xl space-y-2">
                   <div className="flex items-start justify-between">
                     <h3 className="font-heading text-sm font-semibold flex-1">{note.title || 'Sem título'}</h3>
-                    <button onClick={() => handleDelete(note.id)} className="text-muted-foreground hover:text-destructive p-1">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => openLinkDialog(note)} className="text-muted-foreground hover:text-primary p-1" title="Vincular culto">
+                        <Link2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => handleDelete(note.id)} className="text-muted-foreground hover:text-destructive p-1">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                   <p className="text-sm text-muted-foreground line-clamp-3">{note.content}</p>
                   <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
@@ -195,16 +203,12 @@ const NotebookPage = () => {
 
         <TabsContent value="verses" className="mt-4">
           {loading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-            </div>
+            <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
           ) : verseNotes.length === 0 ? (
             <Card className="p-8 rounded-2xl text-center space-y-3">
               <BookMarked className="w-10 h-10 mx-auto text-muted-foreground/40" />
               <h3 className="font-heading font-semibold">Nenhum versículo salvo</h3>
-              <p className="text-sm text-muted-foreground">
-                Salve versículos dos cultos processados pela IA para encontrá-los aqui.
-              </p>
+              <p className="text-sm text-muted-foreground">Salve versículos dos cultos processados pela IA para encontrá-los aqui.</p>
             </Card>
           ) : (
             <div className="space-y-3">
@@ -227,9 +231,7 @@ const NotebookPage = () => {
                     {verse.service_title && (
                       <>
                         <span>•</span>
-                        <Link to={`/church/services/${verse.service_id}`} className="text-primary hover:underline">
-                          {verse.service_title}
-                        </Link>
+                        <Link to={`/church/services/${verse.service_id}`} className="text-primary hover:underline">{verse.service_title}</Link>
                       </>
                     )}
                   </div>
@@ -239,6 +241,29 @@ const NotebookPage = () => {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Link Service Dialog */}
+      <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
+        <DialogContent className="rounded-xl max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Vincular a um Culto</DialogTitle>
+            <DialogDescription>Selecione o culto para vincular esta anotação</DialogDescription>
+          </DialogHeader>
+          <Select value={selectedServiceId} onValueChange={setSelectedServiceId}>
+            <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecione um culto..." /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Nenhum (remover vínculo)</SelectItem>
+              {services.map(s => (
+                <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLinkDialogOpen(false)} className="rounded-xl">Cancelar</Button>
+            <Button onClick={handleLinkService} className="rounded-xl">Vincular</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
