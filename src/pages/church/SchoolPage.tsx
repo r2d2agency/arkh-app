@@ -235,6 +235,12 @@ const SchoolPage = () => {
                   >
                     <Clock className="w-4 h-4 mr-1" /> Cancelar Solicitação
                   </Button>
+                ) : isAdmin ? (
+                  <Link to={`/church/school/${cls.id}`} className="flex-1">
+                    <Button size="sm" variant="outline" className="w-full rounded-xl">
+                      Gerenciar Classe <ArrowRight className="w-4 h-4 ml-1" />
+                    </Button>
+                  </Link>
                 ) : (
                   <Button
                     size="sm"
@@ -247,11 +253,6 @@ const SchoolPage = () => {
                     {cls.max_students !== null && cls.student_count >= cls.max_students ? 'Turma Lotada' : 'Solicitar Matrícula'}
                   </Button>
                 )}
-                <Link to={`/church/school/${cls.id}`}>
-                  <Button size="sm" variant="ghost" className="rounded-xl">
-                    <ArrowRight className="w-4 h-4" />
-                  </Button>
-                </Link>
               </div>
             </Card>
           ))}
