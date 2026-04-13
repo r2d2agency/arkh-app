@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, Fragment, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import {
   Megaphone, Plus, Trash2, Loader2, Pin, Bell, ImageIcon, CalendarIcon,
-  Clock, Video, Link as LinkIcon, ExternalLink, X
+  Clock, Video, ExternalLink, X, Upload
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -76,10 +76,13 @@ const AnnouncementsPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
   const [form, setForm] = useState({
-    title: '', body: '', image_url: '', media_urls: [] as string[], video_url: '',
+    title: '', body: '', media_urls: [] as string[], video_url: '',
     event_date: null as Date | null, event_time: '', is_pinned: false, notify_members: false,
   });
-  const [newMediaUrl, setNewMediaUrl] = useState('');
+  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+  const [mediaPreviews, setMediaPreviews] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isAdmin = user?.role === 'admin_church' || user?.role === 'leader';
 
@@ -90,18 +93,59 @@ const AnnouncementsPage = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  const resetForm = () => setForm({
-    title: '', body: '', image_url: '', media_urls: [], video_url: '',
-    event_date: null, event_time: '', is_pinned: false, notify_members: false,
-  });
+  const resetForm = () => {
+    setForm({
+      title: '', body: '', media_urls: [], video_url: '',
+      event_date: null, event_time: '', is_pinned: false, notify_members: false,
+    });
+    setMediaFiles([]);
+    setMediaPreviews([]);
+  };
+
+  const handleFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setMediaFiles(prev => [...prev, ...files]);
+    files.forEach(f => {
+      const reader = new FileReader();
+      reader.onload = ev => setMediaPreviews(prev => [...prev, ev.target?.result as string]);
+      reader.readAsDataURL(f);
+    });
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const removeFile = (idx: number) => {
+    setMediaFiles(prev => prev.filter((_, i) => i !== idx));
+    setMediaPreviews(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const uploadFiles = async (): Promise<string[]> => {
+    if (mediaFiles.length === 0) return [];
+    const formData = new FormData();
+    mediaFiles.forEach(f => formData.append('files', f));
+    const token = localStorage.getItem('token');
+    const apiUrl = import.meta.env.VITE_API_URL || '';
+    const res = await fetch(`${apiUrl}/api/church/upload`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+    if (!res.ok) throw new Error('Upload failed');
+    const data = await res.json();
+    return data.urls;
+  };
 
   const handleCreate = async () => {
     if (!form.title.trim()) return toast.error('Título obrigatório');
     setSubmitting(true);
     try {
+      setUploading(mediaFiles.length > 0);
+      const uploadedUrls = await uploadFiles();
+      const allMedia = [...form.media_urls, ...uploadedUrls];
       const payload = {
         ...form,
-        image_url: form.image_url || (form.media_urls.length > 0 ? form.media_urls[0] : null),
+        media_urls: allMedia,
+        image_url: allMedia.length > 0 ? allMedia[0] : null,
         event_date: form.event_date ? format(form.event_date, 'yyyy-MM-dd') : null,
         event_time: form.event_time || null,
       };
@@ -114,6 +158,7 @@ const AnnouncementsPage = () => {
       toast.error('Erro ao publicar');
     } finally {
       setSubmitting(false);
+      setUploading(false);
     }
   };
 
@@ -126,16 +171,6 @@ const AnnouncementsPage = () => {
     } catch {
       toast.error('Erro ao remover');
     }
-  };
-
-  const addMediaUrl = () => {
-    if (!newMediaUrl.trim()) return;
-    setForm(f => ({ ...f, media_urls: [...f.media_urls, newMediaUrl.trim()] }));
-    setNewMediaUrl('');
-  };
-
-  const removeMediaUrl = (idx: number) => {
-    setForm(f => ({ ...f, media_urls: f.media_urls.filter((_, i) => i !== idx) }));
   };
 
   // Sort: pinned first, then by date
@@ -300,30 +335,41 @@ const AnnouncementsPage = () => {
               <Textarea value={form.body} onChange={e => setForm(f => ({ ...f, body: e.target.value }))} className="rounded-xl" rows={4} placeholder="Escreva o recado... Links como https://... ficam clicáveis automaticamente" />
             </div>
 
-            {/* Media URLs */}
+            {/* Media Upload */}
             <div className="space-y-2">
               <Label className="flex items-center gap-1"><ImageIcon className="w-3.5 h-3.5" /> Fotos / Artes</Label>
-              {form.media_urls.map((url, i) => (
-                <div key={i} className="flex gap-2 items-center">
-                  <img src={url} alt="" className="w-10 h-10 rounded object-cover" />
-                  <span className="text-xs text-muted-foreground flex-1 truncate">{url}</span>
-                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeMediaUrl(i)}>
-                    <X className="w-3 h-3" />
-                  </Button>
+              {mediaPreviews.length > 0 && (
+                <div className="grid grid-cols-3 gap-2">
+                  {mediaPreviews.map((src, i) => (
+                    <div key={i} className="relative group">
+                      <img src={src} alt="" className="w-full h-20 rounded-lg object-cover" />
+                      <button
+                        onClick={() => removeFile(i)}
+                        className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-3 h-3 text-white" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
-              <div className="flex gap-2">
-                <Input
-                  value={newMediaUrl}
-                  onChange={e => setNewMediaUrl(e.target.value)}
-                  className="rounded-xl flex-1"
-                  placeholder="URL da imagem..."
-                  onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addMediaUrl())}
-                />
-                <Button size="sm" variant="outline" className="rounded-xl" onClick={addMediaUrl} disabled={!newMediaUrl.trim()}>
-                  <Plus className="w-4 h-4" />
-                </Button>
-              </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,video/mp4,video/webm"
+                multiple
+                className="hidden"
+                onChange={handleFilesSelected}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full rounded-xl border-dashed border-2"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                {mediaPreviews.length > 0 ? 'Adicionar mais fotos' : 'Enviar fotos ou vídeos'}
+              </Button>
             </div>
 
             {/* Video URL */}
@@ -385,7 +431,7 @@ const AnnouncementsPage = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)} className="rounded-xl">Cancelar</Button>
             <Button onClick={handleCreate} disabled={submitting} className="rounded-xl">
-              {submitting ? <><Loader2 className="w-4 h-4 animate-spin mr-1" /> Publicando...</> : 'Publicar'}
+              {submitting ? <><Loader2 className="w-4 h-4 animate-spin mr-1" /> {uploading ? 'Enviando fotos...' : 'Publicando...'}</> : 'Publicar'}
             </Button>
           </DialogFooter>
         </DialogContent>
