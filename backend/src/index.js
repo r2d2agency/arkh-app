@@ -19,6 +19,7 @@ const PORT = process.env.PORT || 3001;
 
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true }));
 app.use(express.json());
+app.use('/uploads', express.static(require('path').join(__dirname, '../uploads')));
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
@@ -55,6 +56,7 @@ app.use('/api/church/notifications', authenticate, require('./routes/notificatio
 app.use('/api/church/announcements', authenticate, require('./routes/announcements'));
 app.use('/api/church/assistant', authenticate, require('./routes/assistant'));
 app.use('/api/church/worship', authenticate, require('./routes/worship'));
+app.use('/api/church/upload', authenticate, require('./routes/upload'));
 
 app.use((err, req, res, next) => {
   console.error('Error:', err.message);
