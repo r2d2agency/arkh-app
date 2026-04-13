@@ -172,7 +172,6 @@ const AnnouncementsPage = () => {
       toast.error('Erro ao remover');
     }
   };
-  };
 
   // Sort: pinned first, then by date
   const sorted = [...items].sort((a, b) => {
@@ -336,30 +335,41 @@ const AnnouncementsPage = () => {
               <Textarea value={form.body} onChange={e => setForm(f => ({ ...f, body: e.target.value }))} className="rounded-xl" rows={4} placeholder="Escreva o recado... Links como https://... ficam clicáveis automaticamente" />
             </div>
 
-            {/* Media URLs */}
+            {/* Media Upload */}
             <div className="space-y-2">
               <Label className="flex items-center gap-1"><ImageIcon className="w-3.5 h-3.5" /> Fotos / Artes</Label>
-              {form.media_urls.map((url, i) => (
-                <div key={i} className="flex gap-2 items-center">
-                  <img src={url} alt="" className="w-10 h-10 rounded object-cover" />
-                  <span className="text-xs text-muted-foreground flex-1 truncate">{url}</span>
-                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeMediaUrl(i)}>
-                    <X className="w-3 h-3" />
-                  </Button>
+              {mediaPreviews.length > 0 && (
+                <div className="grid grid-cols-3 gap-2">
+                  {mediaPreviews.map((src, i) => (
+                    <div key={i} className="relative group">
+                      <img src={src} alt="" className="w-full h-20 rounded-lg object-cover" />
+                      <button
+                        onClick={() => removeFile(i)}
+                        className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-3 h-3 text-white" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
-              <div className="flex gap-2">
-                <Input
-                  value={newMediaUrl}
-                  onChange={e => setNewMediaUrl(e.target.value)}
-                  className="rounded-xl flex-1"
-                  placeholder="URL da imagem..."
-                  onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addMediaUrl())}
-                />
-                <Button size="sm" variant="outline" className="rounded-xl" onClick={addMediaUrl} disabled={!newMediaUrl.trim()}>
-                  <Plus className="w-4 h-4" />
-                </Button>
-              </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,video/mp4,video/webm"
+                multiple
+                className="hidden"
+                onChange={handleFilesSelected}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full rounded-xl border-dashed border-2"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                {mediaPreviews.length > 0 ? 'Adicionar mais fotos' : 'Enviar fotos ou vídeos'}
+              </Button>
             </div>
 
             {/* Video URL */}
