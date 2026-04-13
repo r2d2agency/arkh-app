@@ -431,7 +431,7 @@ const AnnouncementsPage = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)} className="rounded-xl">Cancelar</Button>
             <Button onClick={handleCreate} disabled={submitting} className="rounded-xl">
-              {submitting ? <><Loader2 className="w-4 h-4 animate-spin mr-1" /> Publicando...</> : 'Publicar'}
+              {submitting ? <><Loader2 className="w-4 h-4 animate-spin mr-1" /> {uploading ? 'Enviando fotos...' : 'Publicando...'}</> : 'Publicar'}
             </Button>
           </DialogFooter>
         </DialogContent>
