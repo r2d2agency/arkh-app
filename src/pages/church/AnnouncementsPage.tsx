@@ -76,10 +76,13 @@ const AnnouncementsPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
   const [form, setForm] = useState({
-    title: '', body: '', image_url: '', media_urls: [] as string[], video_url: '',
+    title: '', body: '', media_urls: [] as string[], video_url: '',
     event_date: null as Date | null, event_time: '', is_pinned: false, notify_members: false,
   });
-  const [newMediaUrl, setNewMediaUrl] = useState('');
+  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+  const [mediaPreviews, setMediaPreviews] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isAdmin = user?.role === 'admin_church' || user?.role === 'leader';
 
