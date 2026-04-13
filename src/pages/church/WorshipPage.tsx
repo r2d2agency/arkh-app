@@ -223,11 +223,76 @@ const WorshipPage = () => {
   const getEmbedUrl = (song: Song) => {
     const ytId = song.youtube_url ? getYoutubeId(song.youtube_url) : null;
     if (!ytId) return null;
-    const params = new URLSearchParams({ autoplay: '1', enablejsapi: '1' });
+    const params = new URLSearchParams({ autoplay: '1', enablejsapi: '1', origin: window.location.origin });
     if (song.start_time) params.set('start', String(song.start_time));
-    if (song.end_time) params.set('end', String(song.end_time));
+    // Don't rely on YouTube's 'end' param — we enforce it via the IFrame API below
     return `https://www.youtube.com/embed/${ytId}?${params}`;
   };
+
+  // Use YouTube IFrame API to enforce end_time
+  useEffect(() => {
+    if (!detailSong?.end_time || !detailSong.youtube_url) return;
+    const ytId = getYoutubeId(detailSong.youtube_url);
+    if (!ytId) return;
+
+    const endTime = detailSong.end_time;
+    let intervalId: ReturnType<typeof setInterval>;
+
+    const checkTime = () => {
+      const iframe = playerRef.current;
+      if (!iframe?.contentWindow) return;
+      // postMessage to get current time via YT API
+      iframe.contentWindow.postMessage(JSON.stringify({
+        event: 'command',
+        func: 'getCurrentTime',
+        args: [],
+      }), '*');
+    };
+
+    const handleMessage = (e: MessageEvent) => {
+      try {
+        const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+        if (data?.event === 'infoDelivery' && data?.info?.currentTime != null) {
+          const currentTime = data.info.currentTime;
+          if (currentTime >= endTime) {
+            // Pause the video
+            const iframe = playerRef.current;
+            if (iframe?.contentWindow) {
+              iframe.contentWindow.postMessage(JSON.stringify({
+                event: 'command',
+                func: 'pauseVideo',
+                args: [],
+              }), '*');
+            }
+            clearInterval(intervalId);
+            // Auto play next
+            if (autoPlayNext && hasNext) {
+              setTimeout(() => playNext(), 1000);
+            }
+          }
+        }
+      } catch {}
+    };
+
+    window.addEventListener('message', handleMessage);
+    // Start polling every 500ms after a small delay for iframe to load
+    const startTimeout = setTimeout(() => {
+      // Request info delivery for currentTime
+      const iframe = playerRef.current;
+      if (iframe?.contentWindow) {
+        iframe.contentWindow.postMessage(JSON.stringify({
+          event: 'listening',
+        }), '*');
+      }
+      intervalId = setInterval(checkTime, 500);
+    }, 2000);
+
+    return () => {
+      window.removeEventListener('message', handleMessage);
+      clearTimeout(startTimeout);
+      clearInterval(intervalId);
+    };
+  }, [detailSong?.id, detailSong?.end_time, autoPlayNext, hasNext, playNext]);
 
   // Play next song in current list
   const playNext = useCallback(() => {
