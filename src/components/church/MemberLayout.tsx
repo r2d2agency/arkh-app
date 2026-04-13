@@ -226,6 +226,34 @@ const MemberLayout = () => {
           })}
         </div>
       </nav>
+
+      {/* Notification Popup */}
+      <Dialog open={!!popupNotif} onOpenChange={() => {
+        if (popupNotif) {
+          api.put(`/api/church/notifications/${popupNotif.id}/read`, {}).catch(() => {});
+          setUnreadCount(c => Math.max(0, c - 1));
+        }
+        setPopupNotif(null);
+      }}>
+        <DialogContent className="rounded-2xl max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bell className="w-5 h-5 text-primary" />
+              {popupNotif?.title}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground whitespace-pre-line">{popupNotif?.body}</p>
+          <Button className="rounded-xl w-full" onClick={() => {
+            if (popupNotif) {
+              api.put(`/api/church/notifications/${popupNotif.id}/read`, {}).catch(() => {});
+              setUnreadCount(c => Math.max(0, c - 1));
+            }
+            setPopupNotif(null);
+          }}>
+            Entendi
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
