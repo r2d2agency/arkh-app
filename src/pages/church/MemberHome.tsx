@@ -5,10 +5,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   Video, BookOpen, ArrowRight, Play, Clock, Heart, Sparkles,
   Sun, CloudRain, Smile, Frown, Flame, HelpCircle, Zap, GraduationCap, Gamepad2, Calendar, MapPin,
+  Church, Navigation, CreditCard, Phone, Copy, Check, Users, ExternalLink, X, Megaphone,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { toast } from '@/components/ui/sonner';
 
 interface Service {
   id: string;
@@ -26,6 +28,27 @@ interface ChurchInfo {
   name: string;
   slug: string;
   logo_url: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  lat: number | null;
+  lng: number | null;
+  whatsapp: string | null;
+  phone: string | null;
+  pix_key: string | null;
+  pix_key_type: string | null;
+  pix_beneficiary: string | null;
+  pix_enabled: boolean;
+}
+
+interface Announcement {
+  id: string;
+  title: string;
+  body: string | null;
+  image_url: string | null;
+  is_pinned: boolean;
+  created_at: string;
+  author_name: string | null;
 }
 
 interface Devotional {
