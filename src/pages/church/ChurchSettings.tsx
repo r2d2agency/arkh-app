@@ -26,6 +26,7 @@ interface ChurchInfo {
   address: string | null;
   city: string | null;
   state: string | null;
+  cep: string | null;
   whatsapp: string | null;
   phone: string | null;
   description: string | null;
@@ -49,10 +50,11 @@ const ChurchSettings = () => {
     ai_assistant_enabled: false, ai_assistant_prompt: null,
   });
   const [churchInfo, setChurchInfo] = useState<ChurchInfo>({
-    name: '', slug: '', domain: null, address: null, city: null, state: null,
+    name: '', slug: '', domain: null, address: null, city: null, state: null, cep: null,
     whatsapp: null, phone: null, description: null, lat: null, lng: null,
     pix_key_type: null, pix_key: null, pix_beneficiary: null, pix_enabled: false,
   });
+  const [fetchingCep, setFetchingCep] = useState(false);
   const [togglingAssistant, setTogglingAssistant] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -86,10 +88,45 @@ const ChurchSettings = () => {
     } finally { setSaving(false); }
   };
 
+  const lookupCep = async (cep: string) => {
+    const clean = cep.replace(/\D/g, '');
+    if (clean.length !== 8) return;
+    setFetchingCep(true);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${clean}/json/`);
+      const data = await res.json();
+      if (!data.erro) {
+        setChurchInfo(s => ({
+          ...s,
+          address: [data.logradouro, data.bairro].filter(Boolean).join(', ') || s.address,
+          city: data.localidade || s.city,
+          state: data.uf || s.state,
+        }));
+      }
+    } catch {}
+    setFetchingCep(false);
+  };
+
+  const geocodeAddress = async (info: ChurchInfo): Promise<{ lat: number; lng: number } | null> => {
+    const parts = [info.address, info.city, info.state, 'Brasil'].filter(Boolean);
+    if (parts.length < 3) return null;
+    try {
+      const q = encodeURIComponent(parts.join(', '));
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}&limit=1`, {
+        headers: { 'Accept-Language': 'pt-BR' },
+      });
+      const data = await res.json();
+      if (data?.[0]) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+    } catch {}
+    return null;
+  };
+
   const handleSaveInfo = async () => {
     setSavingInfo(true);
     try {
-      const updated = await api.put<ChurchInfo>('/api/church/info', churchInfo);
+      const geo = await geocodeAddress(churchInfo);
+      const payload = { ...churchInfo, lat: geo?.lat ?? churchInfo.lat, lng: geo?.lng ?? churchInfo.lng };
+      const updated = await api.put<ChurchInfo>('/api/church/info', payload);
       setChurchInfo(updated);
       toast({ title: 'Dados da igreja salvos!' });
     } catch (err: any) {
@@ -157,16 +194,33 @@ const ChurchSettings = () => {
           <div className="p-4 rounded-xl bg-muted/50 border border-border space-y-4">
             <h4 className="font-medium text-sm flex items-center gap-2"><MapPin className="w-4 h-4 text-primary" /> Endereço</h4>
             <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">CEP</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={churchInfo.cep || ''}
+                  onChange={e => {
+                    const v = e.target.value.replace(/\D/g, '').slice(0, 8);
+                    const formatted = v.length > 5 ? `${v.slice(0, 5)}-${v.slice(5)}` : v;
+                    setChurchInfo(s => ({ ...s, cep: formatted }));
+                    if (v.length === 8) lookupCep(v);
+                  }}
+                  className="rounded-xl max-w-[160px]"
+                  placeholder="00000-000"
+                  maxLength={9}
+                />
+                {fetchingCep && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground self-center" />}
+              </div>
+            </div>
+            <div className="space-y-2">
               <Input value={churchInfo.address || ''} onChange={e => setChurchInfo(s => ({ ...s, address: e.target.value }))} className="rounded-xl" placeholder="Rua, número, bairro" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Input value={churchInfo.city || ''} onChange={e => setChurchInfo(s => ({ ...s, city: e.target.value }))} className="rounded-xl" placeholder="Cidade" />
               <Input value={churchInfo.state || ''} onChange={e => setChurchInfo(s => ({ ...s, state: e.target.value }))} className="rounded-xl" placeholder="Estado" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Input type="number" step="any" value={churchInfo.lat ?? ''} onChange={e => setChurchInfo(s => ({ ...s, lat: e.target.value ? parseFloat(e.target.value) : null }))} className="rounded-xl" placeholder="Latitude" />
-              <Input type="number" step="any" value={churchInfo.lng ?? ''} onChange={e => setChurchInfo(s => ({ ...s, lng: e.target.value ? parseFloat(e.target.value) : null }))} className="rounded-xl" placeholder="Longitude" />
-            </div>
+            {churchInfo.lat && churchInfo.lng && (
+              <p className="text-[11px] text-muted-foreground">📍 Coordenadas: {churchInfo.lat.toFixed(6)}, {churchInfo.lng.toFixed(6)} (geradas automaticamente)</p>
+            )}
           </div>
 
           <div className="p-4 rounded-xl bg-muted/50 border border-border space-y-4">
