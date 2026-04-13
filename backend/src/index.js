@@ -54,6 +54,7 @@ app.use('/api/church/quizzes', authenticate, require('./routes/quizzes'));
 app.use('/api/church/notifications', authenticate, require('./routes/notifications'));
 app.use('/api/church/announcements', authenticate, require('./routes/announcements'));
 app.use('/api/church/assistant', authenticate, require('./routes/assistant'));
+app.use('/api/church/worship', authenticate, require('./routes/worship'));
 
 app.use((err, req, res, next) => {
   console.error('Error:', err.message);
