@@ -26,6 +26,7 @@ interface ChurchInfo {
   address: string | null;
   city: string | null;
   state: string | null;
+  cep: string | null;
   whatsapp: string | null;
   phone: string | null;
   description: string | null;
