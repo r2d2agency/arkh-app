@@ -176,7 +176,6 @@ const ChurchSettings = () => {
               <Input value={churchInfo.phone || ''} onChange={e => setChurchInfo(s => ({ ...s, phone: e.target.value }))} className="rounded-xl" placeholder="Telefone" />
             </div>
           </div>
-        </div>
 
           {/* PIX */}
           <div className="p-4 rounded-xl bg-muted/50 border border-border space-y-4">
