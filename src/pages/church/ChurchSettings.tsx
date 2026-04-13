@@ -88,10 +88,45 @@ const ChurchSettings = () => {
     } finally { setSaving(false); }
   };
 
+  const lookupCep = async (cep: string) => {
+    const clean = cep.replace(/\D/g, '');
+    if (clean.length !== 8) return;
+    setFetchingCep(true);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${clean}/json/`);
+      const data = await res.json();
+      if (!data.erro) {
+        setChurchInfo(s => ({
+          ...s,
+          address: [data.logradouro, data.bairro].filter(Boolean).join(', ') || s.address,
+          city: data.localidade || s.city,
+          state: data.uf || s.state,
+        }));
+      }
+    } catch {}
+    setFetchingCep(false);
+  };
+
+  const geocodeAddress = async (info: ChurchInfo): Promise<{ lat: number; lng: number } | null> => {
+    const parts = [info.address, info.city, info.state, 'Brasil'].filter(Boolean);
+    if (parts.length < 3) return null;
+    try {
+      const q = encodeURIComponent(parts.join(', '));
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}&limit=1`, {
+        headers: { 'Accept-Language': 'pt-BR' },
+      });
+      const data = await res.json();
+      if (data?.[0]) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+    } catch {}
+    return null;
+  };
+
   const handleSaveInfo = async () => {
     setSavingInfo(true);
     try {
-      const updated = await api.put<ChurchInfo>('/api/church/info', churchInfo);
+      const geo = await geocodeAddress(churchInfo);
+      const payload = { ...churchInfo, lat: geo?.lat ?? churchInfo.lat, lng: geo?.lng ?? churchInfo.lng };
+      const updated = await api.put<ChurchInfo>('/api/church/info', payload);
       setChurchInfo(updated);
       toast({ title: 'Dados da igreja salvos!' });
     } catch (err: any) {
