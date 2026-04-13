@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import {
   Megaphone, Plus, Trash2, Loader2, Pin, Bell, ImageIcon, CalendarIcon,
-  Clock, Video, Link as LinkIcon, ExternalLink, X
+  Clock, Video, ExternalLink, X, Upload
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
