@@ -1,9 +1,11 @@
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { Video, BookOpen, ArrowRight, Play, Clock, Heart, Calendar, MapPin, Sparkles } from 'lucide-react';
+import { Video, BookOpen, ArrowRight, Play, Clock, Heart, Calendar, MapPin, Sparkles, Church, Navigation, CreditCard, Phone, Copy, Check, Users, ExternalLink, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { toast } from '@/components/ui/sonner';
 
 interface Event {
   id: string;
@@ -29,6 +31,17 @@ interface ChurchInfo {
   name: string;
   slug: string;
   logo_url: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  lat: number | null;
+  lng: number | null;
+  whatsapp: string | null;
+  phone: string | null;
+  pix_key: string | null;
+  pix_key_type: string | null;
+  pix_beneficiary: string | null;
+  pix_enabled: boolean;
 }
 
 const ChurchDashboard = () => {
