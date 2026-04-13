@@ -123,9 +123,10 @@ const AnnouncementsPage = () => {
     if (mediaFiles.length === 0) return [];
     const formData = new FormData();
     mediaFiles.forEach(f => formData.append('files', f));
-    const token = localStorage.getItem('token');
-    const apiUrl = import.meta.env.VITE_API_URL || '';
-    const res = await fetch(`${apiUrl}/api/church/upload`, {
+    const token = localStorage.getItem('access_token');
+    const raw = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    const baseUrl = raw.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const res = await fetch(`${baseUrl}/api/church/upload`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: formData,
