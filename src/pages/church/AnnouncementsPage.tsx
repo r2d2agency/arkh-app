@@ -293,7 +293,7 @@ const AnnouncementsPage = () => {
                           <Pin className="w-2.5 h-2.5" /> Fixado
                         </Badge>
                       )}
-                      {item.recurrence && (
+                      {item.recurrence && isAdmin && (
                         <Badge variant="outline" className="text-[9px] px-1.5 py-0 gap-0.5 border-green-500/30 text-green-600">
                           <Repeat className="w-2.5 h-2.5" /> Semanal
                         </Badge>
