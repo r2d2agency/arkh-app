@@ -62,7 +62,8 @@ const SocialPostPage = () => {
   const [selectedTemplate, setSelectedTemplate] = useState<PostTemplate>(templates[0]);
   const [bgImage, setBgImage] = useState<string | null>(null);
   const [imageFilter, setImageFilter] = useState('none');
-  const [generatedToday, setGeneratedToday] = useState(false);
+  const [postsToday, setPostsToday] = useState(0);
+  const maxPostsPerDay = 5;
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [generated, setGenerated] = useState(false);
