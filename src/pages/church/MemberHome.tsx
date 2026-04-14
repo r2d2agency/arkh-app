@@ -378,7 +378,7 @@ const MemberHome = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-4 gap-2.5">
         <Link to="/church/services">
           <Card className="p-3 rounded-2xl card-hover text-center space-y-1.5 h-full border-primary/15">
             <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center mx-auto">
