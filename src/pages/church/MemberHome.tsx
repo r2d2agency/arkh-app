@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   Video, BookOpen, ArrowRight, Play, Clock, Heart, Sparkles,
   Sun, CloudRain, Smile, Frown, Flame, HelpCircle, Zap, GraduationCap, Gamepad2, Calendar, MapPin,
-  Church, Navigation, CreditCard, Phone, Copy, Check, Users, ExternalLink, X, Megaphone,
+  Church, Navigation, CreditCard, Phone, Copy, Check, Users, ExternalLink, X, Megaphone, Share2,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
