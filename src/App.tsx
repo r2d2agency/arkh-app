@@ -123,6 +123,7 @@ const AppRoutes = () => (
         <Route path="/church/quiz/:id" element={<QuizPlayPage />} />
         <Route path="/church/worship" element={<WorshipPage />} />
         <Route path="/church/social-post" element={<SocialPostPage />} />
+        <Route path="/church/word-search" element={<WordSearchPage />} />
       </Route>
 
       {/* Admin-only management pages (with sidebar layout) */}
