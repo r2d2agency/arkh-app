@@ -364,8 +364,8 @@ const SocialPostPage = () => {
   };
 
   const handleGenerate = async () => {
-    if (generatedToday) {
-      toast.error('Você já gerou seu post de hoje. Volte amanhã!');
+    if (postsToday >= maxPostsPerDay) {
+      toast.error(`Você atingiu o limite de ${maxPostsPerDay} posts hoje. Volte amanhã!`);
       return;
     }
     setGenerating(true);
@@ -379,7 +379,7 @@ const SocialPostPage = () => {
         template_id: selectedTemplate.id,
       });
       setGenerated(true);
-      setGeneratedToday(true);
+      setPostsToday(prev => prev + 1);
       toast.success('Post salvo! Agora baixe e compartilhe.');
     } catch (err: any) {
       toast.error(err.message || 'Erro ao gerar post');
@@ -406,7 +406,7 @@ const SocialPostPage = () => {
         <div>
           <h1 className="font-heading text-xl font-bold">Editor de Story</h1>
           <p className="text-xs text-muted-foreground">
-            {generatedToday && !generated ? 'Você já gerou hoje' : 'Crie seu story com versículo'}
+            {postsToday >= maxPostsPerDay && !generated ? `Limite atingido (${postsToday}/${maxPostsPerDay})` : `Crie seu story (${postsToday}/${maxPostsPerDay} hoje)`}
           </p>
         </div>
       </div>
@@ -565,7 +565,7 @@ const SocialPostPage = () => {
       {/* Export Tab */}
       {activeTab === 'export' && (
         <div className="space-y-3">
-          {!generated && !generatedToday ? (
+          {!generated && postsToday < maxPostsPerDay ? (
             <>
               <Button
                 className="w-full rounded-xl h-12"
@@ -578,7 +578,7 @@ const SocialPostPage = () => {
                   <><Sparkles className="w-4 h-4 mr-2" /> Salvar e Gerar</>
                 )}
               </Button>
-              <p className="text-[10px] text-center text-muted-foreground">Você pode gerar 1 post por dia</p>
+              <p className="text-[10px] text-center text-muted-foreground">Você pode gerar até {maxPostsPerDay} posts por dia ({postsToday}/{maxPostsPerDay})</p>
             </>
           ) : (
             <div className="space-y-2">
@@ -591,11 +591,11 @@ const SocialPostPage = () => {
             </div>
           )}
 
-          {generatedToday && !generated && (
-            <Card className="p-4 rounded-2xl bg-amber-500/10 border-amber-500/20 text-center space-y-2">
-              <Check className="w-6 h-6 text-amber-500 mx-auto" />
-              <p className="text-sm font-medium">Já gerou seu post hoje!</p>
-              <p className="text-xs text-muted-foreground">Volte amanhã para criar um novo.</p>
+          {postsToday >= maxPostsPerDay && !generated && (
+            <Card className="p-4 rounded-2xl bg-accent/10 border-accent/20 text-center space-y-2">
+              <Check className="w-6 h-6 text-accent mx-auto" />
+              <p className="text-sm font-medium">Limite de {maxPostsPerDay} posts atingido hoje!</p>
+              <p className="text-xs text-muted-foreground">Volte amanhã para criar novos.</p>
               <Button size="sm" className="rounded-xl" onClick={handleDownload}>
                 <Download className="w-4 h-4 mr-2" /> Baixar último
               </Button>
