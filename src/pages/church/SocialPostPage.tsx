@@ -239,8 +239,19 @@ const SocialPostPage = () => {
         ctx.fillRect(0, 0, W, H);
 
         // Overlay
+        ctx.globalAlpha = overlayOpacity;
         ctx.fillStyle = selectedTemplate.overlayColor;
         ctx.fillRect(0, 0, W, H);
+        ctx.globalAlpha = 1;
+
+        // Vignette
+        if (vignette) {
+          const vGrad = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.7);
+          vGrad.addColorStop(0, 'rgba(0,0,0,0)');
+          vGrad.addColorStop(1, `rgba(0,0,0,${vignetteIntensity})`);
+          ctx.fillStyle = vGrad;
+          ctx.fillRect(0, 0, W, H);
+        }
 
         // Elements
         for (const el of elements) {
