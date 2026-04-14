@@ -73,6 +73,11 @@ const SocialPostPage = () => {
   const [elements, setElements] = useState<DraggableElement[]>([]);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'elements' | 'style' | 'export'>('elements');
+  const [overlayOpacity, setOverlayOpacity] = useState(0.35);
+  const [bgBlur, setBgBlur] = useState(0);
+  const [vignette, setVignette] = useState(false);
+  const [vignetteIntensity, setVignetteIntensity] = useState(0.7);
+  const [canvasLocked, setCanvasLocked] = useState(false);
 
   const selectedElement = elements.find(el => el.id === selectedElementId) || null;
 
