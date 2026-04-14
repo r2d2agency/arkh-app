@@ -549,25 +549,69 @@ const SocialPostPage = () => {
             </div>
           </div>
 
-          {/* Image filters */}
+          {/* Overlay opacity */}
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold">Camada escura: {Math.round(overlayOpacity * 100)}%</Label>
+            <Slider
+              value={[overlayOpacity * 100]}
+              onValueChange={([v]) => setOverlayOpacity(v / 100)}
+              min={0} max={90} step={5}
+            />
+          </div>
+
+          {/* Image filters & blur */}
           {bgImage && (
-            <div className="space-y-2">
-              <Label className="text-xs font-semibold">Filtro de imagem</Label>
-              <div className="grid grid-cols-4 gap-1.5">
-                {imageFilters.map(f => (
-                  <button
-                    key={f.id}
-                    onClick={() => setImageFilter(f.id)}
-                    className={`py-1.5 px-2 rounded-lg text-[10px] font-medium transition-all ${
-                      imageFilter === f.id ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80 text-muted-foreground'
-                    }`}
-                  >
-                    {f.name}
-                  </button>
-                ))}
+            <>
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold">Filtro de imagem</Label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {imageFilters.map(f => (
+                    <button
+                      key={f.id}
+                      onClick={() => setImageFilter(f.id)}
+                      className={`py-1.5 px-2 rounded-lg text-[10px] font-medium transition-all ${
+                        imageFilter === f.id ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+                      }`}
+                    >
+                      {f.name}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold">Desfoque do fundo: {bgBlur}px</Label>
+                <Slider
+                  value={[bgBlur]}
+                  onValueChange={([v]) => setBgBlur(v)}
+                  min={0} max={20} step={1}
+                />
+              </div>
+            </>
           )}
+
+          {/* Vignette */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-semibold">Efeito vinheta (bordas escuras)</Label>
+              <button
+                onClick={() => setVignette(!vignette)}
+                className={`w-10 h-5 rounded-full transition-colors ${vignette ? 'bg-primary' : 'bg-muted'}`}
+              >
+                <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${vignette ? 'translate-x-5' : 'translate-x-0.5'}`} />
+              </button>
+            </div>
+            {vignette && (
+              <div>
+                <Label className="text-[10px] text-muted-foreground">Intensidade: {Math.round(vignetteIntensity * 100)}%</Label>
+                <Slider
+                  value={[vignetteIntensity * 100]}
+                  onValueChange={([v]) => setVignetteIntensity(v / 100)}
+                  min={20} max={100} step={5}
+                />
+              </div>
+            )}
+          </div>
         </div>
       )}
 
