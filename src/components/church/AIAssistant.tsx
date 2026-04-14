@@ -55,6 +55,10 @@ export default function AIAssistant({ contextType = 'general', contextId, contex
   const effectiveContextId = contextId ?? serviceContextMatch?.[1];
   const contextKey = `${effectiveContextType}:${effectiveContextId ?? 'general'}`;
 
+  // Hide on full-screen editors like social post
+  const hiddenRoutes = ['/church/social-post'];
+  const isHidden = hiddenRoutes.some(r => location.pathname.startsWith(r));
+
   const checkStatus = async () => {
     try {
       const data = await api.get<AssistantStatus>('/api/church/assistant/status');
@@ -147,7 +151,7 @@ export default function AIAssistant({ contextType = 'general', contextId, contex
     return ['O que a Bíblia fala sobre fé?', 'Explique Romanos 8', 'Estudo sobre oração', 'Contexto de João 3:16'];
   };
 
-  if (!status?.available) return null;
+  if (!status?.available || isHidden) return null;
 
   return (
     <>
