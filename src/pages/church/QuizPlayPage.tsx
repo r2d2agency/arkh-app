@@ -412,13 +412,20 @@ const QuizPlayPage = () => {
                 {generatingNext ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
                 Mesmo Nível
               </Button>
-              {quiz.is_challenge && (quiz.challenge_level || 1) < 6 && (
-                <Button onClick={handleNextLevel} className="h-11 rounded-xl font-semibold gap-1 text-xs" disabled={generatingNext}>
-                  {generatingNext ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4 h-4" />}
-                  Subir Fase
-                </Button>
-              )}
-              {(!quiz.is_challenge || (quiz.challenge_level || 1) >= 6) && (
+              {quiz.is_challenge && (quiz.challenge_level || 1) < 6 ? (() => {
+                const nextLevel = (quiz.challenge_level || 1) + 1;
+                const canAdvance = result.new_level >= nextLevel;
+                return (
+                  <Button
+                    onClick={canAdvance ? handleNextLevel : undefined}
+                    className={`h-11 rounded-xl font-semibold gap-1 text-xs ${!canAdvance ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    disabled={generatingNext || !canAdvance}
+                  >
+                    {generatingNext ? <Loader2 className="w-4 h-4 animate-spin" /> : !canAdvance ? <Lock className="w-4 h-4" /> : <ArrowUp className="w-4 h-4" />}
+                    {canAdvance ? 'Subir Fase' : 'Fase Bloqueada'}
+                  </Button>
+                );
+              })() : (!quiz.is_challenge || (quiz.challenge_level || 1) >= 6) && (
                 <Button onClick={() => navigate('/church/quiz')} className="h-11 rounded-xl font-semibold gap-1 text-xs">
                   <Sparkles className="w-4 h-4" /> Mais Games
                 </Button>
