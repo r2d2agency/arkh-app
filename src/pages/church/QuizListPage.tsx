@@ -65,6 +65,18 @@ const QuizListPage = () => {
         <p className="text-sm text-muted-foreground">Teste seus conhecimentos de forma divertida!</p>
       </div>
 
+      {/* Word Search Banner */}
+      <Link to="/church/word-search">
+        <Card className="p-4 rounded-2xl bg-gradient-to-r from-primary/5 to-accent/10 border-primary/20 card-hover flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center text-xl shrink-0">🔍</div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-heading font-semibold text-sm">Caça-Palavras Bíblico</h3>
+            <p className="text-[11px] text-muted-foreground">Encontre palavras escondidas na grade!</p>
+          </div>
+          <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
+        </Card>
+      </Link>
+
       {/* Score Card */}
       {scores && scores.quizzes_played > 0 && (
         <Card className="p-4 rounded-2xl bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
