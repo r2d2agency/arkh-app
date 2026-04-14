@@ -381,7 +381,19 @@ const SocialPostPage = () => {
 
   const handleElementSelect = useCallback((id: string | null) => {
     setSelectedElementId(id);
-    if (id) setShowElementEditor(true);
+  }, []);
+
+  const handleElementResize = useCallback((id: string, width: number) => {
+    setElements(prev => prev.map(el => el.id === id ? { ...el, width } : el));
+  }, []);
+
+  const handleElementRotate = useCallback((id: string, rotation: number) => {
+    setElements(prev => prev.map(el => el.id === id ? { ...el, rotation } : el));
+  }, []);
+
+  const handleOpenEditor = useCallback((id: string) => {
+    setSelectedElementId(id);
+    setShowElementEditor(true);
   }, []);
 
   const filteredTemplates = templateCategory === 'all'
