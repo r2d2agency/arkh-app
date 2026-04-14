@@ -100,12 +100,24 @@ const SocialPostPage = () => {
   const [generating, setGenerating] = useState(false);
   const [generated, setGenerated] = useState(false);
   const [churchName, setChurchName] = useState('');
+  const [churchLogoUrl, setChurchLogoUrl] = useState<string | null>(null);
+  const [churchLogoImg, setChurchLogoImg] = useState<HTMLImageElement | null>(null);
+
+  // Pre-load church logo image when URL changes
+  useEffect(() => {
+    if (!churchLogoUrl) { setChurchLogoImg(null); return; }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => setChurchLogoImg(img);
+    img.onerror = () => setChurchLogoImg(null);
+    img.src = churchLogoUrl;
+  }, [churchLogoUrl]);
 
   useEffect(() => {
     Promise.all([
       api.get<Devotional>('/api/church/devotional').catch(() => null),
       api.get<{ generated_today: boolean }>('/api/church/social/today').catch(() => ({ generated_today: false })),
-      api.get<{ name: string }>('/api/church/info').catch(() => ({ name: '' })),
+      api.get<{ name: string; logo_url: string | null }>('/api/church/info').catch(() => ({ name: '', logo_url: null })),
     ]).then(([dev, today, info]) => {
       if (dev) {
         setDevotional(dev);
