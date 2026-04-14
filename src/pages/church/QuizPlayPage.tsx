@@ -215,11 +215,14 @@ const QuizPlayPage = () => {
                 </div>
               </div>
             ) : (
-              <Button onClick={startQuiz} size="lg" className="w-full h-14 rounded-xl text-base font-bold gap-2 shadow-lg" disabled={quiz.questions.length === 0}>
-                {quiz.questions.length === 0 ? 'Sem perguntas' : (
-                  <><Sparkles className="w-5 h-5" /> Começar Desafio!</>
-                )}
-              </Button>
+              <div className="flex flex-col items-center justify-center py-6 space-y-4">
+                <p className="text-sm text-muted-foreground text-center">Quando estiver pronto, toque para começar!</p>
+                <Button onClick={startQuiz} size="lg" className="h-16 px-12 rounded-2xl text-lg font-bold gap-3 shadow-xl animate-pulse hover:animate-none" disabled={quiz.questions.length === 0}>
+                  {quiz.questions.length === 0 ? 'Sem perguntas' : (
+                    <><Sparkles className="w-6 h-6" /> Começar!</>
+                  )}
+                </Button>
+              </div>
             )}
           </div>
         </Card>
