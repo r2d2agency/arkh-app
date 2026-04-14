@@ -160,7 +160,6 @@ const SocialPostPage = () => {
     };
     setElements(prev => [...prev, newEl]);
     setSelectedElementId(newEl.id);
-    setShowElementEditor(true);
   };
 
   const addPhotoAsElement = () => {
