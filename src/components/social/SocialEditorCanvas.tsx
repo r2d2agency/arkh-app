@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { Pencil, RotateCw } from 'lucide-react';
 
 export interface DraggableElement {
   id: string;
@@ -15,12 +16,16 @@ export interface DraggableElement {
   width?: number;
   height?: number;
   objectFit?: 'cover' | 'contain';
+  rotation?: number;
 }
 
 interface CanvasProps {
   elements: DraggableElement[];
   onElementMove: (id: string, x: number, y: number) => void;
   onElementSelect: (id: string | null) => void;
+  onElementResize?: (id: string, width: number) => void;
+  onElementRotate?: (id: string, rotation: number) => void;
+  onOpenEditor?: (id: string) => void;
   selectedElementId: string | null;
   bgGradient: string;
   bgImage: string | null;
@@ -34,10 +39,15 @@ interface CanvasProps {
   onToggleLock: () => void;
 }
 
+type InteractionMode = 'none' | 'drag' | 'resize' | 'rotate';
+
 const SocialEditorCanvas = ({
   elements,
   onElementMove,
   onElementSelect,
+  onElementResize,
+  onElementRotate,
+  onOpenEditor,
   selectedElementId,
   bgGradient,
   bgImage,
@@ -51,8 +61,11 @@ const SocialEditorCanvas = ({
   onToggleLock,
 }: CanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dragging, setDragging] = useState<string | null>(null);
+  const [interactionMode, setInteractionMode] = useState<InteractionMode>('none');
+  const [activeElementId, setActiveElementId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [resizeStart, setResizeStart] = useState({ clientX: 0, clientY: 0, startWidth: 0 });
+  const [rotateStart, setRotateStart] = useState({ startAngle: 0, startRotation: 0 });
 
   const getPercentPosition = useCallback((clientX: number, clientY: number) => {
     const rect = containerRef.current?.getBoundingClientRect();
@@ -69,19 +82,68 @@ const SocialEditorCanvas = ({
     if (!el) return;
     const pos = getPercentPosition(e.clientX, e.clientY);
     setDragOffset({ x: pos.x - el.x, y: pos.y - el.y });
-    setDragging(elementId);
+    setInteractionMode('drag');
+    setActiveElementId(elementId);
     onElementSelect(elementId);
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   }, [elements, getPercentPosition, onElementSelect]);
 
+  const handleResizeDown = useCallback((e: React.PointerEvent, elementId: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const el = elements.find(el => el.id === elementId);
+    if (!el) return;
+    setResizeStart({ clientX: e.clientX, clientY: e.clientY, startWidth: el.width || 60 });
+    setInteractionMode('resize');
+    setActiveElementId(elementId);
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }, [elements]);
+
+  const handleRotateDown = useCallback((e: React.PointerEvent, elementId: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const el = elements.find(el => el.id === elementId);
+    if (!el) return;
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const cx = rect.left + (el.x / 100) * rect.width;
+    const cy = rect.top + (el.y / 100) * rect.height;
+    const angle = Math.atan2(e.clientY - cy, e.clientX - cx) * (180 / Math.PI);
+    setRotateStart({ startAngle: angle, startRotation: el.rotation || 0 });
+    setInteractionMode('rotate');
+    setActiveElementId(elementId);
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }, [elements]);
+
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    if (!dragging) return;
-    const pos = getPercentPosition(e.clientX, e.clientY);
-    onElementMove(dragging, pos.x - dragOffset.x, pos.y - dragOffset.y);
-  }, [dragging, dragOffset, getPercentPosition, onElementMove]);
+    if (interactionMode === 'none' || !activeElementId) return;
+
+    if (interactionMode === 'drag') {
+      const pos = getPercentPosition(e.clientX, e.clientY);
+      onElementMove(activeElementId, pos.x - dragOffset.x, pos.y - dragOffset.y);
+    } else if (interactionMode === 'resize' && onElementResize) {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const dx = e.clientX - resizeStart.clientX;
+      const deltaPercent = (dx / rect.width) * 100;
+      const newWidth = Math.max(5, Math.min(100, resizeStart.startWidth + deltaPercent));
+      onElementResize(activeElementId, newWidth);
+    } else if (interactionMode === 'rotate' && onElementRotate) {
+      const el = elements.find(el => el.id === activeElementId);
+      if (!el) return;
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const cx = rect.left + (el.x / 100) * rect.width;
+      const cy = rect.top + (el.y / 100) * rect.height;
+      const angle = Math.atan2(e.clientY - cy, e.clientX - cx) * (180 / Math.PI);
+      const delta = angle - rotateStart.startAngle;
+      onElementRotate(activeElementId, rotateStart.startRotation + delta);
+    }
+  }, [interactionMode, activeElementId, dragOffset, resizeStart, rotateStart, getPercentPosition, onElementMove, onElementResize, onElementRotate, elements]);
 
   const handlePointerUp = useCallback(() => {
-    setDragging(null);
+    setInteractionMode('none');
+    setActiveElementId(null);
   }, []);
 
   const handleBackgroundClick = useCallback(() => {
@@ -90,11 +152,12 @@ const SocialEditorCanvas = ({
 
   const colorMatch = bgGradient.match(/#[a-f0-9]{6}/gi) || ['#1e3a5f', '#0f1f33'];
 
-  // Build combined filter for bg image
   const bgFilterParts: string[] = [];
   if (imageFilter !== 'none') bgFilterParts.push(imageFilter);
   if (bgBlur > 0) bgFilterParts.push(`blur(${bgBlur}px)`);
   const combinedBgFilter = bgFilterParts.length > 0 ? bgFilterParts.join(' ') : undefined;
+
+  const isInteracting = interactionMode !== 'none';
 
   return (
     <div className="relative">
@@ -113,7 +176,7 @@ const SocialEditorCanvas = ({
       <div
         ref={containerRef}
         className={`relative w-full overflow-hidden rounded-2xl border-2 shadow-lg select-none ${
-          locked || dragging ? 'touch-none border-primary/50' : 'border-border'
+          locked || isInteracting ? 'touch-none border-primary/50' : 'border-border'
         }`}
         style={{ aspectRatio: '9/16' }}
         onPointerMove={handlePointerMove}
@@ -139,16 +202,13 @@ const SocialEditorCanvas = ({
           />
         )}
 
-        {/* Overlay with adjustable opacity */}
+        {/* Overlay */}
         <div
           className="absolute inset-0"
-          style={{
-            backgroundColor: overlayColor,
-            opacity: overlayOpacity,
-          }}
+          style={{ backgroundColor: overlayColor, opacity: overlayOpacity }}
         />
 
-        {/* Vignette effect */}
+        {/* Vignette */}
         {vignette && (
           <div
             className="absolute inset-0 pointer-events-none"
@@ -158,31 +218,29 @@ const SocialEditorCanvas = ({
           />
         )}
 
-        {/* Draggable elements */}
+        {/* Elements */}
         {elements.map(el => {
           const isSelected = el.id === selectedElementId;
-          const isDraggingThis = el.id === dragging;
+          const isDragging = el.id === activeElementId && interactionMode === 'drag';
+          const rotation = el.rotation || 0;
+
+          const commonStyle: React.CSSProperties = {
+            left: `${el.x}%`,
+            top: `${el.y}%`,
+            transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+            opacity: el.opacity,
+          };
 
           if (el.type === 'image' && el.content) {
             return (
               <div
                 key={el.id}
-                className={`absolute cursor-move transition-shadow ${isSelected ? 'ring-2 ring-primary ring-offset-1' : ''} ${isDraggingThis ? 'z-50' : 'z-10'}`}
-                style={{
-                  left: `${el.x}%`,
-                  top: `${el.y}%`,
-                  transform: 'translate(-50%, -50%)',
-                  width: `${el.width || 60}%`,
-                  opacity: el.opacity,
-                }}
+                className={`absolute cursor-move transition-shadow ${isDragging ? 'z-50' : 'z-10'}`}
+                style={{ ...commonStyle, width: `${el.width || 60}%` }}
                 onPointerDown={e => handlePointerDown(e, el.id)}
               >
-                <img
-                  src={el.content}
-                  alt=""
-                  className="w-full h-auto rounded-lg"
-                  draggable={false}
-                />
+                <img src={el.content} alt="" className="w-full h-auto rounded-lg" draggable={false} />
+                {isSelected && !isInteracting && <SelectionOverlay el={el} onResize={handleResizeDown} onRotate={handleRotateDown} onEdit={onOpenEditor} />}
               </div>
             );
           }
@@ -191,17 +249,12 @@ const SocialEditorCanvas = ({
             return (
               <div
                 key={el.id}
-                className={`absolute cursor-move ${isSelected ? 'ring-2 ring-primary ring-offset-1 rounded' : ''} ${isDraggingThis ? 'z-50' : 'z-10'}`}
-                style={{
-                  left: `${el.x}%`,
-                  top: `${el.y}%`,
-                  transform: 'translate(-50%, -50%)',
-                  width: `${el.width || 15}%`,
-                  opacity: el.opacity,
-                }}
+                className={`absolute cursor-move ${isDragging ? 'z-50' : 'z-10'}`}
+                style={{ ...commonStyle, width: `${el.width || 15}%` }}
                 onPointerDown={e => handlePointerDown(e, el.id)}
               >
                 <img src={el.content} alt="logo" className="w-full h-auto" draggable={false} />
+                {isSelected && !isInteracting && <SelectionOverlay el={el} onResize={handleResizeDown} onRotate={handleRotateDown} onEdit={onOpenEditor} />}
               </div>
             );
           }
@@ -209,23 +262,21 @@ const SocialEditorCanvas = ({
           return (
             <div
               key={el.id}
-              className={`absolute cursor-move px-2 py-1 rounded transition-shadow whitespace-pre-wrap text-center max-w-[90%] ${isSelected ? 'ring-2 ring-primary bg-black/10' : ''} ${isDraggingThis ? 'z-50' : 'z-10'}`}
+              className={`absolute cursor-move px-2 py-1 rounded whitespace-pre-wrap text-center max-w-[90%] ${isDragging ? 'z-50' : 'z-10'}`}
               style={{
-                left: `${el.x}%`,
-                top: `${el.y}%`,
-                transform: 'translate(-50%, -50%)',
+                ...commonStyle,
                 color: el.color,
                 fontSize: `${el.fontSize}px`,
                 fontFamily: el.fontFamily,
                 fontWeight: el.bold ? 'bold' : 'normal',
                 fontStyle: el.italic ? 'italic' : 'normal',
-                opacity: el.opacity,
                 lineHeight: 1.4,
                 textShadow: '0 1px 4px rgba(0,0,0,0.5)',
               }}
               onPointerDown={e => handlePointerDown(e, el.id)}
             >
               {el.content || (el.type === 'text' ? 'Texto aqui...' : el.type === 'verse-ref' ? 'Referência' : 'Igreja')}
+              {isSelected && !isInteracting && <SelectionOverlay el={el} onResize={handleResizeDown} onRotate={handleRotateDown} onEdit={onOpenEditor} />}
             </div>
           );
         })}
@@ -237,6 +288,72 @@ const SocialEditorCanvas = ({
         )}
       </div>
     </div>
+  );
+};
+
+/** Selection overlay with handles */
+const SelectionOverlay = ({
+  el,
+  onResize,
+  onRotate,
+  onEdit,
+}: {
+  el: DraggableElement;
+  onResize: (e: React.PointerEvent, id: string) => void;
+  onRotate: (e: React.PointerEvent, id: string) => void;
+  onEdit?: (id: string) => void;
+}) => {
+  return (
+    <>
+      {/* Selection border */}
+      <div className="absolute inset-0 border-2 border-primary rounded pointer-events-none" style={{ margin: '-2px' }} />
+
+      {/* Corner dots */}
+      {['top-left', 'top-right', 'bottom-left', 'bottom-right'].map(corner => (
+        <div
+          key={corner}
+          className={`absolute w-3 h-3 bg-primary rounded-full border-2 border-white shadow-md pointer-events-none ${
+            corner === 'top-left' ? '-top-1.5 -left-1.5' :
+            corner === 'top-right' ? '-top-1.5 -right-1.5' :
+            corner === 'bottom-left' ? '-bottom-1.5 -left-1.5' :
+            '-bottom-1.5 -right-1.5'
+          }`}
+        />
+      ))}
+
+      {/* Resize handle (bottom-right, interactive) */}
+      <div
+        className="absolute -bottom-2.5 -right-2.5 w-5 h-5 bg-primary rounded-full border-2 border-white shadow-lg cursor-se-resize flex items-center justify-center z-20"
+        onPointerDown={e => onResize(e, el.id)}
+      >
+        <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+          <path d="M7 1L1 7M7 4L4 7" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+      </div>
+
+      {/* Rotate handle (top center) */}
+      <div
+        className="absolute -top-7 left-1/2 -translate-x-1/2 w-5 h-5 bg-primary rounded-full border-2 border-white shadow-lg cursor-grab flex items-center justify-center z-20"
+        onPointerDown={e => onRotate(e, el.id)}
+      >
+        <RotateCw className="w-2.5 h-2.5 text-white" />
+      </div>
+
+      {/* Line from element to rotate handle */}
+      <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-px h-4 bg-primary pointer-events-none" />
+
+      {/* Edit button */}
+      {onEdit && (
+        <button
+          className="absolute -bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary text-white text-[10px] font-bold shadow-lg z-20 whitespace-nowrap hover:bg-primary/90 transition-colors"
+          onPointerDown={e => e.stopPropagation()}
+          onClick={e => { e.stopPropagation(); onEdit(el.id); }}
+        >
+          <Pencil className="w-2.5 h-2.5" />
+          Editar
+        </button>
+      )}
+    </>
   );
 };
 
