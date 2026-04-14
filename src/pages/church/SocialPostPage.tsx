@@ -835,7 +835,7 @@ const SocialPostPage = () => {
 
       {/* Element editor sheet */}
       <Sheet open={showElementEditor && !!selectedElement} onOpenChange={setShowElementEditor}>
-        <SheetContent side="bottom" className="bg-zinc-900 border-zinc-800 rounded-t-2xl max-h-[50vh]">
+        <SheetContent side="bottom" className="bg-zinc-900 border-zinc-800 rounded-t-2xl max-h-[60vh] overflow-y-auto">
           <SheetHeader className="pb-2">
             <SheetTitle className="text-sm text-zinc-200">Editar elemento</SheetTitle>
             <SheetDescription className="sr-only">Edite as propriedades do elemento selecionado</SheetDescription>
