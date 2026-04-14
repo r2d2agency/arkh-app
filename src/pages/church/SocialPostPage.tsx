@@ -100,12 +100,24 @@ const SocialPostPage = () => {
   const [generating, setGenerating] = useState(false);
   const [generated, setGenerated] = useState(false);
   const [churchName, setChurchName] = useState('');
+  const [churchLogoUrl, setChurchLogoUrl] = useState<string | null>(null);
+  const [churchLogoImg, setChurchLogoImg] = useState<HTMLImageElement | null>(null);
+
+  // Pre-load church logo image when URL changes
+  useEffect(() => {
+    if (!churchLogoUrl) { setChurchLogoImg(null); return; }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => setChurchLogoImg(img);
+    img.onerror = () => setChurchLogoImg(null);
+    img.src = churchLogoUrl;
+  }, [churchLogoUrl]);
 
   useEffect(() => {
     Promise.all([
       api.get<Devotional>('/api/church/devotional').catch(() => null),
       api.get<{ generated_today: boolean }>('/api/church/social/today').catch(() => ({ generated_today: false })),
-      api.get<{ name: string }>('/api/church/info').catch(() => ({ name: '' })),
+      api.get<{ name: string; logo_url: string | null }>('/api/church/info').catch(() => ({ name: '', logo_url: null })),
     ]).then(([dev, today, info]) => {
       if (dev) {
         setDevotional(dev);
@@ -114,6 +126,7 @@ const SocialPostPage = () => {
       }
       setGeneratedToday(today.generated_today);
       setChurchName(info.name || '');
+      setChurchLogoUrl(info.logo_url || null);
     }).finally(() => setLoading(false));
   }, []);
 
@@ -199,6 +212,15 @@ const SocialPostPage = () => {
         ctx.fillText(`— ${verseRef}`, W / 2, startY + lines.length * lineHeight + 40);
       }
 
+      // Church logo watermark at bottom-right
+      if (churchLogoImg) {
+        const logoSize = 80;
+        const padding = 30;
+        ctx.globalAlpha = 0.5;
+        ctx.drawImage(churchLogoImg, W - logoSize - padding, H - logoSize - padding, logoSize, logoSize);
+        ctx.globalAlpha = 1.0;
+      }
+
       // Church name at bottom
       if (churchName) {
         ctx.font = `600 22px Arial`;
@@ -237,7 +259,7 @@ const SocialPostPage = () => {
     } else {
       drawContent();
     }
-  }, [selectedTemplate, verseText, verseRef, customText, userPhoto, churchName, user?.name]);
+  }, [selectedTemplate, verseText, verseRef, customText, userPhoto, churchName, churchLogoImg, user?.name]);
 
   useEffect(() => {
     if (!loading) drawCanvas();
