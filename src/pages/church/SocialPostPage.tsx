@@ -352,7 +352,7 @@ const SocialPostPage = () => {
 
       loadAndDraw();
     });
-  }, [elements, selectedTemplate, bgImage]);
+  }, [elements, selectedTemplate, bgImage, overlayOpacity, vignette, vignetteIntensity]);
 
   const handleDownload = async () => {
     const canvas = await exportToCanvas();
