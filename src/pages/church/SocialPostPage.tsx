@@ -425,7 +425,6 @@ const SocialPostPage = () => {
         onChange={handlePhotoUpload}
       />
 
-      {/* Canvas Preview */}
       <SocialEditorCanvas
         elements={elements}
         onElementMove={handleElementMove}
@@ -435,7 +434,12 @@ const SocialPostPage = () => {
         bgImage={bgImage}
         imageFilter={imageFilter}
         overlayColor={selectedTemplate.overlayColor}
-        churchLogoUrl={churchLogoUrl}
+        overlayOpacity={overlayOpacity}
+        bgBlur={bgBlur}
+        vignette={vignette}
+        vignetteIntensity={vignetteIntensity}
+        locked={canvasLocked}
+        onToggleLock={() => setCanvasLocked(prev => !prev)}
       />
 
       {/* Tabs */}
