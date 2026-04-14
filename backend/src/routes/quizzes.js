@@ -258,8 +258,11 @@ Retorne APENAS um JSON válido no formato:
 router.get('/:id', async (req, res) => {
   try {
     const { rows: [quiz] } = await pool.query(
-      'SELECT * FROM quizzes WHERE id = $1 AND church_id = $2',
-      [req.params.id, req.user.church_id]
+      `SELECT q.*,
+        (SELECT MAX(qa.score) FROM quiz_attempts qa WHERE qa.quiz_id = q.id AND qa.user_id = $3) as best_score,
+        (SELECT qa2.total_questions FROM quiz_attempts qa2 WHERE qa2.quiz_id = q.id AND qa2.user_id = $3 ORDER BY qa2.score DESC LIMIT 1) as best_total
+       FROM quizzes q WHERE q.id = $1 AND q.church_id = $2`,
+      [req.params.id, req.user.church_id, req.user.id]
     );
     if (!quiz) return res.status(404).json({ error: 'Not found' });
 

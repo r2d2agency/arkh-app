@@ -199,14 +199,25 @@ const QuizPlayPage = () => {
               </div>
             </div>
 
-            <Button onClick={startQuiz} size="lg" className="w-full h-14 rounded-xl text-base font-bold gap-2 shadow-lg" disabled={quiz.questions.length === 0}>
-              {quiz.questions.length === 0 ? 'Sem perguntas' : (
-                <>
-                  <Sparkles className="w-5 h-5" />
-                  Começar Quiz!
-                </>
-              )}
-            </Button>
+            {quiz.best_score != null ? (
+              <div className="text-center space-y-3 p-4 rounded-xl bg-green-500/10 border border-green-500/20">
+                <div className="text-3xl">✅</div>
+                <p className="font-bold text-sm">Você já jogou este quiz!</p>
+                <p className="text-xs text-muted-foreground">Sua pontuação: {quiz.best_score}/{quiz.best_total}</p>
+                <Button onClick={() => navigate('/church/quiz')} variant="outline" className="w-full rounded-xl">
+                  <ArrowLeft className="w-4 h-4 mr-2" /> Voltar aos Games
+                </Button>
+              </div>
+            ) : (
+              <Button onClick={startQuiz} size="lg" className="w-full h-14 rounded-xl text-base font-bold gap-2 shadow-lg" disabled={quiz.questions.length === 0}>
+                {quiz.questions.length === 0 ? 'Sem perguntas' : (
+                  <>
+                    <Sparkles className="w-5 h-5" />
+                    Começar Quiz!
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </Card>
       </div>
