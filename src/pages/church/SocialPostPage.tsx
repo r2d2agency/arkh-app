@@ -261,6 +261,7 @@ const SocialPostPage = () => {
     toast.success('Fundo aplicado da galeria!');
   };
 
+  const useDevotional = () => {
     if (!devotional) return;
     const verseEl = elements.find(el => el.type === 'text');
     const refEl = elements.find(el => el.type === 'verse-ref');
