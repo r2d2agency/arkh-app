@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { Slider } from '@/components/ui/slider';
 import {
   Share2, Download, Upload, Loader2, Sparkles, Check, Palette, RotateCcw,
   Type, ImageIcon, Plus, Layers, Camera, Eye,
@@ -73,6 +74,11 @@ const SocialPostPage = () => {
   const [elements, setElements] = useState<DraggableElement[]>([]);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'elements' | 'style' | 'export'>('elements');
+  const [overlayOpacity, setOverlayOpacity] = useState(0.35);
+  const [bgBlur, setBgBlur] = useState(0);
+  const [vignette, setVignette] = useState(false);
+  const [vignetteIntensity, setVignetteIntensity] = useState(0.7);
+  const [canvasLocked, setCanvasLocked] = useState(false);
 
   const selectedElement = elements.find(el => el.id === selectedElementId) || null;
 
@@ -233,8 +239,19 @@ const SocialPostPage = () => {
         ctx.fillRect(0, 0, W, H);
 
         // Overlay
+        ctx.globalAlpha = overlayOpacity;
         ctx.fillStyle = selectedTemplate.overlayColor;
         ctx.fillRect(0, 0, W, H);
+        ctx.globalAlpha = 1;
+
+        // Vignette
+        if (vignette) {
+          const vGrad = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.7);
+          vGrad.addColorStop(0, 'rgba(0,0,0,0)');
+          vGrad.addColorStop(1, `rgba(0,0,0,${vignetteIntensity})`);
+          ctx.fillStyle = vGrad;
+          ctx.fillRect(0, 0, W, H);
+        }
 
         // Elements
         for (const el of elements) {
@@ -335,7 +352,7 @@ const SocialPostPage = () => {
 
       loadAndDraw();
     });
-  }, [elements, selectedTemplate, bgImage]);
+  }, [elements, selectedTemplate, bgImage, overlayOpacity, vignette, vignetteIntensity]);
 
   const handleDownload = async () => {
     const canvas = await exportToCanvas();
@@ -420,7 +437,6 @@ const SocialPostPage = () => {
         onChange={handlePhotoUpload}
       />
 
-      {/* Canvas Preview */}
       <SocialEditorCanvas
         elements={elements}
         onElementMove={handleElementMove}
@@ -430,7 +446,12 @@ const SocialPostPage = () => {
         bgImage={bgImage}
         imageFilter={imageFilter}
         overlayColor={selectedTemplate.overlayColor}
-        churchLogoUrl={churchLogoUrl}
+        overlayOpacity={overlayOpacity}
+        bgBlur={bgBlur}
+        vignette={vignette}
+        vignetteIntensity={vignetteIntensity}
+        locked={canvasLocked}
+        onToggleLock={() => setCanvasLocked(prev => !prev)}
       />
 
       {/* Tabs */}
@@ -540,25 +561,69 @@ const SocialPostPage = () => {
             </div>
           </div>
 
-          {/* Image filters */}
+          {/* Overlay opacity */}
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold">Camada escura: {Math.round(overlayOpacity * 100)}%</Label>
+            <Slider
+              value={[overlayOpacity * 100]}
+              onValueChange={([v]) => setOverlayOpacity(v / 100)}
+              min={0} max={90} step={5}
+            />
+          </div>
+
+          {/* Image filters & blur */}
           {bgImage && (
-            <div className="space-y-2">
-              <Label className="text-xs font-semibold">Filtro de imagem</Label>
-              <div className="grid grid-cols-4 gap-1.5">
-                {imageFilters.map(f => (
-                  <button
-                    key={f.id}
-                    onClick={() => setImageFilter(f.id)}
-                    className={`py-1.5 px-2 rounded-lg text-[10px] font-medium transition-all ${
-                      imageFilter === f.id ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80 text-muted-foreground'
-                    }`}
-                  >
-                    {f.name}
-                  </button>
-                ))}
+            <>
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold">Filtro de imagem</Label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {imageFilters.map(f => (
+                    <button
+                      key={f.id}
+                      onClick={() => setImageFilter(f.id)}
+                      className={`py-1.5 px-2 rounded-lg text-[10px] font-medium transition-all ${
+                        imageFilter === f.id ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+                      }`}
+                    >
+                      {f.name}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold">Desfoque do fundo: {bgBlur}px</Label>
+                <Slider
+                  value={[bgBlur]}
+                  onValueChange={([v]) => setBgBlur(v)}
+                  min={0} max={20} step={1}
+                />
+              </div>
+            </>
           )}
+
+          {/* Vignette */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-semibold">Efeito vinheta (bordas escuras)</Label>
+              <button
+                onClick={() => setVignette(!vignette)}
+                className={`w-10 h-5 rounded-full transition-colors ${vignette ? 'bg-primary' : 'bg-muted'}`}
+              >
+                <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${vignette ? 'translate-x-5' : 'translate-x-0.5'}`} />
+              </button>
+            </div>
+            {vignette && (
+              <div>
+                <Label className="text-[10px] text-muted-foreground">Intensidade: {Math.round(vignetteIntensity * 100)}%</Label>
+                <Slider
+                  value={[vignetteIntensity * 100]}
+                  onValueChange={([v]) => setVignetteIntensity(v / 100)}
+                  min={20} max={100} step={5}
+                />
+              </div>
+            )}
+          </div>
         </div>
       )}
 
