@@ -284,11 +284,20 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// POST /api/church/quizzes/:id/submit — submit answers
+// POST /api/church/quizzes/:id/submit — submit answers (1 attempt per user)
 router.post('/:id/submit', async (req, res) => {
   try {
     const { answers, time_spent_seconds } = req.body;
     if (!answers) return res.status(400).json({ error: 'Answers required' });
+
+    // Check if user already played this quiz
+    const { rows: existing } = await pool.query(
+      'SELECT id FROM quiz_attempts WHERE quiz_id = $1 AND user_id = $2 LIMIT 1',
+      [req.params.id, req.user.id]
+    );
+    if (existing.length > 0) {
+      return res.status(409).json({ error: 'Você já jogou este quiz. Aguarde novos quizzes!' });
+    }
 
     const { rows: questions } = await pool.query(
       'SELECT qq.id, qo.id as correct_option_id FROM quiz_questions qq JOIN quiz_options qo ON qo.question_id = qq.id AND qo.is_correct = true WHERE qq.quiz_id = $1',

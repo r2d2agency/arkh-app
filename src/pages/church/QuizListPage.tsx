@@ -183,14 +183,16 @@ const QuizListPage = () => {
             const hasPlayed = quiz.best_score !== null;
             const bestPct = hasPlayed && quiz.best_total ? Math.round(((quiz.best_score ?? 0) / quiz.best_total) * 100) : 0;
             return (
-              <Link key={quiz.id} to={`/church/quiz/${quiz.id}`}>
+              <Link key={quiz.id} to={hasPlayed ? '#' : `/church/quiz/${quiz.id}`} onClick={hasPlayed ? (e) => e.preventDefault() : undefined}>
                 <Card 
-                  className="p-4 rounded-2xl card-hover space-y-3 animate-fade-in relative overflow-hidden"
+                  className={`p-4 rounded-2xl space-y-3 animate-fade-in relative overflow-hidden ${hasPlayed ? 'opacity-60' : 'card-hover'}`}
                   style={{ animationDelay: `${idx * 60}ms` }}
                 >
-                  {hasPlayed && bestPct === 100 && (
+                  {hasPlayed && (
                     <div className="absolute top-2 right-2">
-                      <span className="text-lg">⭐</span>
+                      <Badge variant="secondary" className="text-[9px] px-2 bg-green-500/15 text-green-600 border-green-500/30">
+                        ✅ Já jogou {bestPct === 100 ? '⭐' : ''}
+                      </Badge>
                     </div>
                   )}
                   <div className="flex items-start gap-3">
