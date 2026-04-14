@@ -8,10 +8,10 @@ router.get('/today', async (req, res) => {
       `SELECT id, verse_text, verse_reference, custom_text, template_id, created_at
        FROM social_posts
        WHERE user_id = $1 AND created_at::date = CURRENT_DATE
-       ORDER BY created_at DESC LIMIT 1`,
+       ORDER BY created_at DESC`,
       [req.user.id]
     );
-    res.json({ generated_today: rows.length > 0, post: rows[0] || null });
+    res.json({ count_today: rows.length, limit: 5, post: rows[0] || null });
   } catch (err) {
     console.error('GET social/today error:', err);
     res.status(500).json({ error: 'Internal error' });
@@ -26,8 +26,8 @@ router.post('/generate', async (req, res) => {
       `SELECT id FROM social_posts WHERE user_id = $1 AND created_at::date = CURRENT_DATE`,
       [req.user.id]
     );
-    if (existing.length > 0) {
-      return res.status(429).json({ error: 'Você já gerou seu post de hoje. Volte amanhã!' });
+    if (existing.length >= 5) {
+      return res.status(429).json({ error: 'Você atingiu o limite de 5 posts hoje. Volte amanhã!' });
     }
 
     const { verse_text, verse_reference, custom_text, template_id } = req.body;
