@@ -237,7 +237,30 @@ const SocialPostPage = () => {
     if (bgFileInputRef.current) bgFileInputRef.current.value = '';
   };
 
-  const useDevotional = () => {
+  // Gallery upload (converts to WebP on server)
+  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setUploadingGallery(true);
+    try {
+      const formData = new FormData();
+      Array.from(files).forEach(f => formData.append('files', f));
+      const result = await api.upload<GalleryImage[]>('/api/church/gallery', formData);
+      setGallery(prev => [...result, ...prev]);
+      toast.success(`${result.length} imagem(ns) enviada(s)!`);
+    } catch (err: any) {
+      toast.error(err.message || 'Erro no upload');
+    } finally {
+      setUploadingGallery(false);
+      if (galleryInputRef.current) galleryInputRef.current.value = '';
+    }
+  };
+
+  const selectGalleryAsBg = (url: string) => {
+    setBgImage(url);
+    toast.success('Fundo aplicado da galeria!');
+  };
+
     if (!devotional) return;
     const verseEl = elements.find(el => el.type === 'text');
     const refEl = elements.find(el => el.type === 'verse-ref');
