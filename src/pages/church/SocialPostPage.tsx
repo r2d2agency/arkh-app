@@ -638,6 +638,38 @@ const SocialPostPage = () => {
                 </button>
               )}
 
+              {/* Gallery - Backgrounds */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Galeria de Fundos</span>
+                  <button
+                    onClick={() => galleryInputRef.current?.click()}
+                    disabled={uploadingGallery}
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold bg-primary/20 text-primary hover:bg-primary/30 transition-all disabled:opacity-50"
+                  >
+                    {uploadingGallery ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                    Enviar
+                  </button>
+                </div>
+                {gallery.length > 0 ? (
+                  <div className="grid grid-cols-4 gap-1.5 max-h-[120px] overflow-y-auto">
+                    {gallery.map(img => (
+                      <button
+                        key={img.id}
+                        onClick={() => selectGalleryAsBg(img.image_url)}
+                        className={`aspect-square rounded-lg overflow-hidden border-2 transition-all hover:border-primary/50 ${
+                          bgImage === img.image_url ? 'border-primary' : 'border-zinc-700'
+                        }`}
+                      >
+                        <img src={img.image_url} alt="" className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-zinc-600 text-center py-2">Nenhuma imagem na galeria. Envie imagens para usar como fundo.</p>
+                )}
+              </div>
+
               {/* Layers */}
               {elements.length > 0 && (
                 <div className="space-y-1">
