@@ -472,41 +472,41 @@ const SocialPostPage = () => {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] bg-zinc-950 overflow-hidden animate-fade-in">
+    <div className="flex flex-col h-dvh bg-zinc-950 overflow-hidden animate-fade-in relative">
       {/* Hidden file inputs */}
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoElementUpload} />
       <input ref={bgFileInputRef} type="file" accept="image/*;capture=camera" className="hidden" onChange={handleBgUpload} />
       <input ref={galleryInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleGalleryUpload} />
 
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-3 bg-zinc-950/80 backdrop-blur-sm border-b border-zinc-800/50">
+      {/* Top bar - floating */}
+      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 py-2 bg-gradient-to-b from-zinc-950/90 via-zinc-950/60 to-transparent">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-primary" />
+          <div className="w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center backdrop-blur-sm">
+            <Sparkles className="w-3.5 h-3.5 text-primary" />
           </div>
           <div>
-            <h1 className="text-sm font-bold text-white font-heading">Story Editor</h1>
-            <p className="text-[10px] text-zinc-500">{postsToday}/{maxPostsPerDay} hoje</p>
+            <h1 className="text-xs font-bold text-white font-heading">Story Editor</h1>
+            <p className="text-[9px] text-zinc-400">{postsToday}/{maxPostsPerDay} hoje</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           {!generated && postsToday < maxPostsPerDay ? (
             <Button
               size="sm"
-              className="rounded-full h-8 px-4 text-xs gap-1.5"
+              className="rounded-full h-7 px-3 text-[10px] gap-1"
               onClick={handleGenerate}
               disabled={generating || elements.length === 0}
             >
-              {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+              {generating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
               Salvar
             </Button>
           ) : (
             <>
-              <Button size="sm" variant="outline" className="rounded-full h-8 w-8 p-0 border-zinc-700 text-zinc-300" onClick={handleShare}>
-                <Share2 className="w-3.5 h-3.5" />
+              <Button size="sm" variant="outline" className="rounded-full h-7 w-7 p-0 border-zinc-700/50 text-zinc-300 backdrop-blur-sm" onClick={handleShare}>
+                <Share2 className="w-3 h-3" />
               </Button>
-              <Button size="sm" className="rounded-full h-8 px-4 text-xs gap-1.5" onClick={handleDownload}>
-                <Download className="w-3.5 h-3.5" /> Baixar
+              <Button size="sm" className="rounded-full h-7 px-3 text-[10px] gap-1" onClick={handleDownload}>
+                <Download className="w-3 h-3" /> Baixar
               </Button>
             </>
           )}
