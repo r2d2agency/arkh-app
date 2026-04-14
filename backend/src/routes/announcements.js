@@ -1,6 +1,9 @@
 const router = require('express').Router();
 const pool = require('../db/pool');
 
+// Set timezone for this connection
+pool.query("SET timezone = 'America/Sao_Paulo'").catch(() => {});
+
 // Force HTTPS on URLs to avoid mixed content
 function forceHttps(url) {
   if (!url) return url;
@@ -28,7 +31,7 @@ router.get('/', async (req, res) => {
        LIMIT 50`,
       [churchId]
     );
-    res.json(rows);
+    res.json(rows.map(sanitizeRow));
   } catch (err) {
     console.error('GET announcements error:', err);
     res.status(500).json({ error: 'Internal error' });
@@ -42,16 +45,33 @@ router.post('/', async (req, res) => {
     if (req.user.role !== 'admin_church' && req.user.role !== 'leader')
       return res.status(403).json({ error: 'Forbidden' });
 
-    const { title, body, image_url, media_urls, video_url, event_id, event_date, event_time, is_pinned, notify_members, recurrence, recurrence_day, recurrence_time } = req.body;
+    const { title, body, image_url, event_id, is_pinned, notify_members } = req.body;
     if (!title) return res.status(400).json({ error: 'Title required' });
 
+    // Build dynamic INSERT based on available columns
+    let cols = ['church_id', 'title', 'body', 'image_url', 'event_id', 'is_pinned', 'notify_members', 'created_by'];
+    let vals = [churchId, title, body || null, forceHttps(image_url) || null, event_id || null, is_pinned || false, notify_members || false, req.user.id];
+
+    // Optional columns from migrations
+    const optionalFields = {
+      media_urls: { value: req.body.media_urls || [], transform: v => Array.isArray(v) ? v.map(forceHttps) : [] },
+      video_url: { value: req.body.video_url || null },
+      event_date: { value: req.body.event_date || null },
+      event_time: { value: req.body.event_time || null },
+      recurrence: { value: req.body.recurrence || null },
+      recurrence_day: { value: req.body.recurrence_day != null ? req.body.recurrence_day : null },
+      recurrence_time: { value: req.body.recurrence_time || '09:00' },
+    };
+
+    for (const [col, config] of Object.entries(optionalFields)) {
+      cols.push(col);
+      vals.push(config.transform ? config.transform(config.value) : config.value);
+    }
+
+    const placeholders = vals.map((_, i) => `$${i + 1}`).join(',');
     const { rows } = await pool.query(
-      `INSERT INTO announcements (church_id, title, body, image_url, media_urls, video_url, event_id, event_date, event_time, is_pinned, notify_members, created_by, recurrence, recurrence_day, recurrence_time)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
-      [churchId, title, body || null, image_url || null, media_urls || [], video_url || null,
-       event_id || null, event_date || null, event_time || null,
-       is_pinned || false, notify_members || false, req.user.id,
-       recurrence || null, recurrence_day != null ? recurrence_day : null, recurrence_time || '09:00']
+      `INSERT INTO announcements (${cols.join(',')}) VALUES (${placeholders}) RETURNING *`,
+      vals
     );
 
     if (notify_members) {
@@ -64,10 +84,10 @@ router.post('/', async (req, res) => {
        WHERE a.id = $1`, [rows[0].id]
     );
 
-    res.status(201).json(full[0]);
+    res.status(201).json(sanitizeRow(full[0]));
   } catch (err) {
     console.error('POST announcements error:', err);
-    res.status(500).json({ error: 'Internal error' });
+    res.status(500).json({ error: err.message || 'Internal error' });
   }
 });
 
@@ -78,26 +98,48 @@ router.put('/:id', async (req, res) => {
     if (req.user.role !== 'admin_church' && req.user.role !== 'leader')
       return res.status(403).json({ error: 'Forbidden' });
 
-    const { title, body, image_url, media_urls, video_url, event_date, event_time, is_pinned, recurrence, recurrence_day, recurrence_time } = req.body;
+    const { title, body, image_url, is_pinned } = req.body;
+
+    // Build SET clause dynamically — only include base columns guaranteed to exist
+    let sets = [];
+    let vals = [];
+    let idx = 1;
+
+    if (title !== undefined) { sets.push(`title = $${idx++}`); vals.push(title); }
+    sets.push(`body = $${idx++}`); vals.push(body || null);
+    sets.push(`image_url = $${idx++}`); vals.push(forceHttps(image_url) || null);
+    if (is_pinned !== undefined) { sets.push(`is_pinned = $${idx++}`); vals.push(is_pinned); }
+    sets.push(`updated_at = NOW()`);
+
+    // Try optional columns — wrapped individually so missing columns don't break the query
+    const optionalSets = [];
+    const optionalCols = [
+      { col: 'media_urls', value: req.body.media_urls },
+      { col: 'video_url', value: req.body.video_url },
+      { col: 'event_date', value: req.body.event_date },
+      { col: 'event_time', value: req.body.event_time },
+      { col: 'recurrence', value: req.body.recurrence },
+      { col: 'recurrence_day', value: req.body.recurrence_day },
+      { col: 'recurrence_time', value: req.body.recurrence_time },
+    ];
+
+    for (const { col, value } of optionalCols) {
+      if (value !== undefined) {
+        sets.push(`${col} = $${idx++}`);
+        if (col === 'media_urls') {
+          vals.push(Array.isArray(value) ? value.map(forceHttps) : []);
+        } else {
+          vals.push(value || null);
+        }
+      }
+    }
+
+    vals.push(req.params.id, churchId);
+    const whereClause = `WHERE id = $${idx++} AND church_id = $${idx++}`;
+
     const { rows } = await pool.query(
-      `UPDATE announcements SET
-        title = COALESCE($1, title),
-        body = $2,
-        image_url = $3,
-        media_urls = COALESCE($4, media_urls),
-        video_url = $5,
-        event_date = $6,
-        event_time = $7,
-        is_pinned = COALESCE($8, is_pinned),
-        recurrence = $9,
-        recurrence_day = $10,
-        recurrence_time = COALESCE($11, '09:00'),
-        updated_at = NOW()
-       WHERE id = $12 AND church_id = $13 RETURNING *`,
-      [title, body || null, image_url || null, media_urls || [], video_url || null,
-       event_date || null, event_time || null, is_pinned,
-       recurrence || null, recurrence_day != null ? recurrence_day : null, recurrence_time || '09:00',
-       req.params.id, churchId]
+      `UPDATE announcements SET ${sets.join(', ')} ${whereClause} RETURNING *`,
+      vals
     );
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
 
@@ -106,10 +148,10 @@ router.put('/:id', async (req, res) => {
        FROM announcements a LEFT JOIN users u ON a.created_by = u.id
        WHERE a.id = $1`, [rows[0].id]
     );
-    res.json(full[0]);
+    res.json(sanitizeRow(full[0]));
   } catch (err) {
     console.error('PUT announcements error:', err);
-    res.status(500).json({ error: 'Internal error' });
+    res.status(500).json({ error: err.message || 'Internal error' });
   }
 });
 
@@ -128,7 +170,11 @@ router.post('/:id/resend', async (req, res) => {
 
     const ann = rows[0];
     await sendNotifications(churchId, req.user.id, ann.title, ann.body);
-    await pool.query('UPDATE announcements SET last_sent_at = NOW() WHERE id = $1', [ann.id]);
+    
+    // Try updating last_sent_at if column exists
+    try {
+      await pool.query('UPDATE announcements SET last_sent_at = NOW() WHERE id = $1', [ann.id]);
+    } catch (_) { /* column may not exist yet */ }
 
     res.json({ message: 'Notifications resent' });
   } catch (err) {
