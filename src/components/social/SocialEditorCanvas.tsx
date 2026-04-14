@@ -146,8 +146,11 @@ const SocialEditorCanvas = ({
     setActiveElementId(null);
   }, []);
 
-  const handleBackgroundClick = useCallback(() => {
-    onElementSelect(null);
+  const handleBackgroundClick = useCallback((e: React.PointerEvent | React.MouseEvent) => {
+    // Only deselect if clicking directly on the background, not on an element
+    if (e.target === containerRef.current || (e.target as HTMLElement).dataset.bgLayer === 'true') {
+      onElementSelect(null);
+    }
   }, [onElementSelect]);
 
   const colorMatch = bgGradient.match(/#[a-f0-9]{6}/gi) || ['#1e3a5f', '#0f1f33'];
