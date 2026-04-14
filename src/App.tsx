@@ -51,6 +51,7 @@ import QuizAdminPage from "@/pages/church/QuizAdminPage";
 import AnnouncementsPage from "@/pages/church/AnnouncementsPage";
 import WorshipPage from "@/pages/church/WorshipPage";
 import SocialPostPage from "@/pages/church/SocialPostPage";
+import WordSearchPage from "@/pages/church/WordSearchPage";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound.tsx";
 
