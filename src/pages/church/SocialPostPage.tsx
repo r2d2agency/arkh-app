@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { Slider } from '@/components/ui/slider';
 import {
   Share2, Download, Upload, Loader2, Sparkles, Check, Palette, RotateCcw,
   Type, ImageIcon, Plus, Layers, Camera, Eye,
