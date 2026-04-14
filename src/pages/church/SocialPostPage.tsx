@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import {
   Share2, Download, Loader2, Sparkles, Check,
-  Type, ImageIcon, Camera, ChevronLeft, ChevronRight,
+  Type, ImageIcon, Camera, ChevronUp, ChevronDown,
   Layers, Palette, Send, RotateCcw, Trash2, X, Menu,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
