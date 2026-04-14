@@ -583,7 +583,7 @@ const MemberHome = () => {
                         <p className="text-xs text-muted-foreground line-clamp-2">{ann.body}</p>
                       )}
                       <p className="text-[10px] text-muted-foreground">
-                        {formatDistanceToNow(new Date(ann.created_at), { addSuffix: true, locale: ptBR })}
+                        {new Date(ann.created_at).toLocaleDateString('pt-BR')}
                       </p>
                     </div>
                   </div>
