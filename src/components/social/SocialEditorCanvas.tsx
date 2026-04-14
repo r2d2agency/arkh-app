@@ -84,7 +84,7 @@ const SocialEditorCanvas = ({
   return (
     <div
       ref={containerRef}
-      className="relative w-full overflow-hidden rounded-2xl border-2 border-border shadow-lg select-none"
+      className={`relative w-full overflow-hidden rounded-2xl border-2 border-border shadow-lg select-none ${dragging ? 'touch-none' : ''}`}
       style={{ aspectRatio: '9/16' }}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
