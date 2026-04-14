@@ -513,9 +513,9 @@ const SocialPostPage = () => {
         </div>
       </div>
 
-      {/* Canvas area - takes remaining space */}
-      <div className="flex-1 flex items-center justify-center p-3 overflow-hidden">
-        <div className="w-full max-w-[280px]">
+      {/* Canvas area - full screen */}
+      <div className="flex-1 flex items-center justify-center overflow-hidden">
+        <div className="w-full h-full max-w-[400px]">
           <SocialEditorCanvas
             elements={elements}
             onElementMove={handleElementMove}
