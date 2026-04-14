@@ -140,6 +140,18 @@ const SocialPostPage = () => {
     if (selectedElementId === id) setSelectedElementId(null);
   }, [selectedElementId]);
 
+  const handleMoveElement = useCallback((id: string, direction: 'up' | 'down') => {
+    setElements(prev => {
+      const idx = prev.findIndex(el => el.id === id);
+      if (idx === -1) return prev;
+      const newIdx = direction === 'up' ? idx + 1 : idx - 1;
+      if (newIdx < 0 || newIdx >= prev.length) return prev;
+      const copy = [...prev];
+      [copy[idx], copy[newIdx]] = [copy[newIdx], copy[idx]];
+      return copy;
+    });
+  }, []);
+
   const addTextElement = () => {
     const newEl: DraggableElement = {
       id: nextId(), type: 'text', x: 50, y: 50,
