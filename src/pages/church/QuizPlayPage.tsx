@@ -28,6 +28,8 @@ interface Quiz {
   difficulty: string;
   time_limit_seconds: number;
   questions: Question[];
+  best_score?: number | null;
+  best_total?: number | null;
 }
 
 interface SubmitResult {
