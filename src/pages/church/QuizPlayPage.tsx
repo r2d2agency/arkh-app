@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Trophy, Clock, ArrowRight, CheckCircle2, XCircle, ArrowLeft, Star, Sparkles, Flame, Zap, ArrowUp, Loader2 } from 'lucide-react';
+import { Trophy, Clock, ArrowRight, CheckCircle2, XCircle, ArrowLeft, Star, Sparkles, Flame, Zap, ArrowUp, Loader2, Lock } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
