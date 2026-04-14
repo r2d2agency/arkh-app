@@ -212,6 +212,15 @@ const SocialPostPage = () => {
         ctx.fillText(`— ${verseRef}`, W / 2, startY + lines.length * lineHeight + 40);
       }
 
+      // Church logo watermark at bottom-right
+      if (churchLogoImg) {
+        const logoSize = 80;
+        const padding = 30;
+        ctx.globalAlpha = 0.5;
+        ctx.drawImage(churchLogoImg, W - logoSize - padding, H - logoSize - padding, logoSize, logoSize);
+        ctx.globalAlpha = 1.0;
+      }
+
       // Church name at bottom
       if (churchName) {
         ctx.font = `600 22px Arial`;
