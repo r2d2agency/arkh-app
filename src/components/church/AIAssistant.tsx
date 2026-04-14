@@ -58,7 +58,6 @@ export default function AIAssistant({ contextType = 'general', contextId, contex
   // Hide on full-screen editors like social post
   const hiddenRoutes = ['/church/social-post'];
   const isHidden = hiddenRoutes.some(r => location.pathname.startsWith(r));
-  if (isHidden) return null;
 
   const checkStatus = async () => {
     try {
