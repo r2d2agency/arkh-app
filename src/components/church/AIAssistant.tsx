@@ -151,7 +151,7 @@ export default function AIAssistant({ contextType = 'general', contextId, contex
     return ['O que a Bíblia fala sobre fé?', 'Explique Romanos 8', 'Estudo sobre oração', 'Contexto de João 3:16'];
   };
 
-  if (!status?.available) return null;
+  if (!status?.available || isHidden) return null;
 
   return (
     <>
