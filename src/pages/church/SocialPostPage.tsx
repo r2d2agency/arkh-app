@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import {
   Share2, Download, Loader2, Sparkles, Check,
-  Type, ImageIcon, Camera, ChevronLeft, ChevronRight,
+  Type, ImageIcon, Camera, ChevronUp, ChevronDown,
   Layers, Palette, Send, RotateCcw, Trash2, X, Menu,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -139,6 +139,18 @@ const SocialPostPage = () => {
     setElements(prev => prev.filter(el => el.id !== id));
     if (selectedElementId === id) setSelectedElementId(null);
   }, [selectedElementId]);
+
+  const handleMoveElement = useCallback((id: string, direction: 'up' | 'down') => {
+    setElements(prev => {
+      const idx = prev.findIndex(el => el.id === id);
+      if (idx === -1) return prev;
+      const newIdx = direction === 'up' ? idx + 1 : idx - 1;
+      if (newIdx < 0 || newIdx >= prev.length) return prev;
+      const copy = [...prev];
+      [copy[idx], copy[newIdx]] = [copy[newIdx], copy[idx]];
+      return copy;
+    });
+  }, []);
 
   const addTextElement = () => {
     const newEl: DraggableElement = {
@@ -551,19 +563,43 @@ const SocialPostPage = () => {
               {elements.length > 0 && (
                 <div className="space-y-1">
                   <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Camadas</span>
-                  {elements.map(el => (
-                    <button
+                  {elements.map((el, idx) => (
+                    <div
                       key={el.id}
-                      onClick={() => { setSelectedElementId(el.id); setShowElementEditor(true); }}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-xs flex items-center gap-2 transition-all ${
-                        el.id === selectedElementId ? 'bg-primary/20 text-primary' : 'text-zinc-400 hover:bg-zinc-800'
+                      className={`flex items-center gap-1 rounded-lg transition-all ${
+                        el.id === selectedElementId ? 'bg-primary/20' : 'hover:bg-zinc-800'
                       }`}
                     >
-                      {el.type === 'image' ? <ImageIcon className="w-3 h-3" /> : <Type className="w-3 h-3" />}
-                      <span className="truncate flex-1">
-                        {el.type === 'image' ? 'Imagem' : el.type === 'logo' ? 'Logo' : el.content || 'Sem texto'}
-                      </span>
-                    </button>
+                      <button
+                        onClick={() => { setSelectedElementId(el.id); setShowElementEditor(true); }}
+                        className={`flex-1 text-left px-3 py-2 text-xs flex items-center gap-2 ${
+                          el.id === selectedElementId ? 'text-primary' : 'text-zinc-400'
+                        }`}
+                      >
+                        {el.type === 'image' ? <ImageIcon className="w-3 h-3" /> : <Type className="w-3 h-3" />}
+                        <span className="truncate flex-1">
+                          {el.type === 'image' ? 'Imagem' : el.type === 'logo' ? 'Logo' : el.content || 'Sem texto'}
+                        </span>
+                      </button>
+                      <div className="flex items-center pr-1">
+                        <button
+                          onClick={() => handleMoveElement(el.id, 'down')}
+                          disabled={idx === 0}
+                          className="w-6 h-6 rounded flex items-center justify-center text-zinc-500 hover:text-zinc-200 disabled:opacity-20 transition-all"
+                          title="Mover para trás"
+                        >
+                          <ChevronDown className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => handleMoveElement(el.id, 'up')}
+                          disabled={idx === elements.length - 1}
+                          className="w-6 h-6 rounded flex items-center justify-center text-zinc-500 hover:text-zinc-200 disabled:opacity-20 transition-all"
+                          title="Mover para frente"
+                        >
+                          <ChevronUp className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
@@ -699,6 +735,10 @@ const SocialPostPage = () => {
                 element={selectedElement}
                 onChange={updates => handleElementUpdate(selectedElement.id, updates)}
                 onDelete={() => { handleDeleteElement(selectedElement.id); setShowElementEditor(false); }}
+                onMoveUp={() => handleMoveElement(selectedElement.id, 'up')}
+                onMoveDown={() => handleMoveElement(selectedElement.id, 'down')}
+                canMoveUp={elements.indexOf(selectedElement) < elements.length - 1}
+                canMoveDown={elements.indexOf(selectedElement) > 0}
               />
             </div>
           )}
