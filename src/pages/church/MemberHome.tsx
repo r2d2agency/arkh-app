@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   Video, BookOpen, ArrowRight, Play, Clock, Heart, Sparkles,
   Sun, CloudRain, Smile, Frown, Flame, HelpCircle, Zap, GraduationCap, Gamepad2, Calendar, MapPin,
-  Church, Navigation, CreditCard, Phone, Copy, Check, Users, ExternalLink, X, Megaphone, Share2,
+  Church, Navigation, CreditCard, Phone, Copy, Check, Users, ExternalLink, X, Megaphone, Share2, Music,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
@@ -378,7 +378,7 @@ const MemberHome = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-4 gap-2.5">
         <Link to="/church/services">
           <Card className="p-3 rounded-2xl card-hover text-center space-y-1.5 h-full border-primary/15">
             <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center mx-auto">
@@ -425,6 +425,14 @@ const MemberHome = () => {
               <Share2 className="w-4.5 h-4.5 text-primary" />
             </div>
             <p className="font-heading font-semibold text-[10px]">Post</p>
+          </Card>
+        </Link>
+        <Link to="/church/worship">
+          <Card className="p-3 rounded-2xl card-hover text-center space-y-1.5 h-full border-purple-500/15">
+            <div className="w-9 h-9 rounded-xl bg-purple-500/10 flex items-center justify-center mx-auto">
+              <Music className="w-4.5 h-4.5 text-purple-500" />
+            </div>
+            <p className="font-heading font-semibold text-[10px]">Louvor</p>
           </Card>
         </Link>
       </div>
@@ -539,16 +547,28 @@ const MemberHome = () => {
       )}
 
       {/* Recados */}
-      {announcements.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-heading text-lg font-semibold flex items-center gap-2">
-              <Megaphone className="w-5 h-5 text-primary" /> Recados
-            </h2>
-            <Link to="/church/announcements" className="text-xs text-primary font-medium flex items-center gap-1">
-              Ver todos <ArrowRight className="w-3 h-3" />
-            </Link>
-          </div>
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-heading text-lg font-semibold flex items-center gap-2">
+            <Megaphone className="w-5 h-5 text-primary" /> Recados
+          </h2>
+          <Link to="/church/announcements" className="text-xs text-primary font-medium flex items-center gap-1">
+            Ver todos <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
+        {announcements.length === 0 ? (
+          <Card className="p-5 rounded-2xl border-dashed">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-muted/60 flex items-center justify-center shrink-0">
+                <Megaphone className="w-5 h-5 text-muted-foreground" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Nenhum recado no momento</p>
+                <p className="text-xs text-muted-foreground">Quando houver um novo recado da igreja, ele aparecerá aqui.</p>
+              </div>
+            </div>
+          </Card>
+        ) : (
           <div className="space-y-2">
             {announcements.map(ann => (
               <Link key={ann.id} to="/church/announcements">
@@ -569,8 +589,8 @@ const MemberHome = () => {
               </Link>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <div>
         <div className="flex items-center justify-between mb-3">
