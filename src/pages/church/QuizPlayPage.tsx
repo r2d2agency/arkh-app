@@ -408,9 +408,6 @@ const QuizPlayPage = () => {
 
             {/* Actions */}
             <div className="flex gap-2">
-              <Button onClick={startQuiz} variant="outline" className="flex-1 h-11 rounded-xl font-semibold gap-1">
-                <RotateCcw className="w-4 h-4" /> Jogar novamente
-              </Button>
               <Button onClick={() => navigate('/church/quiz')} className="flex-1 h-11 rounded-xl font-semibold gap-1">
                 <Sparkles className="w-4 h-4" /> Mais quizzes
               </Button>
