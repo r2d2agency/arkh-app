@@ -40,6 +40,12 @@ interface AIAssistantProps {
 export default function AIAssistant({ contextType = 'general', contextId, contextTitle }: AIAssistantProps) {
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Hide on full-screen editors like social post
+  const hiddenRoutes = ['/church/social-post'];
+  if (hiddenRoutes.some(r => location.pathname.startsWith(r))) {
+    return null;
+  }
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [status, setStatus] = useState<AssistantStatus | null>(null);
