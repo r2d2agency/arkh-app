@@ -160,17 +160,17 @@ const SocialEditorCanvas = ({
   const isInteracting = interactionMode !== 'none';
 
   return (
-    <div className="relative">
+    <div className="relative w-full h-full">
       {/* Lock button */}
       <button
         onClick={onToggleLock}
-        className={`absolute -top-3 right-2 z-30 px-2.5 py-1 rounded-full text-[10px] font-bold shadow-md transition-all ${
+        className={`absolute top-12 right-3 z-30 px-2.5 py-1 rounded-full text-[10px] font-bold shadow-md transition-all backdrop-blur-sm ${
           locked
             ? 'bg-primary text-primary-foreground'
-            : 'bg-muted text-muted-foreground'
+            : 'bg-zinc-800/80 text-zinc-400'
         }`}
       >
-        {locked ? '🔒 Travado' : '🔓 Travar'}
+        {locked ? '🔒' : '🔓'}
       </button>
 
       <div
