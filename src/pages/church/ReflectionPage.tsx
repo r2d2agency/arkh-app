@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Heart, Sun, Flame, Smile, Frown, CloudRain, HelpCircle, Zap,
-  Sparkles, ArrowLeft, BookOpen, Send,
+  Sparkles, ArrowLeft, BookOpen, Send, Share2,
 } from 'lucide-react';
 
 const moodMap: Record<string, { label: string; icon: any; color: string; verse: string; reflection: string }> = {
@@ -69,10 +69,16 @@ const moodMap: Record<string, { label: string; icon: any; color: string; verse: 
 
 const ReflectionPage = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const mood = searchParams.get('mood') || 'grateful';
   const moodData = moodMap[mood] || moodMap.grateful;
   const MoodIcon = moodData.icon;
   const [freeText, setFreeText] = useState('');
+
+  const handleConvertToStory = () => {
+    const verse = encodeURIComponent(moodData.verse);
+    navigate(`/church/social-post?fromDevotional=1&verse=${verse}`);
+  };
 
   return (
     <div className="space-y-5 animate-fade-in p-4">
