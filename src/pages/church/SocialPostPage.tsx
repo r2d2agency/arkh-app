@@ -79,11 +79,11 @@ const SocialPostPage = () => {
   useEffect(() => {
     Promise.all([
       api.get<Devotional>('/api/church/devotional').catch(() => null),
-      api.get<{ generated_today: boolean }>('/api/church/social/today').catch(() => ({ generated_today: false })),
+      api.get<{ count_today: number }>('/api/church/social/today').catch(() => ({ count_today: 0 })),
       api.get<{ name: string; logo_url: string | null }>('/api/church/info').catch(() => ({ name: '', logo_url: null })),
     ]).then(([dev, today, info]) => {
       setDevotional(dev);
-      setGeneratedToday(today.generated_today);
+      setPostsToday(today.count_today);
       setChurchName(info.name || '');
       setChurchLogoUrl(info.logo_url || null);
 
