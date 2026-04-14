@@ -259,7 +259,7 @@ const SocialPostPage = () => {
     } else {
       drawContent();
     }
-  }, [selectedTemplate, verseText, verseRef, customText, userPhoto, churchName, user?.name]);
+  }, [selectedTemplate, verseText, verseRef, customText, userPhoto, churchName, churchLogoImg, user?.name]);
 
   useEffect(() => {
     if (!loading) drawCanvas();
