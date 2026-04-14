@@ -456,6 +456,9 @@ const SocialPostPage = () => {
             elements={elements}
             onElementMove={handleElementMove}
             onElementSelect={handleElementSelect}
+            onElementResize={handleElementResize}
+            onElementRotate={handleElementRotate}
+            onOpenEditor={handleOpenEditor}
             selectedElementId={selectedElementId}
             bgGradient={selectedTemplate.bgGradient}
             bgImage={bgImage}
