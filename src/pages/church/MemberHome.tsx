@@ -416,7 +416,7 @@ const MemberHome = () => {
             <div className="w-9 h-9 rounded-xl bg-gold/10 flex items-center justify-center mx-auto">
               <Gamepad2 className="w-4.5 h-4.5 text-gold" />
             </div>
-            <p className="font-heading font-semibold text-[10px]">Quiz</p>
+            <p className="font-heading font-semibold text-[10px]">Games</p>
           </Card>
         </Link>
         <Link to="/church/social-post">
