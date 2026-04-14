@@ -28,6 +28,8 @@ interface Quiz {
   difficulty: string;
   time_limit_seconds: number;
   questions: Question[];
+  best_score?: number | null;
+  best_total?: number | null;
 }
 
 interface SubmitResult {
@@ -197,14 +199,25 @@ const QuizPlayPage = () => {
               </div>
             </div>
 
-            <Button onClick={startQuiz} size="lg" className="w-full h-14 rounded-xl text-base font-bold gap-2 shadow-lg" disabled={quiz.questions.length === 0}>
-              {quiz.questions.length === 0 ? 'Sem perguntas' : (
-                <>
-                  <Sparkles className="w-5 h-5" />
-                  Começar Quiz!
-                </>
-              )}
-            </Button>
+            {quiz.best_score != null ? (
+              <div className="text-center space-y-3 p-4 rounded-xl bg-green-500/10 border border-green-500/20">
+                <div className="text-3xl">✅</div>
+                <p className="font-bold text-sm">Você já jogou este quiz!</p>
+                <p className="text-xs text-muted-foreground">Sua pontuação: {quiz.best_score}/{quiz.best_total}</p>
+                <Button onClick={() => navigate('/church/quiz')} variant="outline" className="w-full rounded-xl">
+                  <ArrowLeft className="w-4 h-4 mr-2" /> Voltar aos Games
+                </Button>
+              </div>
+            ) : (
+              <Button onClick={startQuiz} size="lg" className="w-full h-14 rounded-xl text-base font-bold gap-2 shadow-lg" disabled={quiz.questions.length === 0}>
+                {quiz.questions.length === 0 ? 'Sem perguntas' : (
+                  <>
+                    <Sparkles className="w-5 h-5" />
+                    Começar Quiz!
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </Card>
       </div>
@@ -395,9 +408,6 @@ const QuizPlayPage = () => {
 
             {/* Actions */}
             <div className="flex gap-2">
-              <Button onClick={startQuiz} variant="outline" className="flex-1 h-11 rounded-xl font-semibold gap-1">
-                <RotateCcw className="w-4 h-4" /> Jogar novamente
-              </Button>
               <Button onClick={() => navigate('/church/quiz')} className="flex-1 h-11 rounded-xl font-semibold gap-1">
                 <Sparkles className="w-4 h-4" /> Mais quizzes
               </Button>

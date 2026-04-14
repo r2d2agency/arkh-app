@@ -258,8 +258,11 @@ Retorne APENAS um JSON válido no formato:
 router.get('/:id', async (req, res) => {
   try {
     const { rows: [quiz] } = await pool.query(
-      'SELECT * FROM quizzes WHERE id = $1 AND church_id = $2',
-      [req.params.id, req.user.church_id]
+      `SELECT q.*,
+        (SELECT MAX(qa.score) FROM quiz_attempts qa WHERE qa.quiz_id = q.id AND qa.user_id = $3) as best_score,
+        (SELECT qa2.total_questions FROM quiz_attempts qa2 WHERE qa2.quiz_id = q.id AND qa2.user_id = $3 ORDER BY qa2.score DESC LIMIT 1) as best_total
+       FROM quizzes q WHERE q.id = $1 AND q.church_id = $2`,
+      [req.params.id, req.user.church_id, req.user.id]
     );
     if (!quiz) return res.status(404).json({ error: 'Not found' });
 
@@ -284,11 +287,20 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// POST /api/church/quizzes/:id/submit — submit answers
+// POST /api/church/quizzes/:id/submit — submit answers (1 attempt per user)
 router.post('/:id/submit', async (req, res) => {
   try {
     const { answers, time_spent_seconds } = req.body;
     if (!answers) return res.status(400).json({ error: 'Answers required' });
+
+    // Check if user already played this quiz
+    const { rows: existing } = await pool.query(
+      'SELECT id FROM quiz_attempts WHERE quiz_id = $1 AND user_id = $2 LIMIT 1',
+      [req.params.id, req.user.id]
+    );
+    if (existing.length > 0) {
+      return res.status(409).json({ error: 'Você já jogou este quiz. Aguarde novos quizzes!' });
+    }
 
     const { rows: questions } = await pool.query(
       'SELECT qq.id, qo.id as correct_option_id FROM quiz_questions qq JOIN quiz_options qo ON qo.question_id = qq.id AND qo.is_correct = true WHERE qq.quiz_id = $1',
