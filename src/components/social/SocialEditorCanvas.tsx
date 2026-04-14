@@ -175,10 +175,9 @@ const SocialEditorCanvas = ({
 
       <div
         ref={containerRef}
-        className={`relative w-full overflow-hidden rounded-2xl border-2 shadow-lg select-none ${
-          locked || isInteracting ? 'touch-none border-primary/50' : 'border-border'
+        className={`relative w-full h-full overflow-hidden select-none ${
+          locked || isInteracting ? 'touch-none' : ''
         }`}
-        style={{ aspectRatio: '9/16' }}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onClick={handleBackgroundClick}
