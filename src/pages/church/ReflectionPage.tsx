@@ -105,6 +105,15 @@ const ReflectionPage = () => {
         </blockquote>
       </Card>
 
+      {/* Convert to Story */}
+      <Button
+        onClick={handleConvertToStory}
+        className="w-full rounded-2xl h-12 gap-2 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-lg"
+      >
+        <Share2 className="w-4 h-4" />
+        Converter em Story
+      </Button>
+
       {/* Reflection */}
       <Card className="p-5 rounded-2xl space-y-3">
         <div className="flex items-center gap-2">
