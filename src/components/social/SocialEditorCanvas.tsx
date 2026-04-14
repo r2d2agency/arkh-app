@@ -188,6 +188,7 @@ const SocialEditorCanvas = ({
         {/* Background gradient */}
         <div
           className="absolute inset-0"
+          data-bg-layer="true"
           style={{
             background: `linear-gradient(135deg, ${colorMatch[0]}, ${colorMatch[1] || colorMatch[0]})`,
           }}
@@ -201,12 +202,14 @@ const SocialEditorCanvas = ({
             className="absolute inset-0 w-full h-full object-cover"
             style={{ filter: combinedBgFilter }}
             draggable={false}
+            data-bg-layer="true"
           />
         )}
 
         {/* Overlay */}
         <div
           className="absolute inset-0"
+          data-bg-layer="true"
           style={{ backgroundColor: overlayColor, opacity: overlayOpacity }}
         />
 
