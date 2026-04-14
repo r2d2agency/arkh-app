@@ -26,8 +26,8 @@ router.post('/generate', async (req, res) => {
       `SELECT id FROM social_posts WHERE user_id = $1 AND created_at::date = CURRENT_DATE`,
       [req.user.id]
     );
-    if (existing.length > 0) {
-      return res.status(429).json({ error: 'Você já gerou seu post de hoje. Volte amanhã!' });
+    if (existing.length >= 5) {
+      return res.status(429).json({ error: 'Você atingiu o limite de 5 posts hoje. Volte amanhã!' });
     }
 
     const { verse_text, verse_reference, custom_text, template_id } = req.body;
