@@ -126,7 +126,7 @@ const SocialPostPage = () => {
       }
       setGeneratedToday(today.generated_today);
       setChurchName(info.name || '');
-    }).finally(() => setLoading(false));
+      setChurchLogoUrl(info.logo_url || null);
   }, []);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
