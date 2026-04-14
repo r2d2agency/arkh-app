@@ -346,7 +346,7 @@ const AnnouncementsPage = () => {
                   <div className={`${allMedia.length === 1 ? '' : 'grid grid-cols-2 gap-0.5'}`}>
                     {allMedia.map((url, i) => (
                       <img key={i} src={url} alt="" onClick={() => setExpandedImage(url)}
-                        className={`w-full object-cover cursor-pointer hover:opacity-90 transition-opacity ${allMedia.length === 1 ? 'max-h-80' : 'h-40'}`} />
+                        className={`w-full object-contain cursor-pointer hover:opacity-90 transition-opacity ${allMedia.length === 1 ? 'max-h-[500px]' : 'h-40 object-cover'}`} />
                     ))}
                   </div>
                 )}
