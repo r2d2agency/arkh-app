@@ -1,6 +1,20 @@
 const router = require('express').Router();
 const pool = require('../db/pool');
 
+// Force HTTPS on URLs to avoid mixed content
+function forceHttps(url) {
+  if (!url) return url;
+  return url.replace(/^http:\/\//i, 'https://');
+}
+
+function sanitizeRow(row) {
+  if (!row) return row;
+  if (row.image_url) row.image_url = forceHttps(row.image_url);
+  if (row.author_avatar) row.author_avatar = forceHttps(row.author_avatar);
+  if (Array.isArray(row.media_urls)) row.media_urls = row.media_urls.map(forceHttps);
+  return row;
+}
+
 // GET /api/church/announcements
 router.get('/', async (req, res) => {
   try {
