@@ -735,6 +735,10 @@ const SocialPostPage = () => {
                 element={selectedElement}
                 onChange={updates => handleElementUpdate(selectedElement.id, updates)}
                 onDelete={() => { handleDeleteElement(selectedElement.id); setShowElementEditor(false); }}
+                onMoveUp={() => handleMoveElement(selectedElement.id, 'up')}
+                onMoveDown={() => handleMoveElement(selectedElement.id, 'down')}
+                canMoveUp={elements.indexOf(selectedElement) < elements.length - 1}
+                canMoveDown={elements.indexOf(selectedElement) > 0}
               />
             </div>
           )}
