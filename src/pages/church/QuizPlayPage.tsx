@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Trophy, Clock, ArrowRight, CheckCircle2, XCircle, ArrowLeft, Star, Sparkles, Flame, Zap, ArrowUp, Loader2 } from 'lucide-react';
+import { Trophy, Clock, ArrowRight, CheckCircle2, XCircle, ArrowLeft, Star, Sparkles, Flame, Zap, ArrowUp, Loader2, Lock } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
@@ -215,11 +215,14 @@ const QuizPlayPage = () => {
                 </div>
               </div>
             ) : (
-              <Button onClick={startQuiz} size="lg" className="w-full h-14 rounded-xl text-base font-bold gap-2 shadow-lg" disabled={quiz.questions.length === 0}>
-                {quiz.questions.length === 0 ? 'Sem perguntas' : (
-                  <><Sparkles className="w-5 h-5" /> Começar Desafio!</>
-                )}
-              </Button>
+              <div className="flex flex-col items-center justify-center py-6 space-y-4">
+                <p className="text-sm text-muted-foreground text-center">Quando estiver pronto, toque para começar!</p>
+                <Button onClick={startQuiz} size="lg" className="h-16 px-12 rounded-2xl text-lg font-bold gap-3 shadow-xl animate-pulse hover:animate-none" disabled={quiz.questions.length === 0}>
+                  {quiz.questions.length === 0 ? 'Sem perguntas' : (
+                    <><Sparkles className="w-6 h-6" /> Começar!</>
+                  )}
+                </Button>
+              </div>
             )}
           </div>
         </Card>
@@ -412,13 +415,20 @@ const QuizPlayPage = () => {
                 {generatingNext ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
                 Mesmo Nível
               </Button>
-              {quiz.is_challenge && (quiz.challenge_level || 1) < 6 && (
-                <Button onClick={handleNextLevel} className="h-11 rounded-xl font-semibold gap-1 text-xs" disabled={generatingNext}>
-                  {generatingNext ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4 h-4" />}
-                  Subir Fase
-                </Button>
-              )}
-              {(!quiz.is_challenge || (quiz.challenge_level || 1) >= 6) && (
+              {quiz.is_challenge && (quiz.challenge_level || 1) < 6 ? (() => {
+                const nextLevel = (quiz.challenge_level || 1) + 1;
+                const canAdvance = result.new_level >= nextLevel;
+                return (
+                  <Button
+                    onClick={canAdvance ? handleNextLevel : undefined}
+                    className={`h-11 rounded-xl font-semibold gap-1 text-xs ${!canAdvance ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    disabled={generatingNext || !canAdvance}
+                  >
+                    {generatingNext ? <Loader2 className="w-4 h-4 animate-spin" /> : !canAdvance ? <Lock className="w-4 h-4" /> : <ArrowUp className="w-4 h-4" />}
+                    {canAdvance ? 'Subir Fase' : 'Fase Bloqueada'}
+                  </Button>
+                );
+              })() : (!quiz.is_challenge || (quiz.challenge_level || 1) >= 6) && (
                 <Button onClick={() => navigate('/church/quiz')} className="h-11 rounded-xl font-semibold gap-1 text-xs">
                   <Sparkles className="w-4 h-4" /> Mais Games
                 </Button>
