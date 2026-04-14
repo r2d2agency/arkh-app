@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
@@ -6,6 +7,7 @@ import {
   Share2, Download, Loader2, Sparkles, Check,
   Type, ImageIcon, Camera, ChevronUp, ChevronDown,
   Layers, Palette, Send, RotateCcw, Trash2, X, Menu,
+  Upload, Image as ImageLucide,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
@@ -16,6 +18,13 @@ import { storyTemplates, templateCategories, StoryTemplate } from '@/components/
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from '@/components/ui/sheet';
+
+interface GalleryImage {
+  id: string;
+  image_url: string;
+  original_name: string;
+  created_at: string;
+}
 
 interface Devotional {
   verse: string;
