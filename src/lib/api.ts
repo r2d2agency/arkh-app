@@ -63,6 +63,22 @@ class ApiClient {
   put<T>(path: string, body: unknown) { return this.request<T>(path, { method: 'PUT', body: JSON.stringify(body) }); }
   delete<T>(path: string) { return this.request<T>(path, { method: 'DELETE' }); }
 
+  async upload<T>(path: string, formData: FormData): Promise<T> {
+    const token = this.getToken();
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`${API_URL}${path}`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `Upload error: ${res.status}`);
+    }
+    return res.json();
+  }
+
   async login(email: string, password: string, remember = true) {
     const data = await this.post<{
       access_token: string;

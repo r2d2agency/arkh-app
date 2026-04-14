@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
@@ -6,6 +7,7 @@ import {
   Share2, Download, Loader2, Sparkles, Check,
   Type, ImageIcon, Camera, ChevronUp, ChevronDown,
   Layers, Palette, Send, RotateCcw, Trash2, X, Menu,
+  Upload, Image as ImageLucide,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
@@ -16,6 +18,13 @@ import { storyTemplates, templateCategories, StoryTemplate } from '@/components/
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from '@/components/ui/sheet';
+
+interface GalleryImage {
+  id: string;
+  image_url: string;
+  original_name: string;
+  created_at: string;
+}
 
 interface Devotional {
   verse: string;
@@ -40,8 +49,10 @@ type BottomPanel = 'none' | 'templates' | 'elements' | 'style' | 'export';
 
 const SocialPostPage = () => {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bgFileInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const [devotional, setDevotional] = useState<Devotional | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<StoryTemplate>(storyTemplates[0]);
@@ -65,21 +76,50 @@ const SocialPostPage = () => {
   const [canvasLocked, setCanvasLocked] = useState(false);
   const [templateCategory, setTemplateCategory] = useState<string>('all');
   const [showElementEditor, setShowElementEditor] = useState(false);
+  const [gallery, setGallery] = useState<GalleryImage[]>([]);
+  const [uploadingGallery, setUploadingGallery] = useState(false);
 
   const selectedElement = elements.find(el => el.id === selectedElementId) || null;
 
   useEffect(() => {
+    const fromDevotional = searchParams.get('fromDevotional') === '1';
+    const verseParam = searchParams.get('verse');
+
     Promise.all([
       api.get<Devotional>('/api/church/devotional').catch(() => null),
       api.get<{ count_today: number }>('/api/church/social/today').catch(() => ({ count_today: 0 })),
       api.get<{ name: string; logo_url: string | null }>('/api/church/info').catch(() => ({ name: '', logo_url: null })),
-    ]).then(([dev, today, info]) => {
+      api.get<GalleryImage[]>('/api/church/gallery').catch(() => []),
+    ]).then(([dev, today, info, galleryData]) => {
       setDevotional(dev);
       setPostsToday(today.count_today);
       setChurchName(info.name || '');
       setChurchLogoUrl(info.logo_url || null);
-      // Apply first template elements
+      setGallery(galleryData || []);
+
+      // Apply first template
       applyTemplate(storyTemplates[0], dev, info.name, info.logo_url);
+
+      // If coming from devotional, inject verse text
+      if (fromDevotional && verseParam) {
+        const verseText = decodeURIComponent(verseParam);
+        // Split verse and reference
+        const dashIdx = verseText.lastIndexOf('—');
+        const verse = dashIdx > -1 ? verseText.substring(0, dashIdx).trim().replace(/^"|"$/g, '') : verseText;
+        const ref = dashIdx > -1 ? verseText.substring(dashIdx + 1).trim() : '';
+        
+        setTimeout(() => {
+          setElements(prev => {
+            const updated = [...prev];
+            const verseEl = updated.find(e => e.type === 'text');
+            if (verseEl) verseEl.content = verse;
+            const refEl = updated.find(e => e.type === 'verse-ref');
+            if (refEl) refEl.content = ref;
+            return updated;
+          });
+        }, 100);
+        toast.success('Devocional carregado no Story!');
+      }
     }).finally(() => setLoading(false));
   }, []);
 
@@ -195,6 +235,30 @@ const SocialPostPage = () => {
     };
     reader.readAsDataURL(file);
     if (bgFileInputRef.current) bgFileInputRef.current.value = '';
+  };
+
+  // Gallery upload (converts to WebP on server)
+  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setUploadingGallery(true);
+    try {
+      const formData = new FormData();
+      Array.from(files).forEach(f => formData.append('files', f));
+      const result = await api.upload<GalleryImage[]>('/api/church/gallery', formData);
+      setGallery(prev => [...result, ...prev]);
+      toast.success(`${result.length} imagem(ns) enviada(s)!`);
+    } catch (err: any) {
+      toast.error(err.message || 'Erro no upload');
+    } finally {
+      setUploadingGallery(false);
+      if (galleryInputRef.current) galleryInputRef.current.value = '';
+    }
+  };
+
+  const selectGalleryAsBg = (url: string) => {
+    setBgImage(url);
+    toast.success('Fundo aplicado da galeria!');
   };
 
   const useDevotional = () => {
@@ -412,6 +476,7 @@ const SocialPostPage = () => {
       {/* Hidden file inputs */}
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoElementUpload} />
       <input ref={bgFileInputRef} type="file" accept="image/*;capture=camera" className="hidden" onChange={handleBgUpload} />
+      <input ref={galleryInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleGalleryUpload} />
 
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-3 bg-zinc-950/80 backdrop-blur-sm border-b border-zinc-800/50">
@@ -572,6 +637,38 @@ const SocialPostPage = () => {
                   <Trash2 className="w-3.5 h-3.5" /> Remover fundo
                 </button>
               )}
+
+              {/* Gallery - Backgrounds */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Galeria de Fundos</span>
+                  <button
+                    onClick={() => galleryInputRef.current?.click()}
+                    disabled={uploadingGallery}
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold bg-primary/20 text-primary hover:bg-primary/30 transition-all disabled:opacity-50"
+                  >
+                    {uploadingGallery ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                    Enviar
+                  </button>
+                </div>
+                {gallery.length > 0 ? (
+                  <div className="grid grid-cols-4 gap-1.5 max-h-[120px] overflow-y-auto">
+                    {gallery.map(img => (
+                      <button
+                        key={img.id}
+                        onClick={() => selectGalleryAsBg(img.image_url)}
+                        className={`aspect-square rounded-lg overflow-hidden border-2 transition-all hover:border-primary/50 ${
+                          bgImage === img.image_url ? 'border-primary' : 'border-zinc-700'
+                        }`}
+                      >
+                        <img src={img.image_url} alt="" className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-zinc-600 text-center py-2">Nenhuma imagem na galeria. Envie imagens para usar como fundo.</p>
+                )}
+              </div>
 
               {/* Layers */}
               {elements.length > 0 && (
