@@ -49,8 +49,10 @@ type BottomPanel = 'none' | 'templates' | 'elements' | 'style' | 'export';
 
 const SocialPostPage = () => {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bgFileInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const [devotional, setDevotional] = useState<Devotional | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<StoryTemplate>(storyTemplates[0]);
@@ -74,21 +76,50 @@ const SocialPostPage = () => {
   const [canvasLocked, setCanvasLocked] = useState(false);
   const [templateCategory, setTemplateCategory] = useState<string>('all');
   const [showElementEditor, setShowElementEditor] = useState(false);
+  const [gallery, setGallery] = useState<GalleryImage[]>([]);
+  const [uploadingGallery, setUploadingGallery] = useState(false);
 
   const selectedElement = elements.find(el => el.id === selectedElementId) || null;
 
   useEffect(() => {
+    const fromDevotional = searchParams.get('fromDevotional') === '1';
+    const verseParam = searchParams.get('verse');
+
     Promise.all([
       api.get<Devotional>('/api/church/devotional').catch(() => null),
       api.get<{ count_today: number }>('/api/church/social/today').catch(() => ({ count_today: 0 })),
       api.get<{ name: string; logo_url: string | null }>('/api/church/info').catch(() => ({ name: '', logo_url: null })),
-    ]).then(([dev, today, info]) => {
+      api.get<GalleryImage[]>('/api/church/gallery').catch(() => []),
+    ]).then(([dev, today, info, galleryData]) => {
       setDevotional(dev);
       setPostsToday(today.count_today);
       setChurchName(info.name || '');
       setChurchLogoUrl(info.logo_url || null);
-      // Apply first template elements
+      setGallery(galleryData || []);
+
+      // Apply first template
       applyTemplate(storyTemplates[0], dev, info.name, info.logo_url);
+
+      // If coming from devotional, inject verse text
+      if (fromDevotional && verseParam) {
+        const verseText = decodeURIComponent(verseParam);
+        // Split verse and reference
+        const dashIdx = verseText.lastIndexOf('—');
+        const verse = dashIdx > -1 ? verseText.substring(0, dashIdx).trim().replace(/^"|"$/g, '') : verseText;
+        const ref = dashIdx > -1 ? verseText.substring(dashIdx + 1).trim() : '';
+        
+        setTimeout(() => {
+          setElements(prev => {
+            const updated = [...prev];
+            const verseEl = updated.find(e => e.type === 'text');
+            if (verseEl) verseEl.content = verse;
+            const refEl = updated.find(e => e.type === 'verse-ref');
+            if (refEl) refEl.content = ref;
+            return updated;
+          });
+        }, 100);
+        toast.success('Devocional carregado no Story!');
+      }
     }).finally(() => setLoading(false));
   }, []);
 
