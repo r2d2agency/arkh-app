@@ -35,7 +35,7 @@ import logoImg from '@/assets/logo.png';
 const memberBottomNav = [
   { path: '/church', label: 'Início', icon: Home },
   { path: '/church/services', label: 'Cultos', icon: Video },
-  { path: '/church/worship', label: 'Louvores', icon: Music },
+  { path: '/church/announcements', label: 'Recados', icon: Megaphone },
   { path: '/church/studies', label: 'Estudar', icon: BookOpen },
   { path: '/church/profile', label: 'Perfil', icon: User },
 ];
