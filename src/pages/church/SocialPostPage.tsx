@@ -476,6 +476,7 @@ const SocialPostPage = () => {
       {/* Hidden file inputs */}
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoElementUpload} />
       <input ref={bgFileInputRef} type="file" accept="image/*;capture=camera" className="hidden" onChange={handleBgUpload} />
+      <input ref={galleryInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleGalleryUpload} />
 
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-3 bg-zinc-950/80 backdrop-blur-sm border-b border-zinc-800/50">
