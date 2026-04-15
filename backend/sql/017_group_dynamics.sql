@@ -13,7 +13,8 @@ CREATE TABLE IF NOT EXISTS group_dynamics (
   is_auto_generated BOOLEAN DEFAULT false,
   generated_week DATE,
   is_global BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(title, is_global, church_id)
 );
 
 -- Track which dynamics were used by each group
