@@ -182,7 +182,13 @@ const ExplorePage = () => {
                           <h3 className="font-medium text-sm truncate">{r.title}</h3>
                           {r.preacher && <p className="text-xs text-muted-foreground">{r.preacher}</p>}
                           <p className="text-xs text-muted-foreground line-clamp-2">
-                            {r.ai_summary?.slice(0, 120)}...
+                            {(() => {
+                              const s = (r.ai_summary || '').trim();
+                              if (s.startsWith('{')) {
+                                try { const p = JSON.parse(s); return (p.summary || p.resumo || p.text || s).slice(0, 120); } catch { return s.slice(0, 120); }
+                              }
+                              return s.slice(0, 120);
+                            })()}...
                           </p>
                         </div>
                       </div>
