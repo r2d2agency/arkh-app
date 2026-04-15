@@ -182,7 +182,25 @@ const ServiceDetailPage = () => {
   const hasAI = service.ai_status === 'completed';
   const topicsData = parseTopics(service.ai_topics);
   const verses = parseVerses(service.ai_key_verses);
-  const summaryText = service.ai_summary || '';
+  const rawSummary = service.ai_summary || '';
+  const summaryText = (() => {
+    const s = rawSummary.trim();
+    if (s.startsWith('{') || s.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(s);
+        // Try common keys
+        if (typeof parsed === 'string') return parsed;
+        if (parsed.summary) return parsed.summary;
+        if (parsed.resumo) return parsed.resumo;
+        if (parsed.text) return parsed.text;
+        // Concatenate all string values
+        const vals = Object.values(parsed).filter(v => typeof v === 'string') as string[];
+        if (vals.length) return vals.join('\n\n');
+        return s;
+      } catch { return s; }
+    }
+    return s;
+  })();
   const shouldTruncate = summaryText.length > 500;
 
   return (
