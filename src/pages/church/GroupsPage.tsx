@@ -93,7 +93,7 @@ const GroupsPage = () => {
 
   const filtered = groups.filter(g => g.name.toLowerCase().includes(search.toLowerCase()));
 
-  const FormFields = () => (
+  const formFields = (
     <div className="space-y-4">
       <div className="space-y-2">
         <Label>Nome do grupo *</Label>
