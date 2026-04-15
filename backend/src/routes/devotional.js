@@ -58,7 +58,6 @@ Responda APENAS em JSON válido com esta estrutura:
   "reflection": "reflexão de 2-3 parágrafos conectando o versículo com os temas das pregações recentes, aplicação prática para o dia a dia"
 }`;
 
-      const fetch = (await import('node-fetch')).default;
       let aiResponse;
       
       if (provider.provider === 'openai') {
