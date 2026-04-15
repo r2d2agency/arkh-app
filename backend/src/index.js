@@ -59,6 +59,7 @@ app.use('/api/church/worship', authenticate, require('./routes/worship'));
 app.use('/api/church/upload', authenticate, require('./routes/upload'));
 app.use('/api/church/social', authenticate, require('./routes/social'));
 app.use('/api/church/gallery', authenticate, require('./routes/gallery'));
+app.use('/api/church/battles', authenticate, require('./routes/battles'));
 app.use('/api/bible-study', authenticate, require('./routes/bible-study'));
 
 app.use((err, req, res, next) => {

@@ -246,11 +246,11 @@ const BibleBattlePage = () => {
   const loadHistory = async () => {
     try {
       const [hist, rank] = await Promise.all([
-        api.get('/api/church/battles/history'),
-        api.get('/api/church/battles/ranking'),
+        api.get<BattleHistory[]>('/api/church/battles/history'),
+        api.get<any[]>('/api/church/battles/ranking'),
       ]);
-      setHistory(hist || []);
-      setRanking(rank || []);
+      setHistory((hist as BattleHistory[]) || []);
+      setRanking((rank as any[]) || []);
       setShowHistory(true);
     } catch { /* ignore */ }
   };
