@@ -418,18 +418,21 @@ router.post('/notes', async (req, res) => {
 // PUT /api/church/notes/:id — update note (link/unlink service, edit)
 router.put('/notes/:id', async (req, res) => {
   try {
-    const { title, content, service_id } = req.body;
+    const { title, content, service_id, note_type, verse_reference } = req.body;
+    const sets = ['updated_at = NOW()'];
+    const vals = [];
+    let idx = 1;
+    if (title !== undefined) { sets.push(`title = $${idx}`); vals.push(title || null); idx++; }
+    if (content !== undefined) { sets.push(`content = $${idx}`); vals.push(content || ''); idx++; }
+    if (service_id !== undefined) { sets.push(`service_id = $${idx}`); vals.push(service_id || null); idx++; }
+    if (note_type !== undefined) { sets.push(`note_type = $${idx}`); vals.push(note_type); idx++; }
+    if (verse_reference !== undefined) { sets.push(`verse_reference = $${idx}`); vals.push(verse_reference || null); idx++; }
+    vals.push(req.params.id, req.user.id);
     const { rows } = await pool.query(
-      `UPDATE study_notes SET 
-        title = COALESCE($1, title),
-        content = COALESCE($2, content),
-        service_id = $3,
-        updated_at = NOW()
-       WHERE id = $4 AND user_id = $5 RETURNING *`,
-      [title || null, content || null, service_id === undefined ? null : (service_id || null), req.params.id, req.user.id]
+      `UPDATE study_notes SET ${sets.join(', ')} WHERE id = $${idx} AND user_id = $${idx + 1} RETURNING *`,
+      vals
     );
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
-    // Fetch service title
     if (rows[0].service_id) {
       const { rows: svc } = await pool.query('SELECT title FROM services WHERE id = $1', [rows[0].service_id]);
       rows[0].service_title = svc[0]?.title || null;
