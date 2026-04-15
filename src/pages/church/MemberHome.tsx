@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   Video, BookOpen, ArrowRight, Play, Clock, Heart, Sparkles,
   Sun, CloudRain, Smile, Frown, Flame, HelpCircle, Zap, GraduationCap, Gamepad2, Calendar, MapPin,
-  Church, Navigation, CreditCard, Phone, Copy, Check, Users, ExternalLink, X, Megaphone, Share2, Music,
+  Church, Navigation, CreditCard, Phone, Copy, Check, Users, ExternalLink, X, Megaphone, Share2, Music, Swords,
   Home, UsersRound, HandHeart, Landmark, Cross, PersonStanding, Baby, Mic2, BookHeart, Globe, Star, type LucideIcon,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -473,6 +473,14 @@ const MemberHome = () => {
               <BookHeart className="w-4.5 h-4.5 text-primary" />
             </div>
             <p className="font-heading font-semibold text-[10px]">Leitura</p>
+          </Card>
+        </Link>
+        <Link to="/church/bible-battle">
+          <Card className="p-3 rounded-2xl card-hover text-center space-y-1.5 h-full border-purple-500/15">
+            <div className="w-9 h-9 rounded-xl bg-purple-500/10 flex items-center justify-center mx-auto">
+              <Swords className="w-4.5 h-4.5 text-purple-500" />
+            </div>
+            <p className="font-heading font-semibold text-[10px]">Batalha</p>
           </Card>
         </Link>
         {(() => {
