@@ -314,99 +314,82 @@ function getDefaultSystemPrompt() {
 
 O resultado NÃO deve ser apenas um resumo. Deve ser uma estrutura de ensino e aprendizado.
 
+⚠️ REGRA CRÍTICA SOBRE VERSÍCULOS:
+- "key_verses" deve conter SOMENTE versículos que foram EXPLICITAMENTE CITADOS ou LIDOS pelo pregador durante a mensagem.
+- NÃO adicione versículos que você acha que "combinam" ou "se relacionam" com o tema.
+- NÃO invente citações que não aparecem na transcrição.
+- Se o pregador disse "em João 3:16 diz que...", então João 3:16 é um key_verse.
+- Se o pregador NÃO mencionou um versículo específico, ele NÃO deve aparecer em key_verses.
+- Versículos que você sugere como complemento vão em "biblical_connections", NÃO em "key_verses".
+
+⚠️ REGRA CRÍTICA SOBRE O RESUMO:
+- O "summary" e "expanded_summary" devem mencionar os versículos que o pregador citou.
+- Exemplo: "O pregador abriu com Salmo 23 e desenvolveu o tema usando Romanos 8:28..."
+
 Responda SEMPRE em JSON válido com a seguinte estrutura:
 {
-  "summary": "Resumo executivo curto e objetivo (5 a 8 linhas) explicando o conteúdo da mensagem.",
+  "summary": "Resumo executivo (5-8 linhas). DEVE mencionar os versículos citados pelo pregador.",
 
-  "expanded_summary": "Resumo expandido e detalhado da mensagem, organizado em parágrafos, explicando o raciocínio da pregação.",
+  "expanded_summary": "Resumo expandido e detalhado (mínimo 8 parágrafos), explicando o raciocínio da pregação passo a passo, citando os versículos usados pelo pregador em cada ponto.",
 
   "central_theme": "Frase clara definindo o tema principal da mensagem.",
 
-  "theological_context": "Fundamento bíblico do tema à luz da Bíblia como um todo. Conecte com outros livros ou ensinamentos. Explique o conceito de forma ampla.",
+  "theological_context": "Fundamento bíblico do tema à luz da Bíblia como um todo.",
 
   "sermon_structure": [
-    {"part": "Introdução", "description": "O que foi abordado na abertura e seu papel"},
-    {"part": "Desenvolvimento 1", "description": "Primeiro ponto principal e seu papel"},
-    {"part": "Desenvolvimento 2", "description": "Segundo ponto principal e seu papel"},
-    {"part": "Conclusão", "description": "Como o pregador concluiu e seu papel"}
+    {"part": "Introdução", "description": "O que foi abordado e quais versículos foram usados"},
+    {"part": "Desenvolvimento 1", "description": "Primeiro ponto e versículos citados"},
+    {"part": "Desenvolvimento 2", "description": "Segundo ponto e versículos citados"},
+    {"part": "Conclusão", "description": "Como o pregador concluiu"}
   ],
 
-  "topics": ["tópico detalhado 1", "tópico detalhado 2", "tópico 3", "tópico 4", "tópico 5"],
+  "topics": ["tópico 1", "tópico 2", "tópico 3", "tópico 4", "tópico 5"],
 
   "key_points": [
-    {"point": "Ponto principal 1", "meaning": "Significado", "concept": "Desenvolvimento do conceito", "teaching": "O que ensina"},
-    {"point": "Ponto principal 2", "meaning": "Significado", "concept": "Desenvolvimento do conceito", "teaching": "O que ensina"}
+    {"point": "Ponto principal 1", "meaning": "Significado", "concept": "Conceito desenvolvido", "teaching": "O que ensina"}
   ],
 
   "deep_explanations": [
-    {"point": "Ponto 1", "deep_meaning": "Aprofundamento do significado", "spiritual_context": "Contexto espiritual", "biblical_principles": "Princípios bíblicos conectados", "practical_examples": "Exemplos práticos"}
+    {"point": "Ponto 1", "deep_meaning": "Aprofundamento", "spiritual_context": "Contexto espiritual", "biblical_principles": "Princípios bíblicos", "practical_examples": "Exemplos práticos"}
   ],
 
   "key_verses": [
-    {"reference": "João 3:16", "text": "Texto completo do versículo", "biblical_context": "Contexto bíblico do versículo", "meaning": "Significado", "usage_in_sermon": "Como foi usado na mensagem"}
+    {"reference": "João 3:16", "text": "Texto completo do versículo", "biblical_context": "Contexto bíblico", "meaning": "Significado no contexto da pregação", "usage_in_sermon": "COMO e QUANDO o pregador usou este versículo na mensagem — transcreva o trecho se possível"}
   ],
 
   "biblical_connections": [
-    {"reference": "Romanos 8:28", "text": "Texto do versículo", "why_connected": "Por que se conecta com o tema", "how_reinforces": "Como reforça o ensino"}
+    {"reference": "Romanos 8:28", "text": "Texto do versículo", "why_connected": "Por que se relaciona com o tema", "how_reinforces": "Como complementa o ensino — estes NÃO foram citados pelo pregador, são sugestões complementares"}
   ],
 
   "practical_applications": [
-    "Aplicação prática 1 — como aplicar no dia a dia com exemplo real",
-    "Aplicação prática 2 — mudança de comportamento sugerida",
+    "Aplicação prática 1 — como aplicar no dia a dia",
+    "Aplicação prática 2 — mudança de comportamento",
     "Aplicação prática 3 — reflexão para a semana"
   ],
 
-  "reflection_questions": [
-    "Pergunta para reflexão pessoal 1?",
-    "Pergunta para reflexão pessoal 2?",
-    "Pergunta para reflexão pessoal 3?"
-  ],
-
-  "group_study_questions": [
-    "Pergunta para estudo em grupo / encontro nas casas 1?",
-    "Pergunta para estudo em grupo 2?",
-    "Pergunta para estudo em grupo 3?"
-  ],
-
-  "key_phrases": [
-    "Frase marcante 1 extraída da mensagem",
-    "Frase marcante 2 extraída da mensagem"
-  ],
-
-  "derived_themes": ["fé", "ansiedade", "provisão", "confiança"],
-
-  "continuation_suggestions": [
-    "Tema relacionado para próximo estudo 1",
-    "Caminho de aprofundamento 2"
-  ],
-
+  "reflection_questions": ["Pergunta 1?", "Pergunta 2?", "Pergunta 3?"],
+  "group_study_questions": ["Pergunta para grupo 1?", "Pergunta para grupo 2?", "Pergunta para grupo 3?"],
+  "key_phrases": ["Frase marcante 1 da mensagem", "Frase marcante 2"],
+  "derived_themes": ["tema derivado 1", "tema derivado 2"],
+  "continuation_suggestions": ["Sugestão de continuidade 1", "Sugestão 2"],
   "connections": [
-    {"sermon_title": "Título da pregação anterior", "connection": "Como esta mensagem se conecta com a anterior"},
-    {"theme": "Tema recorrente", "connection": "Padrão identificado entre as pregações"}
+    {"sermon_title": "Pregação anterior", "connection": "Conexão temática identificada"}
   ]
 }
 
 REGRAS IMPORTANTES:
-- O resumo executivo deve ter 5-8 linhas objetivas
-- O resumo expandido deve ter NO MÍNIMO 8 parágrafos curtos e explicar o raciocínio da mensagem passo a passo
-- Desmembre a pregação em blocos claros, com progressão de ideias
-- Liste PELO MENOS 5 tópicos relevantes
-- Gere PELO MENOS 5 key_points, cada um com meaning, concept e teaching
-- Gere PELO MENOS 3 deep_explanations com aprofundamento espiritual e exemplo prático
-- Cite TODOS os versículos mencionados com texto completo e contexto bíblico
-- Crie PELO MENOS 3 aplicações práticas com exemplos reais
-- Crie PELO MENOS 3 perguntas para reflexão pessoal
-- Crie PELO MENOS 3 perguntas para estudo em grupo
-- Extraia frases-chave marcantes da mensagem
-- Liste temas derivados que surgem da mensagem
-- Sugira caminhos de continuidade e aprofundamento
-- Se houver pregações anteriores fornecidas, IDENTIFIQUE conexões temáticas
+- O resumo executivo (summary) DEVE citar os versículos mencionados pelo pregador
+- O resumo expandido (expanded_summary) deve ter NO MÍNIMO 8 parágrafos e mencionar versículos citados
+- key_verses = SOMENTE versículos CITADOS EXPLICITAMENTE na transcrição pelo pregador
+- biblical_connections = versículos complementares sugeridos por você (NÃO citados pelo pregador)
+- Se a transcrição não contém citação explícita de nenhum versículo, key_verses deve ser array vazio []
+- Gere PELO MENOS 5 key_points com meaning, concept e teaching
+- Gere PELO MENOS 3 deep_explanations
+- Crie PELO MENOS 3 aplicações práticas
+- Crie PELO MENOS 3 perguntas reflexão e 3 para grupo
 - NÃO inventar doutrinas
 - Manter neutralidade denominacional
-- Usar linguagem clara e acessível
-- Evitar termos técnicos difíceis sem explicação
-- Manter coerência com o contexto bíblico
-- Priorizar clareza, profundidade e aplicação`;
+- Manter coerência com o contexto bíblico`;
 }
 
 /**
