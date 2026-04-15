@@ -9,13 +9,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Users, Megaphone, BookOpen, Video, Plus, Trash2, UserPlus, Shield, Loader2, Send, Sparkles, Zap, Clock, UsersRound, MessageCircle, Star } from 'lucide-react';
+import { ArrowLeft, Users, Megaphone, BookOpen, Video, Plus, Trash2, UserPlus, Shield, Loader2, Send, Sparkles, Zap, Clock, UsersRound, MessageCircle, Star, MapPin, Heart, CheckCircle, XCircle, Calendar } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
 import { toast as sonnerToast } from 'sonner';
 
-interface Group { id: string; name: string; description: string; member_count?: number; }
+interface Group { id: string; name: string; description: string; member_count?: number; address?: string; meeting_day?: string; meeting_time?: string; leader1_name?: string; leader2_name?: string; }
 interface GroupMember { id: string; user_id: string; name: string; email: string; role: string; }
 interface Announcement { id: string; content: string; author_name: string; created_at: string; author_id: string; }
 interface GroupContent { id: string; content_type: string; content_id: string; content_title: string; created_at: string; }
@@ -38,6 +38,9 @@ interface DynamicResponse {
   user_name: string;
   response: string;
   created_at: string;
+}
+interface JoinRequest {
+  id: string; user_name: string; user_email: string; user_id: string; created_at: string;
 }
 
 const categoryLabels: Record<string, string> = {
@@ -79,8 +82,14 @@ const GroupDetailPage = () => {
   const [myResponse, setMyResponse] = useState('');
   const [generatingDynamic, setGeneratingDynamic] = useState(false);
   const [respondingDynamic, setRespondingDynamic] = useState(false);
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
 
   const isAdmin = user?.role === 'admin_church' || user?.role === 'leader';
+
+  const dayLabels: Record<string, string> = {
+    monday: 'Segunda', tuesday: 'Terça', wednesday: 'Quarta', thursday: 'Quinta',
+    friday: 'Sexta', saturday: 'Sábado', sunday: 'Domingo',
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -91,7 +100,8 @@ const GroupDetailPage = () => {
       api.get<ChurchMember[]>('/api/church/members').catch(() => []),
       api.get<Group[]>('/api/church/groups').catch(() => []),
       api.get<Dynamic[]>('/api/church/groups/dynamics/available').catch(() => []),
-    ]).then(([m, a, c, cm, groups, dyn]) => {
+      api.get<JoinRequest[]>(`/api/church/groups/${id}/join-requests`).catch(() => []),
+    ]).then(([m, a, c, cm, groups, dyn, jr]) => {
       setMembers(m || []);
       setAnnouncements(a || []);
       setContents(c || []);
@@ -99,6 +109,7 @@ const GroupDetailPage = () => {
       const g = (groups || []).find((g: Group) => g.id === id);
       setGroup(g || null);
       setDynamics(dyn || []);
+      setJoinRequests(jr || []);
     }).finally(() => setLoading(false));
   }, [id]);
 
@@ -230,6 +241,18 @@ const GroupDetailPage = () => {
     setGeneratingDynamic(false);
   };
 
+  const handleJoinRequest = async (reqId: string, status: 'approved' | 'rejected') => {
+    try {
+      await api.put(`/api/church/groups/${id}/join-requests/${reqId}`, { status });
+      setJoinRequests(prev => prev.filter(r => r.id !== reqId));
+      if (status === 'approved') {
+        const m = await api.get<GroupMember[]>(`/api/church/groups/${id}/members`);
+        setMembers(m || []);
+      }
+      toast({ title: status === 'approved' ? 'Membro aprovado!' : 'Solicitação rejeitada' });
+    } catch { toast({ title: 'Erro', variant: 'destructive' }); }
+  };
+
   const availableMembersToAdd = churchMembers.filter(cm => !members.some(m => m.user_id === cm.id));
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
@@ -246,6 +269,60 @@ const GroupDetailPage = () => {
           {group.description && <p className="text-sm text-muted-foreground">{group.description}</p>}
         </div>
       </div>
+
+      {/* Group Info Card */}
+      <Card className="p-4 rounded-2xl border-primary/10 space-y-2">
+        {(group.leader1_name || group.leader2_name) && (
+          <div className="flex items-center gap-2 text-sm">
+            <Heart className="w-4 h-4 text-pink-500" />
+            <span className="font-medium">Líderes:</span>
+            <span className="text-muted-foreground">{[group.leader1_name, group.leader2_name].filter(Boolean).join(' & ')}</span>
+          </div>
+        )}
+        {group.meeting_day && (
+          <div className="flex items-center gap-2 text-sm">
+            <Calendar className="w-4 h-4 text-primary" />
+            <span className="font-medium">Reunião:</span>
+            <span className="text-muted-foreground">{dayLabels[group.meeting_day]}{group.meeting_time ? ` às ${group.meeting_time.slice(0,5)}` : ''} (semanal)</span>
+          </div>
+        )}
+        {group.address && (
+          <div className="flex items-center gap-2 text-sm">
+            <MapPin className="w-4 h-4 text-primary" />
+            <span className="text-muted-foreground">{group.address}</span>
+          </div>
+        )}
+        <div className="flex items-center gap-2 text-sm">
+          <Users className="w-4 h-4 text-muted-foreground" />
+          <span className="text-muted-foreground">{members.length} membros</span>
+        </div>
+      </Card>
+
+      {/* Join Requests for admins */}
+      {isAdmin && joinRequests.length > 0 && (
+        <Card className="p-4 rounded-2xl border-yellow-500/20 bg-yellow-500/5 space-y-3">
+          <h3 className="font-heading text-sm font-semibold flex items-center gap-2">
+            <UserPlus className="w-4 h-4 text-yellow-600" />
+            Solicitações pendentes ({joinRequests.length})
+          </h3>
+          {joinRequests.map(req => (
+            <div key={req.id} className="flex items-center justify-between p-3 rounded-xl bg-background border">
+              <div>
+                <p className="text-sm font-medium">{req.user_name}</p>
+                <p className="text-xs text-muted-foreground">{req.user_email}</p>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="rounded-xl text-green-600 border-green-500/30 h-8" onClick={() => handleJoinRequest(req.id, 'approved')}>
+                  <CheckCircle className="w-3.5 h-3.5 mr-1" /> Aceitar
+                </Button>
+                <Button size="sm" variant="outline" className="rounded-xl text-destructive h-8" onClick={() => handleJoinRequest(req.id, 'rejected')}>
+                  <XCircle className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </Card>
+      )}
 
       <Tabs defaultValue="announcements" className="w-full">
         <TabsList className="grid w-full grid-cols-4 rounded-xl">
