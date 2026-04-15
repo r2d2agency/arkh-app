@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Settings, Brain, Sparkles, Save, RotateCcw, Bot, Crown, MessageCircle, Church, MapPin, Phone, Loader2, QrCode, DollarSign } from 'lucide-react';
+import { Settings, Brain, Sparkles, Save, RotateCcw, Bot, Crown, MessageCircle, Church, MapPin, Phone, Loader2, QrCode, DollarSign, Share2, Copy, Check, Link2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -59,6 +59,7 @@ const ChurchSettings = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingInfo, setSavingInfo] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const isAdmin = user?.role === 'admin_church';
 
@@ -274,6 +275,55 @@ const ChurchSettings = () => {
           {savingInfo ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
           Salvar dados da igreja
         </Button>
+      </Card>
+
+      {/* Invite Link */}
+      <Card className="p-6 rounded-xl space-y-4 max-w-2xl border-primary/20 bg-primary/5">
+        <h3 className="font-heading text-lg font-semibold flex items-center gap-2">
+          <Share2 className="w-5 h-5 text-primary" /> Link de Convite
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          Compartilhe este link para convidar novas pessoas a se cadastrarem na sua igreja.
+        </p>
+        {churchInfo.slug && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 p-3 rounded-xl bg-background border text-sm font-mono break-all">
+                {window.location.origin}/join/{churchInfo.slug}
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                className="rounded-xl shrink-0 h-11 w-11"
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/join/${churchInfo.slug}`);
+                  setLinkCopied(true);
+                  toast({ title: 'Link copiado!' });
+                  setTimeout(() => setLinkCopied(false), 2000);
+                }}
+              >
+                {linkCopied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+              </Button>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="rounded-xl flex-1"
+                onClick={() => {
+                  const url = `${window.location.origin}/join/${churchInfo.slug}`;
+                  const text = `Venha fazer parte da ${churchInfo.name}! Cadastre-se pelo link:`;
+                  if (navigator.share) {
+                    navigator.share({ title: churchInfo.name, text, url });
+                  } else {
+                    window.open(`https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`, '_blank');
+                  }
+                }}
+              >
+                <Share2 className="w-4 h-4 mr-2" /> Compartilhar
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* AI Assistant */}

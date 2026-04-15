@@ -289,10 +289,29 @@ const MemberHome = () => {
             {greeting()}, {user?.name?.split(' ')[0]} 👋
           </h1>
         </div>
-        <button onClick={() => setShowChurchSheet(true)}
-          className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors shrink-0">
-          <Church className="w-5 h-5 text-primary" />
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => {
+              const slug = churchInfo?.slug;
+              if (!slug) return;
+              const url = `${window.location.origin}/join/${slug}`;
+              const text = `Venha fazer parte da ${churchInfo?.name || 'nossa igreja'}! Cadastre-se:`;
+              if (navigator.share) {
+                navigator.share({ title: churchInfo?.name || 'Igreja', text, url });
+              } else {
+                navigator.clipboard.writeText(url);
+                toast('Link copiado!');
+              }
+            }}
+            className="w-11 h-11 rounded-xl bg-green-500/10 flex items-center justify-center hover:bg-green-500/20 transition-colors"
+          >
+            <Share2 className="w-5 h-5 text-green-500" />
+          </button>
+          <button onClick={() => setShowChurchSheet(true)}
+            className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors">
+            <Church className="w-5 h-5 text-primary" />
+          </button>
+        </div>
       </div>
 
       <Card className="p-4 rounded-2xl border-primary/10 space-y-3">
