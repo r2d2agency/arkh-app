@@ -75,6 +75,433 @@ function normalizeVersesForContext(raw) {
   if (Array.isArray(parsed)) return parsed;
   return [];
 }
+
+function normalizeWhitespace(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function normalizeSearchText(value) {
+  return normalizeWhitespace(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[“”"'`´]/g, '');
+}
+
+function escapeRegex(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function normalizeVerseRange(value) {
+  return String(value || '')
+    .replace(/[–—]/g, '-')
+    .replace(/\s*-\s*/g, '-')
+    .replace(/\s*,\s*/g, ',')
+    .trim();
+}
+
+const BIBLE_BOOKS = [
+  { canonical: 'Gênesis', aliases: ['gênesis', 'genesis', 'gn'] },
+  { canonical: 'Êxodo', aliases: ['êxodo', 'exodo', 'êx', 'ex'] },
+  { canonical: 'Levítico', aliases: ['levítico', 'levitico', 'lv'] },
+  { canonical: 'Números', aliases: ['números', 'numeros', 'nm'] },
+  { canonical: 'Deuteronômio', aliases: ['deuteronômio', 'deuteronomio', 'dt'] },
+  { canonical: 'Josué', aliases: ['josué', 'josue', 'js'] },
+  { canonical: 'Juízes', aliases: ['juízes', 'juizes', 'jz'] },
+  { canonical: 'Rute', aliases: ['rute', 'rt'] },
+  { canonical: '1 Samuel', aliases: ['1 samuel', '1samuel', 'i samuel', 'primeiro samuel', 'primeira samuel', '1 sm', '1sm'] },
+  { canonical: '2 Samuel', aliases: ['2 samuel', '2samuel', 'ii samuel', 'segundo samuel', 'segunda samuel', '2 sm', '2sm'] },
+  { canonical: '1 Reis', aliases: ['1 reis', '1reis', 'i reis', 'primeiro reis', '1 rs', '1rs'] },
+  { canonical: '2 Reis', aliases: ['2 reis', '2reis', 'ii reis', 'segundo reis', '2 rs', '2rs'] },
+  { canonical: '1 Crônicas', aliases: ['1 crônicas', '1 cronicas', '1crônicas', '1cronicas', 'i crônicas', 'i cronicas', 'primeiro crônicas', 'primeira crônicas', '1 cr', '1cr'] },
+  { canonical: '2 Crônicas', aliases: ['2 crônicas', '2 cronicas', '2crônicas', '2cronicas', 'ii crônicas', 'ii cronicas', 'segundo crônicas', 'segunda crônicas', '2 cr', '2cr'] },
+  { canonical: 'Esdras', aliases: ['esdras', 'ed'] },
+  { canonical: 'Neemias', aliases: ['neemias', 'ne'] },
+  { canonical: 'Ester', aliases: ['ester', 'et'] },
+  { canonical: 'Jó', aliases: ['jó', 'jo', 'job'] },
+  { canonical: 'Salmos', aliases: ['salmos', 'salmo', 'sl', 'psalms', 'ps'] },
+  { canonical: 'Provérbios', aliases: ['provérbios', 'proverbios', 'pv', 'prov'] },
+  { canonical: 'Eclesiastes', aliases: ['eclesiastes', 'ec'] },
+  { canonical: 'Cânticos', aliases: ['cânticos', 'canticos', 'cantares', 'ct'] },
+  { canonical: 'Isaías', aliases: ['isaías', 'isaias', 'is'] },
+  { canonical: 'Jeremias', aliases: ['jeremias', 'jr'] },
+  { canonical: 'Lamentações', aliases: ['lamentações', 'lamentacoes', 'lm'] },
+  { canonical: 'Ezequiel', aliases: ['ezequiel', 'ez'] },
+  { canonical: 'Daniel', aliases: ['daniel', 'dn'] },
+  { canonical: 'Oséias', aliases: ['oséias', 'oseias', 'os'] },
+  { canonical: 'Joel', aliases: ['joel', 'jl'] },
+  { canonical: 'Amós', aliases: ['amós', 'amos', 'am'] },
+  { canonical: 'Obadias', aliases: ['obadias', 'ob'] },
+  { canonical: 'Jonas', aliases: ['jonas', 'jn'] },
+  { canonical: 'Miqueias', aliases: ['miqueias', 'mq'] },
+  { canonical: 'Naum', aliases: ['naum', 'na'] },
+  { canonical: 'Habacuque', aliases: ['habacuque', 'hc'] },
+  { canonical: 'Sofonias', aliases: ['sofonias', 'sf'] },
+  { canonical: 'Ageu', aliases: ['ageu', 'ag'] },
+  { canonical: 'Zacarias', aliases: ['zacarias', 'zc'] },
+  { canonical: 'Malaquias', aliases: ['malaquias', 'ml'] },
+  { canonical: 'Mateus', aliases: ['mateus', 'mt'] },
+  { canonical: 'Marcos', aliases: ['marcos', 'mc'] },
+  { canonical: 'Lucas', aliases: ['lucas', 'lc'] },
+  { canonical: 'João', aliases: ['joão', 'joao', 'jo'] },
+  { canonical: 'Atos', aliases: ['atos', 'at'] },
+  { canonical: 'Romanos', aliases: ['romanos', 'rm', 'rom'] },
+  { canonical: '1 Coríntios', aliases: ['1 coríntios', '1 corintios', '1coríntios', '1corintios', 'i coríntios', 'i corintios', 'primeiro coríntios', 'primeira coríntios', '1 co', '1co'] },
+  { canonical: '2 Coríntios', aliases: ['2 coríntios', '2 corintios', '2coríntios', '2corintios', 'ii coríntios', 'ii corintios', 'segundo coríntios', 'segunda coríntios', '2 co', '2co'] },
+  { canonical: 'Gálatas', aliases: ['gálatas', 'galatas', 'gl'] },
+  { canonical: 'Efésios', aliases: ['efésios', 'efesios', 'ef'] },
+  { canonical: 'Filipenses', aliases: ['filipenses', 'fp'] },
+  { canonical: 'Colossenses', aliases: ['colossenses', 'cl'] },
+  { canonical: '1 Tessalonicenses', aliases: ['1 tessalonicenses', '1tessalonicenses', 'i tessalonicenses', 'primeiro tessalonicenses', '1 ts', '1ts'] },
+  { canonical: '2 Tessalonicenses', aliases: ['2 tessalonicenses', '2tessalonicenses', 'ii tessalonicenses', 'segundo tessalonicenses', '2 ts', '2ts'] },
+  { canonical: '1 Timóteo', aliases: ['1 timóteo', '1 timoteo', '1timóteo', '1timoteo', 'i timóteo', 'i timoteo', 'primeiro timóteo', '1 tm', '1tm'] },
+  { canonical: '2 Timóteo', aliases: ['2 timóteo', '2 timoteo', '2timóteo', '2timoteo', 'ii timóteo', 'ii timoteo', 'segundo timóteo', '2 tm', '2tm'] },
+  { canonical: 'Tito', aliases: ['tito', 'tt'] },
+  { canonical: 'Filemom', aliases: ['filemom', 'fm'] },
+  { canonical: 'Hebreus', aliases: ['hebreus', 'hb'] },
+  { canonical: 'Tiago', aliases: ['tiago', 'tg'] },
+  { canonical: '1 Pedro', aliases: ['1 pedro', '1pedro', 'i pedro', 'primeiro pedro', '1 pe', '1pe', '1 pd', '1pd'] },
+  { canonical: '2 Pedro', aliases: ['2 pedro', '2pedro', 'ii pedro', 'segundo pedro', '2 pe', '2pe', '2 pd', '2pd'] },
+  { canonical: '1 João', aliases: ['1 joão', '1 joao', '1joão', '1joao', 'i joão', 'i joao', 'primeiro joão', 'primeira joão', '1 jo', '1jo'] },
+  { canonical: '2 João', aliases: ['2 joão', '2 joao', '2joão', '2joao', 'ii joão', 'ii joao', 'segundo joão', 'segunda joão', '2 jo', '2jo'] },
+  { canonical: '3 João', aliases: ['3 joão', '3 joao', '3joão', '3joao', 'iii joão', 'iii joao', 'terceiro joão', 'terceira joão', '3 jo', '3jo'] },
+  { canonical: 'Judas', aliases: ['judas', 'jd'] },
+  { canonical: 'Apocalipse', aliases: ['apocalipse', 'ap'] },
+];
+
+const CANONICAL_TO_ALIASES = new Map(BIBLE_BOOKS.map((book) => [book.canonical, book.aliases]));
+
+function buildBookAliasPattern(aliases) {
+  return aliases
+    .slice()
+    .sort((a, b) => b.length - a.length)
+    .map((alias) => escapeRegex(alias).replace(/\s+/g, '\\s+'))
+    .join('|');
+}
+
+function buildCanonicalReference(book, chapter, verses) {
+  return `${book} ${Number(chapter)}:${normalizeVerseRange(verses)}`;
+}
+
+function parseExplicitReference(value) {
+  const source = normalizeWhitespace(value).replace(/[–—]/g, '-');
+  if (!source) return null;
+
+  for (const book of BIBLE_BOOKS) {
+    const pattern = new RegExp(
+      `(?:^|\\b)(${buildBookAliasPattern(book.aliases)})\\.?\\s+(?:cap(?:[ií]tulo)?\\s+)?(\\d{1,3})(?:\\s*(?::|\\.|,\\s*|\\s+vers(?:[ií]culos?)?\\s+)(\\d{1,3}(?:\\s*[-,]\\s*\\d{1,3})*))?`,
+      'i'
+    );
+    const match = source.match(pattern);
+    if (!match || !match[3]) continue;
+
+    return {
+      book: book.canonical,
+      chapter: String(Number(match[2])),
+      verses: normalizeVerseRange(match[3]),
+      reference: buildCanonicalReference(book.canonical, match[2], match[3]),
+      rawMatch: normalizeWhitespace(match[0]),
+    };
+  }
+
+  return null;
+}
+
+function normalizeReferenceKey(reference) {
+  const parsed = parseExplicitReference(reference);
+  const base = parsed?.reference || normalizeWhitespace(reference);
+  return normalizeSearchText(base).replace(/\s+/g, '');
+}
+
+function extractContextSnippet(source, index, matchLength) {
+  const start = Math.max(0, index - 120);
+  const end = Math.min(source.length, index + matchLength + 180);
+  return source.slice(start, end).trim();
+}
+
+function extractExplicitVerseMentionsFromTranscript(transcript) {
+  const source = normalizeWhitespace(transcript);
+  if (!source) return [];
+
+  const mentions = [];
+  const seen = new Set();
+
+  for (const book of BIBLE_BOOKS) {
+    const pattern = new RegExp(
+      `(?:^|\\b)(${buildBookAliasPattern(book.aliases)})\\.?\\s+(?:cap(?:[ií]tulo)?\\s+)?(\\d{1,3})\\s*(?::|\\.|,\\s*|\\s+vers(?:[ií]culos?)?\\s+)(\\d{1,3}(?:\\s*[-,]\\s*\\d{1,3})*)`,
+      'gi'
+    );
+    let match;
+    while ((match = pattern.exec(source)) !== null) {
+      const reference = buildCanonicalReference(book.canonical, match[2], match[3]);
+      const key = normalizeReferenceKey(reference);
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      mentions.push({
+        key,
+        reference,
+        excerpt: extractContextSnippet(source, match.index, match[0].length),
+        index: match.index,
+      });
+    }
+  }
+
+  return mentions.sort((a, b) => a.index - b.index);
+}
+
+function findTranscriptMentionForReference(transcript, reference) {
+  const source = normalizeWhitespace(transcript);
+  const parsed = parseExplicitReference(reference);
+  if (!source || !parsed) return null;
+
+  const aliases = CANONICAL_TO_ALIASES.get(parsed.book) || [parsed.book];
+  const versePattern = escapeRegex(parsed.verses)
+    .replace(/,/g, '\\s*,\\s*')
+    .replace(/-/g, '\\s*[-–]\\s*');
+
+  const pattern = new RegExp(
+    `(${buildBookAliasPattern(aliases)})\\.?\\s+(?:cap(?:[ií]tulo)?\\s+)?${escapeRegex(parsed.chapter)}\\s*(?::|\\.|,\\s*|\\s+vers(?:[ií]culos?)?\\s+)${versePattern}`,
+    'i'
+  );
+  const match = pattern.exec(source);
+  if (!match) return null;
+
+  return {
+    key: normalizeReferenceKey(parsed.reference),
+    reference: parsed.reference,
+    excerpt: extractContextSnippet(source, match.index, match[0].length),
+    index: match.index,
+  };
+}
+
+function coerceArray(value, nestedKeys = []) {
+  const parsed = safeParseJson(value, value);
+  if (Array.isArray(parsed)) return parsed;
+  if (parsed && typeof parsed === 'object') {
+    for (const key of nestedKeys) {
+      if (Array.isArray(parsed[key])) return parsed[key];
+    }
+  }
+  return [];
+}
+
+function normalizeStringArray(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => normalizeWhitespace(typeof item === 'string' ? item : item?.title || item?.name || ''))
+      .filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(/\n|;/)
+      .map((item) => normalizeWhitespace(item))
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function normalizeTextBlock(value) {
+  if (value == null) return '';
+  if (typeof value === 'string') return value.trim();
+  if (Array.isArray(value)) return value.map((item) => normalizeTextBlock(item)).filter(Boolean).join('\n');
+  if (typeof value === 'object') {
+    return Object.values(value)
+      .map((item) => normalizeTextBlock(item))
+      .filter(Boolean)
+      .join('\n');
+  }
+  return String(value).trim();
+}
+
+function ensureVerseReferencesInText(text, keyVerses) {
+  const cleaned = normalizeTextBlock(text);
+  if (!cleaned || !Array.isArray(keyVerses) || keyVerses.length === 0) return cleaned;
+
+  const normalizedText = normalizeSearchText(cleaned);
+  const alreadyMentionsVerse = keyVerses.some((verse) => normalizedText.includes(normalizeSearchText(verse.reference)));
+  if (alreadyMentionsVerse) return cleaned;
+
+  const references = keyVerses.map((verse) => verse.reference).join(', ');
+  return `${cleaned}\n\nVersículos citados pelo pregador: ${references}.`;
+}
+
+function buildExpandedSummaryFallback(parsed, keyVerses) {
+  const paragraphs = [];
+
+  if (parsed.summary) paragraphs.push(parsed.summary);
+  if (parsed.central_theme) paragraphs.push(`Tema central: ${parsed.central_theme}`);
+
+  const structure = Array.isArray(parsed.sermon_structure) ? parsed.sermon_structure : [];
+  structure.slice(0, 5).forEach((item) => {
+    const part = normalizeWhitespace(item?.part);
+    const description = normalizeTextBlock(item?.description);
+    if (part || description) paragraphs.push(`${part || 'Etapa da mensagem'}: ${description}`.trim());
+  });
+
+  const keyPoints = Array.isArray(parsed.key_points) ? parsed.key_points : [];
+  keyPoints.slice(0, 5).forEach((item, index) => {
+    const parts = [
+      `${index + 1}. ${normalizeWhitespace(item?.point)}`,
+      normalizeTextBlock(item?.meaning),
+      normalizeTextBlock(item?.concept),
+      normalizeTextBlock(item?.teaching),
+    ].filter(Boolean);
+    if (parts.length) paragraphs.push(parts.join(' '));
+  });
+
+  const deepExplanations = Array.isArray(parsed.deep_explanations) ? parsed.deep_explanations : [];
+  deepExplanations.slice(0, 3).forEach((item) => {
+    const parts = [
+      normalizeWhitespace(item?.point),
+      normalizeTextBlock(item?.deep_meaning),
+      normalizeTextBlock(item?.spiritual_context),
+      normalizeTextBlock(item?.biblical_principles),
+      normalizeTextBlock(item?.practical_examples),
+    ].filter(Boolean);
+    if (parts.length) paragraphs.push(parts.join(' '));
+  });
+
+  const applications = normalizeStringArray(parsed.practical_applications);
+  if (applications.length) {
+    paragraphs.push(`Aplicações práticas destacadas: ${applications.join(' ')}`);
+  }
+
+  if (keyVerses.length) {
+    paragraphs.push(`Versículos explicitamente citados na transcrição: ${keyVerses.map((verse) => verse.reference).join(', ')}.`);
+  }
+
+  return paragraphs.filter(Boolean).join('\n\n').trim();
+}
+
+function normalizeAndValidateKeyVerses(rawKeyVerses, transcript) {
+  const transcriptMentions = extractExplicitVerseMentionsFromTranscript(transcript);
+  const aiVerses = coerceArray(rawKeyVerses, ['key_verses', 'verses', 'items', 'references'])
+    .map((item) => {
+      if (!item) return null;
+      if (typeof item === 'string') {
+        const parsed = parseExplicitReference(item);
+        return parsed ? { reference: parsed.reference } : null;
+      }
+      if (typeof item !== 'object') return null;
+
+      const parsed = parseExplicitReference(item.reference || item.verse_reference || item.ref || item.title || '');
+      if (!parsed) return null;
+
+      return {
+        reference: parsed.reference,
+        text: normalizeTextBlock(item.text || item.verse_text),
+        biblical_context: normalizeTextBlock(item.biblical_context || item.context),
+        meaning: normalizeTextBlock(item.meaning || item.significado),
+        usage_in_sermon: normalizeTextBlock(item.usage_in_sermon || item.usage || item.source_excerpt || item.quote),
+      };
+    })
+    .filter(Boolean);
+
+  const mentionMap = new Map(transcriptMentions.map((mention) => [mention.key, mention]));
+  const aiVerseMap = new Map();
+
+  aiVerses.forEach((verse) => {
+    const key = normalizeReferenceKey(verse.reference);
+    const mention = mentionMap.get(key) || findTranscriptMentionForReference(transcript, verse.reference);
+    if (!mention) return;
+    aiVerseMap.set(mention.key, { ...verse, reference: mention.reference });
+    if (!mentionMap.has(mention.key)) mentionMap.set(mention.key, mention);
+  });
+
+  const normalized = [];
+  const seen = new Set();
+
+  for (const mention of [...transcriptMentions, ...Array.from(mentionMap.values())]) {
+    if (!mention || seen.has(mention.key)) continue;
+    seen.add(mention.key);
+    const aiVerse = aiVerseMap.get(mention.key) || {};
+
+    normalized.push({
+      reference: mention.reference,
+      text: normalizeTextBlock(aiVerse.text),
+      context: normalizeTextBlock(aiVerse.biblical_context || aiVerse.meaning),
+      biblical_context: normalizeTextBlock(aiVerse.biblical_context),
+      meaning: normalizeTextBlock(aiVerse.meaning),
+      usage_in_sermon: normalizeTextBlock(aiVerse.usage_in_sermon) || mention.excerpt,
+      source_excerpt: mention.excerpt,
+    });
+  }
+
+  return normalized;
+}
+
+function normalizeAnalysisPayload(parsed, transcript) {
+  const safe = parsed && typeof parsed === 'object' ? parsed : {};
+  const keyVerses = normalizeAndValidateKeyVerses(
+    safe.key_verses || safe.keyVerses || safe.verses || safe.references,
+    transcript
+  );
+
+  const summary = ensureVerseReferencesInText(
+    normalizeTextBlock(safe.summary || safe.resumo || safe.executive_summary),
+    keyVerses
+  );
+
+  let expandedSummary = normalizeTextBlock(safe.expanded_summary || safe.detailed_summary || safe.summary_expanded);
+  if (!expandedSummary || expandedSummary.split(/\n\s*\n/).filter(Boolean).length < 4) {
+    expandedSummary = buildExpandedSummaryFallback({ ...safe, summary }, keyVerses);
+  }
+  expandedSummary = ensureVerseReferencesInText(expandedSummary, keyVerses);
+
+  return {
+    ...safe,
+    summary,
+    expanded_summary: expandedSummary,
+    central_theme: normalizeTextBlock(safe.central_theme),
+    theological_context: normalizeTextBlock(safe.theological_context),
+    topics: normalizeStringArray(safe.topics),
+    key_points: Array.isArray(safe.key_points) ? safe.key_points : [],
+    deep_explanations: Array.isArray(safe.deep_explanations) ? safe.deep_explanations : [],
+    practical_applications: normalizeStringArray(safe.practical_applications),
+    connections: Array.isArray(safe.connections) ? safe.connections : [],
+    reflection_questions: normalizeStringArray(safe.reflection_questions),
+    group_study_questions: normalizeStringArray(safe.group_study_questions),
+    sermon_structure: Array.isArray(safe.sermon_structure) ? safe.sermon_structure : [],
+    biblical_connections: Array.isArray(safe.biblical_connections) ? safe.biblical_connections : [],
+    key_phrases: normalizeStringArray(safe.key_phrases),
+    derived_themes: normalizeStringArray(safe.derived_themes),
+    continuation_suggestions: normalizeStringArray(safe.continuation_suggestions),
+    key_verses: keyVerses,
+  };
+}
+
+function buildTranscriptForPrompt(transcript, maxChars = 48000) {
+  const cleaned = String(transcript || '').trim();
+  if (cleaned.length <= maxChars) return cleaned;
+
+  const head = cleaned.slice(0, 18000).trim();
+  const middleStart = Math.max(0, Math.floor((cleaned.length - 14000) / 2));
+  const middle = cleaned.slice(middleStart, middleStart + 14000).trim();
+  const tail = cleaned.slice(-16000).trim();
+
+  return [
+    '[INÍCIO DA TRANSCRIÇÃO]',
+    head,
+    '[TRECHO CENTRAL DA TRANSCRIÇÃO]',
+    middle,
+    '[FINAL DA TRANSCRIÇÃO]',
+    tail,
+  ].join('\n\n');
+}
+
+function buildVerseEvidenceForPrompt(mentions) {
+  if (!Array.isArray(mentions) || mentions.length === 0) return '';
+  return mentions
+    .slice(0, 20)
+    .map((mention) => `- ${mention.reference}: ${mention.excerpt}`)
+    .join('\n');
+}
+
+function isLikelyTruncated(result) {
+  const reason = String(result?.finishReason || result?.stopReason || '').toLowerCase();
+  return reason === 'length' || reason === 'max_tokens' || detectTruncation(result?.text || '');
+}
 /**
  * Process a service: fetch YouTube transcript, send to AI, save results.
  * Runs asynchronously (fire-and-forget from the route handler).
@@ -166,12 +593,10 @@ async function processService(serviceId, options = {}) {
         let usableCount = 0;
         prevRows.forEach((prev, i) => {
           const topics = normalizeTopicsForContext(prev.ai_topics);
-          const verses = normalizeVersesForContext(prev.ai_key_verses);
           const summary = extractSummaryText(prev.ai_summary).slice(0, 300);
           previousContext += `\n${i + 1}. "${prev.title}" - ${prev.preacher || 'Pregador não informado'} (${prev.service_date ? new Date(prev.service_date).toLocaleDateString('pt-BR') : 'data não informada'})`;
           previousContext += `\nResumo: ${summary || 'Sem resumo disponível'}`;
           if (topics.length) previousContext += `\nTópicos: ${topics.join(', ')}`;
-          if (verses.length) previousContext += `\nVersículos: ${verses.map(v => v.reference || v).join(', ')}`;
           previousContext += '\n';
           usableCount += 1;
         });
@@ -202,33 +627,69 @@ async function processService(serviceId, options = {}) {
     // Save transcription
     await pool.query('UPDATE services SET transcription = $1 WHERE id = $2', [transcript, serviceId]);
 
+    const explicitVerseMentions = extractExplicitVerseMentionsFromTranscript(transcript);
+    if (explicitVerseMentions.length > 0) {
+      await addLog('transcript', `${explicitVerseMentions.length} versículo(s) explícito(s) detectado(s) na transcrição`);
+    } else {
+      await addLog('transcript', 'Nenhum versículo explícito foi detectado automaticamente na transcrição', 'warn');
+    }
+
     // 6. Call AI for deep analysis
     await addLog('ai', 'Enviando para IA analisar em profundidade...');
 
     const systemPrompt = churchPrompt || getDefaultSystemPrompt();
 
+    const transcriptForPrompt = buildTranscriptForPrompt(transcript);
+    if (transcriptForPrompt.length < transcript.length) {
+      await addLog('ai', 'Transcrição muito longa; enviado recorte inteligente com início, meio e fim para manter o contexto.', 'warn');
+    }
+
+    const verseEvidenceForPrompt = buildVerseEvidenceForPrompt(explicitVerseMentions);
+
     const userPrompt = `Analise esta pregação/culto de forma PROFUNDA e COMPLETA.
+
+IMPORTANTE:
+- Baseie summary, expanded_summary, sermon_structure, key_points, deep_explanations e key_verses SOMENTE no culto atual.
+- Use o contexto de pregações anteriores APENAS para preencher "connections" e "continuation_suggestions".
+- Não resuma demais: detalhe a progressão da mensagem, os argumentos do pregador, as aplicações práticas e os versículos realmente citados.
 
 Título: ${service.title}
 Pregador: ${service.preacher || 'Não informado'}
 Data: ${service.service_date ? new Date(service.service_date).toLocaleDateString('pt-BR') : 'Não informada'}
 
-Transcrição/Conteúdo:
-${transcript.slice(0, 20000)}
-${previousContext}`;
+TRANSCRIÇÃO DO CULTO ATUAL:
+${transcriptForPrompt}
+
+${verseEvidenceForPrompt
+  ? `VERSÍCULOS EXPLICITAMENTE DETECTADOS NA TRANSCRIÇÃO (prioridade máxima para key_verses):\n${verseEvidenceForPrompt}`
+  : 'Nenhum versículo explícito foi detectado automaticamente; se a transcrição não citar versículo específico, retorne key_verses vazio ([]).'}
+
+${previousContext
+  ? `CONTEXTO DE PREGAÇÕES ANTERIORES (usar apenas em "connections" e continuidade; NÃO usar para summary, expanded_summary ou key_verses do culto atual):\n${previousContext}`
+  : ''}`;
 
     const temperature = churchTemp ? parseFloat(churchTemp) : (parseFloat(provider.temperature) || 0.7);
-    const maxTokens = churchMaxTokens || provider.max_tokens || 8192;
+    const configuredMaxTokens = Number(churchMaxTokens || provider.max_tokens || 8192);
+    const maxTokens = Number.isFinite(configuredMaxTokens) && configuredMaxTokens > 0 ? configuredMaxTokens : 8192;
 
-    let aiResult;
+    let aiResponse;
     try {
-      aiResult = await callAI(provider, apiKey, systemPrompt, userPrompt, temperature, maxTokens);
+      aiResponse = await callAIWithMeta(provider, apiKey, systemPrompt, userPrompt, temperature, maxTokens);
+      if (isLikelyTruncated(aiResponse)) {
+        const retryTokens = Math.min(Math.max(Math.ceil(maxTokens * 1.5), maxTokens + 2048), 16384);
+        if (retryTokens > maxTokens) {
+          await addLog('ai', `Resposta da IA aparenta ter sido truncada (${aiResponse.finishReason || aiResponse.stopReason || 'sem motivo informado'}). Tentando novamente com mais espaço...`, 'warn');
+          aiResponse = await callAIWithMeta(provider, apiKey, systemPrompt, userPrompt, temperature, retryTokens);
+        }
+      }
       await addLog('ai', 'Resposta da IA recebida, processando...');
     } catch (err) {
       await addLog('ai', `Erro na chamada à IA: ${err.message}`, 'error');
       await pool.query(`UPDATE services SET ai_status = 'error', processing_error = $1 WHERE id = $2`, [err.message, serviceId]);
       return;
     }
+
+    const aiResult = aiResponse.text || '';
 
     // 7. Parse AI response
     await addLog('parse', 'Interpretando resposta da IA...');
@@ -252,6 +713,9 @@ ${previousContext}`;
         deep_explanations: [],
       };
     }
+
+    parsed = normalizeAnalysisPayload(parsed, transcript);
+    await addLog('parse', `${parsed.key_verses.length} versículo(s) validado(s) a partir da transcrição atual`);
 
     // 8. Save results
     await addLog('save', 'Salvando resultados...');
@@ -381,6 +845,8 @@ REGRAS IMPORTANTES:
 - O resumo executivo (summary) DEVE citar os versículos mencionados pelo pregador
 - O resumo expandido (expanded_summary) deve ter NO MÍNIMO 8 parágrafos e mencionar versículos citados
 - key_verses = SOMENTE versículos CITADOS EXPLICITAMENTE na transcrição pelo pregador
+- Quando houver evidência automática de versículos detectados na transcrição, trate essa evidência como prioridade máxima
+- Se a transcrição mostrar claramente um versículo e o contexto de pregações anteriores trouxer outros, os outros NÃO entram em key_verses do culto atual
 - biblical_connections = versículos complementares sugeridos por você (NÃO citados pelo pregador)
 - Se a transcrição não contém citação explícita de nenhum versículo, key_verses deve ser array vazio []
 - Gere PELO MENOS 5 key_points com meaning, concept e teaching
@@ -492,6 +958,11 @@ function timeToMs(timeStr) {
  * Call AI provider
  */
 async function callAI(provider, apiKey, systemPrompt, userPrompt, temperature = 0.7, maxTokens = 8192) {
+  const result = await callAIWithMeta(provider, apiKey, systemPrompt, userPrompt, temperature, maxTokens);
+  return result.text;
+}
+
+async function callAIWithMeta(provider, apiKey, systemPrompt, userPrompt, temperature = 0.7, maxTokens = 8192) {
   const providerType = provider.provider;
   const model = provider.model;
 
@@ -519,7 +990,11 @@ async function callAI(provider, apiKey, systemPrompt, userPrompt, temperature = 
       throw new Error(`${providerType} API error ${res.status}: ${errText.slice(0, 200)}`);
     }
     const data = await res.json();
-    return data.choices?.[0]?.message?.content || '';
+    return {
+      text: data.choices?.[0]?.message?.content || '',
+      finishReason: data.choices?.[0]?.finish_reason || null,
+      raw: data,
+    };
   }
 
   if (providerType === 'google') {
@@ -542,7 +1017,11 @@ async function callAI(provider, apiKey, systemPrompt, userPrompt, temperature = 
       throw new Error(`Google API error ${res.status}: ${errText.slice(0, 200)}`);
     }
     const data = await res.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    return {
+      text: data.candidates?.[0]?.content?.parts?.[0]?.text || '',
+      finishReason: data.candidates?.[0]?.finishReason || null,
+      raw: data,
+    };
   }
 
   if (providerType === 'anthropic') {
@@ -565,7 +1044,11 @@ async function callAI(provider, apiKey, systemPrompt, userPrompt, temperature = 
       throw new Error(`Anthropic API error ${res.status}: ${errText.slice(0, 200)}`);
     }
     const data = await res.json();
-    return data.content?.[0]?.text || '';
+    return {
+      text: data.content?.[0]?.text || '',
+      stopReason: data.stop_reason || null,
+      raw: data,
+    };
   }
 
   throw new Error(`Provedor "${providerType}" não suportado`);

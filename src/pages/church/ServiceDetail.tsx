@@ -17,6 +17,10 @@ interface KeyVerse {
   reference: string;
   text: string;
   context?: string;
+  biblical_context?: string;
+  meaning?: string;
+  usage_in_sermon?: string;
+  source_excerpt?: string;
 }
 
 interface Connection {
@@ -70,13 +74,46 @@ function parseTopics(raw: any): AITopicsData {
 
 function parseVerses(raw: any): KeyVerse[] {
   if (!raw) return [];
+  const normalizeVerse = (verse: any): KeyVerse | null => {
+    if (!verse) return null;
+    if (typeof verse === 'string') {
+      return { reference: verse, text: '' };
+    }
+    if (typeof verse !== 'object') return null;
+
+    const reference = verse.reference || verse.verse_reference || verse.ref || '';
+    if (!reference) return null;
+
+    return {
+      reference,
+      text: verse.text || verse.verse_text || '',
+      context: verse.context || verse.biblical_context || verse.meaning || '',
+      biblical_context: verse.biblical_context || verse.context || '',
+      meaning: verse.meaning || '',
+      usage_in_sermon: verse.usage_in_sermon || verse.source_excerpt || verse.quote || '',
+      source_excerpt: verse.source_excerpt || verse.usage_in_sermon || '',
+    };
+  };
+
+  const normalizeArray = (value: any): KeyVerse[] =>
+    (Array.isArray(value) ? value : [])
+      .map(normalizeVerse)
+      .filter((verse): verse is KeyVerse => Boolean(verse));
+
   if (typeof raw === 'string') {
     try {
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
+      if (Array.isArray(parsed)) return normalizeArray(parsed);
+      if (parsed && typeof parsed === 'object') {
+        return normalizeArray(parsed.key_verses || parsed.verses || parsed.items || parsed.references);
+      }
+      return [];
     } catch { return []; }
   }
-  return Array.isArray(raw) ? raw : [];
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    return normalizeArray(raw.key_verses || raw.verses || raw.items || raw.references);
+  }
+  return normalizeArray(raw);
 }
 
 const ServiceDetailPage = () => {
@@ -439,6 +476,24 @@ const ServiceDetailPage = () => {
                         <blockquote className="text-sm italic text-muted-foreground border-l-2 border-gold/30 pl-3">
                           "{verse.text}"
                         </blockquote>
+                      )}
+                      {verse.usage_in_sermon && (
+                        <div className="rounded-lg bg-background/80 border border-border/60 p-3 space-y-1">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">Trecho da transcrição</p>
+                          <p className="text-xs text-muted-foreground leading-relaxed">{verse.usage_in_sermon}</p>
+                        </div>
+                      )}
+                      {verse.meaning && (
+                        <div className="space-y-1">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">Significado na pregação</p>
+                          <p className="text-xs text-muted-foreground leading-relaxed">{verse.meaning}</p>
+                        </div>
+                      )}
+                      {verse.biblical_context && (
+                        <div className="space-y-1">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">Contexto bíblico</p>
+                          <p className="text-xs text-muted-foreground leading-relaxed">{verse.biblical_context}</p>
+                        </div>
                       )}
                       {verse.context && (
                         <p className="text-xs text-muted-foreground/80 mt-1">
