@@ -13,7 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
 import ConfirmDialog from '@/components/admin/ConfirmDialog';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, getDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, getDay, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface Event {
@@ -184,21 +184,85 @@ const AgendaPage = () => {
         </div>
       </Card>
 
+      {/* Color legend */}
+      <div className="flex flex-wrap gap-2">
+        {Object.entries(eventTypeLabels).map(([key, label]) => (
+          <div key={key} className="flex items-center gap-1.5">
+            <div className={`w-2.5 h-2.5 rounded-full ${eventTypeColors[key] || 'bg-primary'}`} />
+            <span className="text-[10px] text-muted-foreground">{label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Week events - shown by default when no date selected */}
+      {!selectedDate && (() => {
+        const weekStart = startOfWeek(new Date(), { weekStartsOn: 0 });
+        const weekEnd = endOfWeek(new Date(), { weekStartsOn: 0 });
+        const weekEvents = events
+          .filter(e => isWithinInterval(new Date(e.starts_at), { start: weekStart, end: weekEnd }))
+          .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
+
+        return (
+          <div className="space-y-3">
+            <h3 className="font-heading font-semibold text-sm">📅 Eventos desta semana</h3>
+            {weekEvents.length === 0 ? (
+              <Card className="p-8 rounded-xl text-center">
+                <Calendar className="w-10 h-10 mx-auto text-muted-foreground/30 mb-2" />
+                <p className="text-sm text-muted-foreground">Nenhum evento nesta semana</p>
+              </Card>
+            ) : weekEvents.map(ev => (
+              <Card key={ev.id} className="p-4 rounded-xl flex items-center gap-3">
+                <div className={`w-1.5 self-stretch rounded-full shrink-0 ${eventTypeColors[ev.event_type] || 'bg-primary'}`} />
+                <div className="text-center shrink-0 w-12">
+                  <p className="text-xs text-muted-foreground capitalize">{format(new Date(ev.starts_at), 'EEE', { locale: ptBR })}</p>
+                  <p className="text-lg font-bold">{format(new Date(ev.starts_at), 'd')}</p>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{ev.title}</p>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Badge variant="secondary" className="text-[10px]">{eventTypeLabels[ev.event_type] || ev.event_type}</Badge>
+                    {!ev.all_day && <span>{format(new Date(ev.starts_at), 'HH:mm')}</span>}
+                    {ev.location && <span>• {ev.location}</span>}
+                  </div>
+                </div>
+                {isAdmin && (
+                  <div className="flex gap-1 shrink-0">
+                    <Button size="sm" variant="ghost" onClick={() => openEdit(ev)}>
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setDeleteConfirm(ev.id)}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                )}
+              </Card>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* Selected date events */}
       {selectedDate && (
         <div className="space-y-3">
-          <h3 className="font-heading font-semibold text-sm">
-            {format(selectedDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-heading font-semibold text-sm">
+              {format(selectedDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
+            </h3>
+            <Button variant="ghost" size="sm" className="text-xs" onClick={() => setSelectedDate(null)}>
+              Ver semana
+            </Button>
+          </div>
           {selectedDateEvents.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum evento neste dia</p>
           ) : selectedDateEvents.map(ev => (
             <Card key={ev.id} className="p-4 rounded-xl space-y-2">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${eventTypeColors[ev.event_type] || 'bg-primary'}`} />
-                  <h4 className="font-medium text-sm">{ev.title}</h4>
-                  <Badge variant="secondary" className="text-[10px]">{eventTypeLabels[ev.event_type] || ev.event_type}</Badge>
+                  <div className={`w-2.5 h-8 rounded-full ${eventTypeColors[ev.event_type] || 'bg-primary'}`} />
+                  <div>
+                    <h4 className="font-medium text-sm">{ev.title}</h4>
+                    <Badge variant="secondary" className="text-[10px] mt-0.5">{eventTypeLabels[ev.event_type] || ev.event_type}</Badge>
+                  </div>
                 </div>
                 {isAdmin && (
                   <div className="flex gap-1">
@@ -211,8 +275,8 @@ const AgendaPage = () => {
                   </div>
                 )}
               </div>
-              {ev.description && <p className="text-sm text-muted-foreground">{ev.description}</p>}
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              {ev.description && <p className="text-sm text-muted-foreground ml-5">{ev.description}</p>}
+              <div className="flex items-center gap-4 text-xs text-muted-foreground ml-5">
                 <span className="flex items-center gap-1">
                   <Clock className="w-3 h-3" />
                   {ev.all_day ? 'Dia inteiro' : format(new Date(ev.starts_at), 'HH:mm')}
@@ -226,42 +290,6 @@ const AgendaPage = () => {
           ))}
         </div>
       )}
-
-      {/* Upcoming events */}
-      <div className="space-y-3">
-        <h3 className="font-heading font-semibold text-sm">Próximos eventos</h3>
-        {events.filter(e => new Date(e.starts_at) >= new Date()).length === 0 ? (
-          <Card className="p-8 rounded-xl text-center">
-            <Calendar className="w-10 h-10 mx-auto text-muted-foreground/30 mb-2" />
-            <p className="text-sm text-muted-foreground">Nenhum evento agendado</p>
-          </Card>
-        ) : events.filter(e => new Date(e.starts_at) >= new Date()).slice(0, 10).map(ev => (
-          <Card key={ev.id} className="p-4 rounded-xl flex items-center gap-3">
-            <div className="text-center shrink-0 w-12">
-              <p className="text-xs text-muted-foreground uppercase">{format(new Date(ev.starts_at), 'MMM', { locale: ptBR })}</p>
-              <p className="text-lg font-bold">{format(new Date(ev.starts_at), 'd')}</p>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{ev.title}</p>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Badge variant="secondary" className="text-[10px]">{eventTypeLabels[ev.event_type] || ev.event_type}</Badge>
-                {!ev.all_day && <span>{format(new Date(ev.starts_at), 'HH:mm')}</span>}
-                {ev.location && <span>• {ev.location}</span>}
-              </div>
-            </div>
-            {isAdmin && (
-              <div className="flex gap-1 shrink-0">
-                <Button size="sm" variant="ghost" onClick={() => openEdit(ev)}>
-                  <Pencil className="w-3.5 h-3.5" />
-                </Button>
-                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setDeleteConfirm(ev.id)}>
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            )}
-          </Card>
-        ))}
-      </div>
 
       {/* Create/Edit Event Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
