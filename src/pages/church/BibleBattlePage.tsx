@@ -127,7 +127,7 @@ const BibleBattlePage = () => {
   const startSoloGame = async () => {
     setScreen('loading');
     try {
-      const data = await api.post('/api/church/battles/start-solo', { difficulty });
+      const data: any = await api.post('/api/church/battles/start-solo', { difficulty });
       setRoomId(data.room.id);
       setQuestions(data.questions);
       setHumanPlayerId(data.human_player.id);
@@ -160,7 +160,7 @@ const BibleBattlePage = () => {
 
     const timeMs = Date.now() - startTimeRef.current;
     try {
-      const data = await api.post(`/api/church/battles/${roomId}/answer`, {
+      const data: any = await api.post(`/api/church/battles/${roomId}/answer`, {
         question_id: questions[currentQ].id,
         selected_option: option,
         time_ms: timeMs,
