@@ -37,6 +37,9 @@ interface AITopicsData {
   reflection_questions?: string[];
   theological_context?: string;
   sermon_structure?: SermonStructure[];
+  expanded_summary?: string;
+  key_points?: Array<{ point: string; meaning?: string; concept?: string; teaching?: string }>;
+  deep_explanations?: Array<{ point: string; deep_meaning?: string; spiritual_context?: string; biblical_principles?: string; practical_examples?: string }>;
 }
 
 interface ServiceData {
