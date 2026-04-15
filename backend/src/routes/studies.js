@@ -41,7 +41,6 @@ router.get('/:id', async (req, res) => {
     );
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
     
-    // Get linked services
     const study = rows[0];
     if (study.linked_service_ids && study.linked_service_ids.length > 0) {
       const { rows: services } = await pool.query(
@@ -53,7 +52,6 @@ router.get('/:id', async (req, res) => {
       study.linked_services = [];
     }
     
-    // Get user progress
     const { rows: progressRows } = await pool.query(
       `SELECT * FROM study_progress WHERE user_id = $1 AND study_id = $2`,
       [req.user.id, req.params.id]
@@ -77,20 +75,23 @@ router.post('/', async (req, res) => {
     }
     
     const { title, description, objective, key_verse, base_reading, introduction,
-            topics, application, questions, conclusion, category, linked_service_ids, is_published } = req.body;
+            topics, application, questions, conclusion, category, linked_service_ids, is_published,
+            pdf_url, video_url, thumbnail_url } = req.body;
     
     if (!title) return res.status(400).json({ error: 'Title required' });
     
     const { rows } = await pool.query(
       `INSERT INTO bible_studies 
         (church_id, title, description, objective, key_verse, base_reading, introduction,
-         topics, application, questions, conclusion, category, linked_service_ids, is_published, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
+         topics, application, questions, conclusion, category, linked_service_ids, is_published, created_by,
+         pdf_url, video_url, thumbnail_url)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING *`,
       [churchId, title, description || null, objective || null, key_verse || null,
        base_reading || null, introduction || null,
        JSON.stringify(topics || []), application || null,
        JSON.stringify(questions || []), conclusion || null,
-       category || null, linked_service_ids || [], is_published ?? false, req.user.id]
+       category || null, linked_service_ids || [], is_published ?? false, req.user.id,
+       pdf_url || null, video_url || null, thumbnail_url || null]
     );
     res.status(201).json(rows[0]);
   } catch (err) {
@@ -108,7 +109,8 @@ router.put('/:id', async (req, res) => {
     }
     
     const { title, description, objective, key_verse, base_reading, introduction,
-            topics, application, questions, conclusion, category, linked_service_ids, is_published } = req.body;
+            topics, application, questions, conclusion, category, linked_service_ids, is_published,
+            pdf_url, video_url, thumbnail_url } = req.body;
     
     const { rows } = await pool.query(
       `UPDATE bible_studies SET
@@ -124,13 +126,17 @@ router.put('/:id', async (req, res) => {
         conclusion = COALESCE($10, conclusion),
         category = COALESCE($11, category),
         linked_service_ids = COALESCE($12, linked_service_ids),
-        is_published = COALESCE($13, is_published)
+        is_published = COALESCE($13, is_published),
+        pdf_url = $16,
+        video_url = $17,
+        thumbnail_url = $18
        WHERE id = $14 AND church_id = $15 RETURNING *`,
       [title, description, objective, key_verse, base_reading, introduction,
        topics ? JSON.stringify(topics) : null, application,
        questions ? JSON.stringify(questions) : null, conclusion,
        category, linked_service_ids, is_published,
-       req.params.id, churchId]
+       req.params.id, churchId,
+       pdf_url || null, video_url || null, thumbnail_url || null]
     );
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(rows[0]);
@@ -154,7 +160,7 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// POST /api/church/studies/:id/progress — mark as completed
+// POST /api/church/studies/:id/progress
 router.post('/:id/progress', async (req, res) => {
   try {
     const { rows } = await pool.query(
@@ -199,7 +205,6 @@ router.get('/trails/list', async (req, res) => {
   }
 });
 
-// GET /api/church/trails/:id
 router.get('/trails/:id', async (req, res) => {
   try {
     const churchId = req.user.church_id;
@@ -210,8 +215,6 @@ router.get('/trails/:id', async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
     
     const trail = rows[0];
-    
-    // Get items with details
     const { rows: items } = await pool.query(
       `SELECT ti.*, 
         bs.title as study_title, bs.description as study_description, bs.key_verse as study_key_verse,
@@ -225,7 +228,6 @@ router.get('/trails/:id', async (req, res) => {
     );
     trail.items = items;
     
-    // Get user progress
     const { rows: progress } = await pool.query(
       `SELECT item_id FROM trail_progress WHERE user_id = $1 AND trail_id = $2`,
       [req.user.id, req.params.id]
@@ -239,7 +241,6 @@ router.get('/trails/:id', async (req, res) => {
   }
 });
 
-// POST /api/church/trails
 router.post('/trails', async (req, res) => {
   try {
     const churchId = req.user.church_id;
@@ -256,7 +257,6 @@ router.post('/trails', async (req, res) => {
     );
     const trail = rows[0];
     
-    // Add items
     if (items && items.length > 0) {
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
@@ -275,7 +275,6 @@ router.post('/trails', async (req, res) => {
   }
 });
 
-// DELETE /api/church/trails/:id
 router.delete('/trails/:id', async (req, res) => {
   try {
     const churchId = req.user.church_id;
@@ -289,7 +288,6 @@ router.delete('/trails/:id', async (req, res) => {
   }
 });
 
-// POST /api/church/trails/:trailId/items/:itemId/complete
 router.post('/trails/:trailId/items/:itemId/complete', async (req, res) => {
   try {
     await pool.query(

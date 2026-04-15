@@ -8,11 +8,12 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Calendar, Plus, Trash2, Loader2, MapPin, Clock, ChevronLeft, ChevronRight, Repeat } from 'lucide-react';
+import { Calendar, Plus, Trash2, Pencil, Loader2, MapPin, Clock, ChevronLeft, ChevronRight, Repeat } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths, getDay } from 'date-fns';
+import ConfirmDialog from '@/components/admin/ConfirmDialog';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface Event {
@@ -31,19 +32,23 @@ const eventTypeColors: Record<string, string> = {
   meeting: 'bg-orange-500', event: 'bg-cyan-500', group: 'bg-indigo-500', general: 'bg-muted-foreground',
 };
 
+const emptyForm = {
+  title: '', description: '', location: '', event_type: 'general',
+  starts_at: '', ends_at: '', all_day: false, recurrence_rule: '', recurrence_until: '',
+};
+
 const AgendaPage = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [createOpen, setCreateOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({
-    title: '', description: '', location: '', event_type: 'general',
-    starts_at: '', ends_at: '', all_day: false, recurrence_rule: '', recurrence_until: '',
-  });
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [form, setForm] = useState({ ...emptyForm });
 
   const isAdmin = user?.role === 'admin_church' || user?.role === 'leader';
 
@@ -57,19 +62,52 @@ const AgendaPage = () => {
 
   useEffect(() => { fetchEvents(currentMonth); }, [currentMonth]);
 
-  const handleCreate = async () => {
+  const openCreate = (date?: Date) => {
+    setEditingEvent(null);
+    const dateStr = date ? format(date, "yyyy-MM-dd'T'HH:mm") : '';
+    setForm({ ...emptyForm, starts_at: dateStr });
+    setDialogOpen(true);
+  };
+
+  const openEdit = (ev: Event) => {
+    setEditingEvent(ev);
+    setForm({
+      title: ev.title || '',
+      description: ev.description || '',
+      location: ev.location || '',
+      event_type: ev.event_type || 'general',
+      starts_at: ev.starts_at ? ev.starts_at.slice(0, 16) : '',
+      ends_at: ev.ends_at ? ev.ends_at.slice(0, 16) : '',
+      all_day: ev.all_day || false,
+      recurrence_rule: '',
+      recurrence_until: '',
+    });
+    setDialogOpen(true);
+  };
+
+  const handleSave = async () => {
     if (!form.title || !form.starts_at) {
       toast({ title: 'Título e data são obrigatórios', variant: 'destructive' });
       return;
     }
     setSubmitting(true);
     try {
-      const ev = await api.post<Event>('/api/church/events', form);
-      setEvents(prev => [...prev, ev].sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()));
-      setForm({ title: '', description: '', location: '', event_type: 'general', starts_at: '', ends_at: '', all_day: false, recurrence_rule: '', recurrence_until: '' });
-      setCreateOpen(false);
-      toast({ title: 'Evento criado!' });
-    } catch { toast({ title: 'Erro ao criar evento', variant: 'destructive' }); }
+      if (editingEvent) {
+        const updated = await api.put<Event>(`/api/church/events/${editingEvent.id}`, {
+          title: form.title, description: form.description, location: form.location,
+          event_type: form.event_type, starts_at: form.starts_at, ends_at: form.ends_at || null,
+          all_day: form.all_day,
+        });
+        setEvents(prev => prev.map(e => e.id === editingEvent.id ? updated : e));
+        toast({ title: 'Evento atualizado!' });
+      } else {
+        const ev = await api.post<Event | Event[]>('/api/church/events', form);
+        const newEvents = Array.isArray(ev) ? ev : [ev];
+        setEvents(prev => [...prev, ...newEvents].sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()));
+        toast({ title: 'Evento criado!' });
+      }
+      setDialogOpen(false);
+    } catch { toast({ title: 'Erro ao salvar evento', variant: 'destructive' }); }
     finally { setSubmitting(false); }
   };
 
@@ -81,21 +119,12 @@ const AgendaPage = () => {
     } catch { toast({ title: 'Erro', variant: 'destructive' }); }
   };
 
-  const openCreateForDate = (date: Date) => {
-    const dateStr = format(date, "yyyy-MM-dd'T'HH:mm");
-    setForm(f => ({ ...f, starts_at: dateStr }));
-    setCreateOpen(true);
-  };
-
-  // Calendar data
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
-  const startDayOfWeek = getDay(monthStart); // 0=Sun
-
+  const startDayOfWeek = getDay(monthStart);
   const eventsOnDate = (date: Date) => events.filter(e => isSameDay(new Date(e.starts_at), date));
   const selectedDateEvents = selectedDate ? eventsOnDate(selectedDate) : [];
-
   const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
   return (
@@ -106,7 +135,7 @@ const AgendaPage = () => {
           <p className="text-sm text-muted-foreground">Eventos e compromissos da igreja</p>
         </div>
         {isAdmin && (
-          <Button className="rounded-xl" onClick={() => setCreateOpen(true)}>
+          <Button className="rounded-xl" onClick={() => openCreate()}>
             <Plus className="w-4 h-4 mr-2" /> Novo evento
           </Button>
         )}
@@ -125,29 +154,22 @@ const AgendaPage = () => {
             <ChevronRight className="w-5 h-5" />
           </Button>
         </div>
-
         <div className="grid grid-cols-7 gap-1 text-center">
           {weekDays.map(d => (
             <div key={d} className="text-xs font-medium text-muted-foreground py-2">{d}</div>
           ))}
-          {Array.from({ length: startDayOfWeek }).map((_, i) => (
-            <div key={`empty-${i}`} />
-          ))}
+          {Array.from({ length: startDayOfWeek }).map((_, i) => <div key={`empty-${i}`} />)}
           {days.map(day => {
             const dayEvents = eventsOnDate(day);
             const isSelected = selectedDate && isSameDay(day, selectedDate);
             const isToday = isSameDay(day, new Date());
             return (
-              <button
-                key={day.toISOString()}
-                onClick={() => setSelectedDate(day)}
-                onDoubleClick={() => isAdmin && openCreateForDate(day)}
+              <button key={day.toISOString()} onClick={() => setSelectedDate(day)}
+                onDoubleClick={() => isAdmin && openCreate(day)}
                 className={`relative p-2 rounded-xl text-sm transition-colors ${
                   isSelected ? 'bg-primary text-primary-foreground' :
-                  isToday ? 'bg-primary/10 text-primary font-bold' :
-                  'hover:bg-muted'
-                }`}
-              >
+                  isToday ? 'bg-primary/10 text-primary font-bold' : 'hover:bg-muted'
+                }`}>
                 {format(day, 'd')}
                 {dayEvents.length > 0 && (
                   <div className="flex gap-0.5 justify-center mt-0.5">
@@ -179,9 +201,14 @@ const AgendaPage = () => {
                   <Badge variant="secondary" className="text-[10px]">{eventTypeLabels[ev.event_type] || ev.event_type}</Badge>
                 </div>
                 {isAdmin && (
-                  <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleDelete(ev.id)}>
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button size="sm" variant="ghost" onClick={() => openEdit(ev)}>
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setDeleteConfirm(ev.id)}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
                 )}
               </div>
               {ev.description && <p className="text-sm text-muted-foreground">{ev.description}</p>}
@@ -200,7 +227,7 @@ const AgendaPage = () => {
         </div>
       )}
 
-      {/* Upcoming events list */}
+      {/* Upcoming events */}
       <div className="space-y-3">
         <h3 className="font-heading font-semibold text-sm">Próximos eventos</h3>
         {events.filter(e => new Date(e.starts_at) >= new Date()).length === 0 ? (
@@ -222,16 +249,26 @@ const AgendaPage = () => {
                 {ev.location && <span>• {ev.location}</span>}
               </div>
             </div>
+            {isAdmin && (
+              <div className="flex gap-1 shrink-0">
+                <Button size="sm" variant="ghost" onClick={() => openEdit(ev)}>
+                  <Pencil className="w-3.5 h-3.5" />
+                </Button>
+                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setDeleteConfirm(ev.id)}>
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            )}
           </Card>
         ))}
       </div>
 
-      {/* Create Event Dialog */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      {/* Create/Edit Event Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="rounded-xl max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Novo Evento</DialogTitle>
-            <DialogDescription>Adicione um evento à agenda da igreja</DialogDescription>
+            <DialogTitle>{editingEvent ? 'Editar Evento' : 'Novo Evento'}</DialogTitle>
+            <DialogDescription>{editingEvent ? 'Altere os dados do evento' : 'Adicione um evento à agenda da igreja'}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -278,36 +315,47 @@ const AgendaPage = () => {
               </div>
             </div>
 
-            {/* Recurrence */}
-            <div className="space-y-2 p-3 rounded-xl bg-muted/50 border border-border">
-              <Label className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                <Repeat className="w-3.5 h-3.5" /> Recorrência
-              </Label>
-              <Select value={form.recurrence_rule} onValueChange={v => setForm(f => ({ ...f, recurrence_rule: v }))}>
-                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Sem recorrência" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sem recorrência</SelectItem>
-                  <SelectItem value="weekly">Semanal</SelectItem>
-                  <SelectItem value="biweekly">Quinzenal</SelectItem>
-                  <SelectItem value="monthly">Mensal</SelectItem>
-                </SelectContent>
-              </Select>
-              {form.recurrence_rule && form.recurrence_rule !== 'none' && (
-                <div className="space-y-2">
-                  <Label className="text-xs">Repetir até</Label>
-                  <Input type="date" value={form.recurrence_until} onChange={e => setForm(f => ({ ...f, recurrence_until: e.target.value }))} className="rounded-xl" />
-                </div>
-              )}
-            </div>
+            {/* Recurrence - only for new events */}
+            {!editingEvent && (
+              <div className="space-y-2 p-3 rounded-xl bg-muted/50 border border-border">
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                  <Repeat className="w-3.5 h-3.5" /> Recorrência
+                </Label>
+                <Select value={form.recurrence_rule} onValueChange={v => setForm(f => ({ ...f, recurrence_rule: v }))}>
+                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Sem recorrência" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sem recorrência</SelectItem>
+                    <SelectItem value="weekly">Semanal</SelectItem>
+                    <SelectItem value="biweekly">Quinzenal</SelectItem>
+                    <SelectItem value="monthly">Mensal</SelectItem>
+                  </SelectContent>
+                </Select>
+                {form.recurrence_rule && form.recurrence_rule !== 'none' && (
+                  <div className="space-y-2">
+                    <Label className="text-xs">Repetir até</Label>
+                    <Input type="date" value={form.recurrence_until} onChange={e => setForm(f => ({ ...f, recurrence_until: e.target.value }))} className="rounded-xl" />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)} className="rounded-xl">Cancelar</Button>
-            <Button onClick={handleCreate} disabled={submitting} className="rounded-xl">
-              {submitting ? 'Criando...' : 'Criar evento'}
+            <Button variant="outline" onClick={() => setDialogOpen(false)} className="rounded-xl">Cancelar</Button>
+            <Button onClick={handleSave} disabled={submitting} className="rounded-xl">
+              {submitting ? 'Salvando...' : editingEvent ? 'Salvar' : 'Criar evento'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete confirmation */}
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        onOpenChange={() => setDeleteConfirm(null)}
+        title="Excluir evento"
+        description="Tem certeza que deseja excluir este evento? Esta ação não pode ser desfeita."
+        onConfirm={() => { if (deleteConfirm) { handleDelete(deleteConfirm); setDeleteConfirm(null); } }}
+      />
     </div>
   );
 };
