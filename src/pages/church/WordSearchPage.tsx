@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Trophy, Clock, RotateCcw, Check, Sparkles, Star } from 'lucide-react';
+import { Search, Trophy, Clock, RotateCcw, Check, Sparkles, Star, ArrowLeft, Gamepad2 } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 
 type Difficulty = 'easy' | 'medium' | 'hard';
@@ -160,6 +161,7 @@ const difficultyConfig: Record<Difficulty, { label: string; color: string; stars
 };
 
 const WordSearchPage = () => {
+  const navigate = useNavigate();
   const [category, setCategory] = useState<Category>('youth');
   const [difficulty, setDifficulty] = useState<Difficulty>('easy');
   const [puzzle, setPuzzle] = useState<WordSearchPuzzle | null>(null);
@@ -439,24 +441,77 @@ const WordSearchPage = () => {
             </div>
           </Card>
 
-          {/* Completion */}
-          {completed && (
-            <Card className="p-6 rounded-2xl text-center space-y-3 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-              <Trophy className="w-12 h-12 text-primary mx-auto" />
-              <h3 className="font-heading text-lg font-bold">Parabéns! 🎉</h3>
-              <p className="text-sm text-muted-foreground">
-                Você encontrou todas as {puzzle.words.length} palavras em {formatTime(timer)}!
+        </div>
+      )}
+
+      {/* Victory overlay */}
+      {completed && puzzle && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm animate-fade-in">
+          {/* Confetti pieces */}
+          <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+            {Array.from({ length: 60 }).map((_, i) => {
+              const colors = ['#f43f5e', '#3b82f6', '#facc15', '#22c55e', '#a855f7', '#f97316', '#06b6d4'];
+              const color = colors[i % colors.length];
+              const left = `${Math.random() * 100}%`;
+              const delay = `${Math.random() * 2}s`;
+              const duration = `${2.5 + Math.random() * 2}s`;
+              const size = `${6 + Math.random() * 8}px`;
+              const rotation = `${Math.random() * 360}deg`;
+              return (
+                <span
+                  key={i}
+                  className="absolute top-0 block rounded-sm"
+                  style={{
+                    left,
+                    width: size,
+                    height: size,
+                    backgroundColor: color,
+                    transform: `rotate(${rotation})`,
+                    animation: `confettiFall ${duration} ${delay} ease-in forwards`,
+                    opacity: 0,
+                  }}
+                />
+              );
+            })}
+          </div>
+
+          <Card className="relative z-10 p-8 rounded-3xl text-center space-y-5 max-w-sm mx-4 border-primary/30 shadow-2xl animate-scale-in bg-card">
+            <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+              <Trophy className="w-10 h-10 text-primary" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="font-heading text-2xl font-bold">Parabéns! 🎉</h2>
+              <p className="text-muted-foreground text-sm">
+                Você encontrou todas as <strong className="text-foreground">{puzzle.words.length} palavras</strong> em <strong className="text-foreground">{formatTime(timer)}</strong>!
               </p>
-              <div className="flex gap-3 justify-center pt-2">
-                <Button onClick={generatePuzzle} variant="outline" className="rounded-xl gap-2">
-                  <RotateCcw className="w-4 h-4" /> Jogar Novamente
-                </Button>
-                <Button onClick={() => setPuzzle(null)} className="rounded-xl gap-2">
-                  <Sparkles className="w-4 h-4" /> Novo Tema
-                </Button>
+            </div>
+
+            <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-lg font-bold text-foreground">{puzzle.words.length}</span>
+                <span>Palavras</span>
               </div>
-            </Card>
-          )}
+              <div className="w-px h-8 bg-border" />
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-lg font-bold text-foreground">{formatTime(timer)}</span>
+                <span>Tempo</span>
+              </div>
+              <div className="w-px h-8 bg-border" />
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-lg font-bold text-foreground">{difficultyConfig[difficulty].label}</span>
+                <span>Nível</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2.5 pt-2">
+              <Button onClick={generatePuzzle} className="w-full h-11 rounded-xl font-semibold gap-2">
+                <RotateCcw className="w-4 h-4" /> Jogar Novamente
+              </Button>
+              <Button onClick={() => navigate('/church/quiz')} variant="outline" className="w-full h-11 rounded-xl font-semibold gap-2">
+                <Gamepad2 className="w-4 h-4" /> Voltar para Jogos
+              </Button>
+            </div>
+          </Card>
         </div>
       )}
     </div>
