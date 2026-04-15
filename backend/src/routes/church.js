@@ -326,7 +326,7 @@ router.get('/info', async (req, res) => {
     const churchId = req.user.church_id;
     if (!churchId) return res.status(400).json({ error: 'No church' });
     const { rows } = await pool.query(
-      `SELECT id, name, slug, logo_url, status, address, city, state, region, lat, lng, whatsapp, phone, description, cover_url, cep, pix_key_type, pix_key, pix_beneficiary, pix_enabled
+      `SELECT id, name, slug, logo_url, status, settings, address, city, state, region, lat, lng, whatsapp, phone, description, cover_url, cep, pix_key_type, pix_key, pix_beneficiary, pix_enabled
        FROM churches WHERE id = $1`,
       [churchId]
     );
@@ -378,7 +378,28 @@ router.put('/info', async (req, res) => {
   }
 });
 
-// ========== NOTES (CADERNO) ==========
+// PUT /api/church/settings-json — update church settings JSONB
+router.put('/settings-json', async (req, res) => {
+  try {
+    const churchId = req.user.church_id;
+    if (!churchId) return res.status(400).json({ error: 'No church' });
+    if (req.user.role !== 'admin_church' && req.user.role !== 'leader')
+      return res.status(403).json({ error: 'Admin only' });
+    const { settings } = req.body;
+    if (!settings || typeof settings !== 'object') return res.status(400).json({ error: 'settings object required' });
+    // Merge with existing
+    const { rows } = await pool.query(
+      `UPDATE churches SET settings = COALESCE(settings, '{}')::jsonb || $1::jsonb WHERE id = $2 RETURNING settings`,
+      [JSON.stringify(settings), churchId]
+    );
+    res.json(rows[0]?.settings || {});
+  } catch (err) {
+    console.error('PUT settings-json error:', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+
 
 // GET /api/church/notes — get user notes
 router.get('/notes', async (req, res) => {

@@ -6,6 +6,7 @@ import {
   Video, BookOpen, ArrowRight, Play, Clock, Heart, Sparkles,
   Sun, CloudRain, Smile, Frown, Flame, HelpCircle, Zap, GraduationCap, Gamepad2, Calendar, MapPin,
   Church, Navigation, CreditCard, Phone, Copy, Check, Users, ExternalLink, X, Megaphone, Share2, Music,
+  Home, UsersRound, HandHeart, Landmark, Cross, PersonStanding, Baby, Mic2, BookHeart, Globe, Star, type LucideIcon,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
@@ -39,6 +40,10 @@ interface ChurchInfo {
   pix_key_type: string | null;
   pix_beneficiary: string | null;
   pix_enabled: boolean;
+  settings?: {
+    groups_shortcut?: { label?: string; icon?: string; color?: string; };
+    [key: string]: any;
+  };
 }
 
 interface Announcement {
@@ -443,14 +448,25 @@ const MemberHome = () => {
             <p className="font-heading font-semibold text-[10px]">Agenda</p>
           </Card>
         </Link>
-        <Link to="/church/explore-groups">
-          <Card className="p-3 rounded-2xl card-hover text-center space-y-1.5 h-full border-purple-500/15">
-            <div className="w-9 h-9 rounded-xl bg-purple-500/10 flex items-center justify-center mx-auto">
-              <Users className="w-4.5 h-4.5 text-purple-500" />
-            </div>
-            <p className="font-heading font-semibold text-[10px]">Grupos</p>
-          </Card>
-        </Link>
+        {(() => {
+          const gs = churchInfo?.settings?.groups_shortcut;
+          const iconMap: Record<string, LucideIcon> = {
+            Users, UsersRound, Home, HandHeart, Landmark, Cross, Heart, Church, Globe, Star, Baby, Mic2, BookHeart, PersonStanding,
+          };
+          const IconComp = iconMap[gs?.icon || ''] || Users;
+          const color = gs?.color || 'purple-500';
+          const label = gs?.label || 'Grupos';
+          return (
+            <Link to="/church/explore-groups">
+              <Card className="p-3 rounded-2xl card-hover text-center space-y-1.5 h-full" style={{ borderColor: `color-mix(in srgb, ${color.startsWith('#') ? color : 'var(--primary)'} 15%, transparent)` }}>
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center mx-auto" style={{ backgroundColor: `color-mix(in srgb, ${color.startsWith('#') ? color : 'var(--primary)'} 10%, transparent)` }}>
+                  <IconComp className="w-4.5 h-4.5" style={{ color: color.startsWith('#') ? color : undefined }} />
+                </div>
+                <p className="font-heading font-semibold text-[10px]">{label}</p>
+              </Card>
+            </Link>
+          );
+        })()}
       </div>
 
       <div>
