@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/sonner';
@@ -9,11 +10,13 @@ import {
   Swords, Zap, Shield, SkipForward, Sparkles, Trophy, Star,
   Timer, Crown, ChevronRight, ArrowLeft, Flame, Target, Users, Bot,
   XCircle, CheckCircle2, Clock, Medal, Gamepad2, History, BarChart3,
+  Copy, Link2, Loader2, UserPlus,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-type GameScreen = 'lobby' | 'loading' | 'playing' | 'result';
+type GameScreen = 'lobby' | 'pvp-create' | 'pvp-join' | 'pvp-waiting' | 'loading' | 'playing' | 'result';
 type Difficulty = 'easy' | 'medium' | 'hard';
+type GameMode = 'solo' | 'pvp';
 
 interface BattleQuestion {
   id: string;
@@ -29,12 +32,14 @@ interface BattleQuestion {
 
 interface Player {
   id: string;
+  user_id?: string;
   display_name: string;
   is_ai: boolean;
   score: number;
   combo: number;
   correct_answers: number;
   total_answers: number;
+  avatar_url?: string;
 }
 
 interface Power {
@@ -69,10 +74,17 @@ const BibleBattlePage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [screen, setScreen] = useState<GameScreen>('lobby');
+  const [gameMode, setGameMode] = useState<GameMode>('solo');
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<BattleHistory[]>([]);
   const [ranking, setRanking] = useState<any[]>([]);
+
+  // PvP state
+  const [inviteCode, setInviteCode] = useState('');
+  const [joinCode, setJoinCode] = useState('');
+  const [isHost, setIsHost] = useState(false);
+  const pollRef = useRef<any>(null);
 
   // Game state
   const [roomId, setRoomId] = useState<string | null>(null);
@@ -88,11 +100,9 @@ const BibleBattlePage = () => {
   const [totalScore, setTotalScore] = useState(0);
   const [eliminatedOptions, setEliminatedOptions] = useState<string[]>([]);
   const [isDoubleActive, setIsDoubleActive] = useState(false);
-  const [isFrozen, setIsFrozen] = useState(false);
   const startTimeRef = useRef<number>(0);
   const timerRef = useRef<any>(null);
 
-  // Powers
   const [powers, setPowers] = useState<Power[]>([
     { type: 'skip', label: 'Pular', icon: SkipForward, description: 'Pular pergunta', available: true, cooldown: 0 },
     { type: 'freeze', label: 'Congelar', icon: Shield, description: 'Congela o adversário', available: true, cooldown: 0 },
@@ -100,8 +110,14 @@ const BibleBattlePage = () => {
     { type: 'eliminate', label: 'Eliminar', icon: XCircle, description: 'Remove 2 opções', available: true, cooldown: 0 },
   ]);
 
-  // Final results
   const [finalResult, setFinalResult] = useState<any>(null);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
 
   // Timer
   useEffect(() => {
@@ -124,6 +140,21 @@ const BibleBattlePage = () => {
     submitAnswer(null);
   }, [selectedOption, showExplanation, roomId, questions, currentQ]);
 
+  const resetGameState = () => {
+    setCurrentQ(0);
+    setTotalScore(0);
+    setCombo(0);
+    setTimeLeft(10);
+    setSelectedOption(null);
+    setAnswerResult(null);
+    setShowExplanation(false);
+    setEliminatedOptions([]);
+    setIsDoubleActive(false);
+    setPowers(p => p.map(pw => ({ ...pw, available: true, cooldown: 0 })));
+    startTimeRef.current = Date.now();
+  };
+
+  // ========== SOLO ==========
   const startSoloGame = async () => {
     setScreen('loading');
     try {
@@ -135,17 +166,7 @@ const BibleBattlePage = () => {
         { id: data.human_player.id, display_name: data.human_player.display_name, is_ai: false, score: 0, combo: 0, correct_answers: 0, total_answers: 0 },
         { id: data.ai_player.id, display_name: data.ai_player.display_name, is_ai: true, score: 0, combo: 0, correct_answers: 0, total_answers: 0 },
       ]);
-      setCurrentQ(0);
-      setTotalScore(0);
-      setCombo(0);
-      setTimeLeft(10);
-      setSelectedOption(null);
-      setAnswerResult(null);
-      setShowExplanation(false);
-      setEliminatedOptions([]);
-      setIsDoubleActive(false);
-      setPowers(p => p.map(pw => ({ ...pw, available: true, cooldown: 0 })));
-      startTimeRef.current = Date.now();
+      resetGameState();
       setScreen('playing');
     } catch (err: any) {
       toast.error(err.message || 'Erro ao iniciar batalha');
@@ -153,6 +174,91 @@ const BibleBattlePage = () => {
     }
   };
 
+  // ========== PVP ==========
+  const createPvPRoom = async () => {
+    try {
+      const data: any = await api.post('/api/church/battles/create-room', { difficulty });
+      setRoomId(data.room.id);
+      setInviteCode(data.room.invite_code);
+      setIsHost(true);
+      setPlayers([{
+        id: data.player.id,
+        user_id: data.player.user_id,
+        display_name: data.player.display_name,
+        is_ai: false,
+        score: 0, combo: 0, correct_answers: 0, total_answers: 0,
+        avatar_url: data.player.avatar_url,
+      }]);
+      setHumanPlayerId(data.player.id);
+      setScreen('pvp-waiting');
+
+      // Start polling
+      startRoomPolling(data.room.id);
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao criar sala');
+    }
+  };
+
+  const joinPvPRoom = async () => {
+    if (!joinCode.trim()) return toast.error('Digite o código de convite');
+    try {
+      const data: any = await api.post('/api/church/battles/join-room', { invite_code: joinCode.trim() });
+      setRoomId(data.room.id);
+      setInviteCode(data.room.invite_code);
+      setIsHost(false);
+      setHumanPlayerId(data.player.id);
+      setScreen('pvp-waiting');
+      startRoomPolling(data.room.id);
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao entrar na sala');
+    }
+  };
+
+  const startRoomPolling = (id: string) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      try {
+        const data: any = await api.get(`/api/church/battles/room/${id}/status`);
+        setPlayers(data.players || []);
+
+        if (data.room.status === 'playing' && data.questions?.length > 0) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+          setQuestions(data.questions);
+          resetGameState();
+          setScreen('playing');
+        }
+      } catch {
+        // ignore polling errors
+      }
+    }, 2000);
+  };
+
+  const startPvPGame = async () => {
+    if (!roomId) return;
+    setScreen('loading');
+    try {
+      const data: any = await api.post(`/api/church/battles/room/${roomId}/start`, {});
+      setQuestions(data.questions);
+      setPlayers(data.players.map((p: any) => ({
+        id: p.id, user_id: p.user_id, display_name: p.display_name, is_ai: false,
+        score: 0, combo: 0, correct_answers: 0, total_answers: 0, avatar_url: p.avatar_url,
+      })));
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+      resetGameState();
+      setScreen('playing');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao iniciar partida');
+      setScreen('pvp-waiting');
+    }
+  };
+
+  const copyInviteCode = () => {
+    navigator.clipboard.writeText(inviteCode);
+    toast.success('Código copiado!');
+  };
+
+  // ========== GAMEPLAY ==========
   const submitAnswer = async (option: string | null) => {
     if (!roomId || !questions[currentQ]) return;
     clearInterval(timerRef.current);
@@ -194,7 +300,6 @@ const BibleBattlePage = () => {
     setShowExplanation(false);
     setEliminatedOptions([]);
     startTimeRef.current = Date.now();
-    // Decrease cooldowns
     setPowers(p => p.map(pw => ({ ...pw, cooldown: Math.max(0, pw.cooldown - 1) })));
   };
 
@@ -204,7 +309,7 @@ const BibleBattlePage = () => {
       const data = await api.post(`/api/church/battles/${roomId}/finish`, {});
       setFinalResult(data);
       setScreen('result');
-    } catch (err) {
+    } catch {
       toast.error('Erro ao finalizar batalha');
       setScreen('result');
     }
@@ -223,7 +328,6 @@ const BibleBattlePage = () => {
         nextQuestion();
         break;
       case 'freeze':
-        // Freeze AI (visual only in solo)
         toast('❄️ Adversário congelado!');
         break;
       case 'double':
@@ -231,13 +335,9 @@ const BibleBattlePage = () => {
         toast('✨ Pontuação dobrada nesta pergunta!');
         break;
       case 'eliminate': {
-        const q = questions[currentQ];
-        if (!q || !answerResult) {
-          // Eliminate 2 wrong options randomly (we don't know correct yet, so pick 2 random)
-          const options = ['a', 'b', 'c', 'd'];
-          const shuffled = options.sort(() => Math.random() - 0.5);
-          setEliminatedOptions(shuffled.slice(0, 2));
-        }
+        const options = ['a', 'b', 'c', 'd'];
+        const shuffled = options.sort(() => Math.random() - 0.5);
+        setEliminatedOptions(shuffled.slice(0, 2));
         break;
       }
     }
@@ -255,8 +355,19 @@ const BibleBattlePage = () => {
     } catch { /* ignore */ }
   };
 
-  const humanPlayer = players.find(p => !p.is_ai);
-  const aiPlayer = players.find(p => p.is_ai);
+  const goToLobby = () => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    setScreen('lobby');
+    setRoomId(null);
+    setInviteCode('');
+    setJoinCode('');
+    setPlayers([]);
+    setQuestions([]);
+    setFinalResult(null);
+  };
+
+  const humanPlayer = players.find(p => p.id === humanPlayerId) || players.find(p => !p.is_ai);
+  const opponentPlayer = players.find(p => p.id !== humanPlayerId);
 
   // =================== LOBBY ===================
   if (screen === 'lobby') {
@@ -279,19 +390,32 @@ const BibleBattlePage = () => {
         <div className="space-y-3">
           <h2 className="font-heading text-lg font-semibold">Modo de Jogo</h2>
           <div className="grid grid-cols-2 gap-3">
-            <Card className="p-4 rounded-2xl border-purple-500/30 bg-gradient-to-br from-purple-500/10 to-blue-500/10 cursor-pointer hover:border-purple-500/50 transition-all"
-              onClick={() => {}}>
+            <Card
+              className={`p-4 rounded-2xl cursor-pointer transition-all ${
+                gameMode === 'solo'
+                  ? 'border-purple-500/50 bg-gradient-to-br from-purple-500/10 to-blue-500/10 shadow-lg shadow-purple-500/10'
+                  : 'border-muted hover:border-purple-500/30'
+              }`}
+              onClick={() => setGameMode('solo')}
+            >
               <div className="text-center space-y-2">
                 <Bot className="w-8 h-8 text-purple-400 mx-auto" />
                 <h3 className="font-bold text-sm">Solo vs IA</h3>
                 <p className="text-xs text-muted-foreground">Enfrente a IA</p>
               </div>
             </Card>
-            <Card className="p-4 rounded-2xl border-muted opacity-50 cursor-not-allowed">
+            <Card
+              className={`p-4 rounded-2xl cursor-pointer transition-all ${
+                gameMode === 'pvp'
+                  ? 'border-blue-500/50 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 shadow-lg shadow-blue-500/10'
+                  : 'border-muted hover:border-blue-500/30'
+              }`}
+              onClick={() => setGameMode('pvp')}
+            >
               <div className="text-center space-y-2">
-                <Users className="w-8 h-8 text-muted-foreground mx-auto" />
+                <Users className="w-8 h-8 text-blue-400 mx-auto" />
                 <h3 className="font-bold text-sm">PvP Online</h3>
-                <p className="text-xs text-muted-foreground">Em breve</p>
+                <p className="text-xs text-muted-foreground">Desafie amigos</p>
               </div>
             </Card>
           </div>
@@ -340,13 +464,33 @@ const BibleBattlePage = () => {
         </Card>
 
         {/* Start Button */}
-        <Button
-          onClick={startSoloGame}
-          className="w-full h-14 rounded-2xl text-lg font-bold bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-lg shadow-purple-500/20"
-        >
-          <Swords className="w-5 h-5 mr-2" />
-          Iniciar Batalha
-        </Button>
+        {gameMode === 'solo' ? (
+          <Button
+            onClick={startSoloGame}
+            className="w-full h-14 rounded-2xl text-lg font-bold bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-lg shadow-purple-500/20"
+          >
+            <Bot className="w-5 h-5 mr-2" />
+            Iniciar Solo
+          </Button>
+        ) : (
+          <div className="space-y-2">
+            <Button
+              onClick={createPvPRoom}
+              className="w-full h-14 rounded-2xl text-lg font-bold bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-lg shadow-blue-500/20"
+            >
+              <Swords className="w-5 h-5 mr-2" />
+              Criar Sala PvP
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setScreen('pvp-join')}
+              className="w-full h-12 rounded-2xl border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
+            >
+              <UserPlus className="w-5 h-5 mr-2" />
+              Entrar com Código
+            </Button>
+          </div>
+        )}
 
         {/* History & Ranking */}
         <div className="flex gap-2">
@@ -367,7 +511,6 @@ const BibleBattlePage = () => {
                 <h2 className="font-heading text-lg font-bold">🏆 Ranking & Histórico</h2>
                 <button onClick={() => setShowHistory(false)} className="p-1 rounded-lg hover:bg-muted">✕</button>
               </div>
-
               {ranking.length > 0 && (
                 <div className="space-y-2">
                   <h3 className="font-semibold text-sm">Top Jogadores</h3>
@@ -383,7 +526,6 @@ const BibleBattlePage = () => {
                   ))}
                 </div>
               )}
-
               {history.length > 0 && (
                 <div className="space-y-2">
                   <h3 className="font-semibold text-sm">Suas Batalhas</h3>
@@ -391,7 +533,9 @@ const BibleBattlePage = () => {
                     <div key={h.id} className="flex items-center gap-3 p-2 rounded-xl bg-muted/30">
                       <span className="text-lg">{h.placement === 1 ? '🏆' : '⚔️'}</span>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-xs">{difficultyConfig[h.difficulty as Difficulty]?.label || h.difficulty}</p>
+                        <p className="font-medium text-xs">
+                          {h.mode === 'pvp' ? '⚔️ PvP' : '🤖 Solo'} · {difficultyConfig[h.difficulty as Difficulty]?.label || h.difficulty}
+                        </p>
                         <p className="text-[10px] text-muted-foreground">
                           {h.correct_answers}/{h.total_answers} acertos · +{h.xp_earned}XP
                         </p>
@@ -401,11 +545,123 @@ const BibleBattlePage = () => {
                   ))}
                 </div>
               )}
-
               {!ranking.length && !history.length && (
                 <p className="text-center text-muted-foreground text-sm py-8">Nenhuma batalha ainda. Comece agora!</p>
               )}
             </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // =================== PVP JOIN ===================
+  if (screen === 'pvp-join') {
+    return (
+      <div className="min-h-screen p-4 flex flex-col items-center justify-center space-y-6 animate-fade-in">
+        <button onClick={goToLobby} className="absolute top-4 left-4 p-2 rounded-xl hover:bg-muted">
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div className="text-center space-y-2">
+          <Users className="w-16 h-16 text-blue-400 mx-auto" />
+          <h2 className="font-heading text-2xl font-bold">Entrar na Sala</h2>
+          <p className="text-sm text-muted-foreground">Digite o código de convite do seu amigo</p>
+        </div>
+        <div className="w-full max-w-xs space-y-3">
+          <Input
+            value={joinCode}
+            onChange={e => setJoinCode(e.target.value.toUpperCase())}
+            placeholder="Código (ex: A1B2C3)"
+            className="text-center text-2xl font-bold tracking-[0.3em] h-14 rounded-2xl uppercase"
+            maxLength={6}
+          />
+          <Button
+            onClick={joinPvPRoom}
+            disabled={joinCode.trim().length < 4}
+            className="w-full h-12 rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+          >
+            <UserPlus className="w-5 h-5 mr-2" />
+            Entrar na Sala
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // =================== PVP WAITING ===================
+  if (screen === 'pvp-waiting') {
+    return (
+      <div className="min-h-screen p-4 flex flex-col items-center justify-center space-y-6 animate-fade-in">
+        <button onClick={goToLobby} className="absolute top-4 left-4 p-2 rounded-xl hover:bg-muted">
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+
+        <div className="text-center space-y-2">
+          <div className="relative inline-block">
+            <Swords className="w-16 h-16 text-blue-400 mx-auto" />
+            <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-blue-500 animate-ping" />
+          </div>
+          <h2 className="font-heading text-2xl font-bold">Sala PvP</h2>
+          <p className="text-sm text-muted-foreground">
+            {difficultyConfig[difficulty]?.emoji} {difficultyConfig[difficulty]?.label}
+          </p>
+        </div>
+
+        {/* Invite Code */}
+        <Card className="p-5 rounded-2xl border-blue-500/30 bg-blue-500/5 w-full max-w-xs space-y-3">
+          <p className="text-xs text-center text-muted-foreground">Compartilhe o código:</p>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 bg-muted/50 rounded-xl px-4 py-3 text-center">
+              <span className="text-2xl font-bold tracking-[0.3em] text-blue-400">{inviteCode}</span>
+            </div>
+            <Button variant="outline" size="icon" className="rounded-xl shrink-0" onClick={copyInviteCode}>
+              <Copy className="w-4 h-4" />
+            </Button>
+          </div>
+        </Card>
+
+        {/* Players list */}
+        <Card className="p-4 rounded-2xl w-full max-w-xs space-y-3">
+          <h3 className="font-heading text-sm font-semibold flex items-center gap-2">
+            <Users className="w-4 h-4 text-blue-400" />
+            Jogadores ({players.length}/2)
+          </h3>
+          <div className="space-y-2">
+            {players.map((p, i) => (
+              <div key={p.id || i} className="flex items-center gap-3 p-2 rounded-xl bg-muted/30">
+                <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-xs font-bold">
+                  {p.display_name?.[0] || '?'}
+                </div>
+                <span className="text-sm font-medium flex-1">{p.display_name}</span>
+                {i === 0 && <Crown className="w-4 h-4 text-amber-400" />}
+              </div>
+            ))}
+            {players.length < 2 && (
+              <div className="flex items-center gap-3 p-2 rounded-xl border-2 border-dashed border-muted">
+                <div className="w-8 h-8 rounded-full bg-muted/50 flex items-center justify-center">
+                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                </div>
+                <span className="text-sm text-muted-foreground">Aguardando jogador...</span>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* Start button (host only) */}
+        {isHost && players.length >= 2 && (
+          <Button
+            onClick={startPvPGame}
+            className="w-full max-w-xs h-14 rounded-2xl text-lg font-bold bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-lg shadow-blue-500/20 animate-pulse"
+          >
+            <Swords className="w-5 h-5 mr-2" />
+            Iniciar Batalha!
+          </Button>
+        )}
+
+        {!isHost && (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span className="text-sm">Aguardando o host iniciar...</span>
           </div>
         )}
       </div>
@@ -469,10 +725,12 @@ const BibleBattlePage = () => {
           </div>
           <div className="text-right flex items-center gap-2">
             <div>
-              <p className="text-xs font-semibold">{aiPlayer?.display_name?.replace(/🤖 /, '')}</p>
-              <p className="text-lg font-bold text-red-400">{aiPlayer?.score || 0}</p>
+              <p className="text-xs font-semibold">{opponentPlayer?.display_name?.replace(/🤖 /, '') || 'Oponente'}</p>
+              <p className="text-lg font-bold text-red-400">{opponentPlayer?.score || 0}</p>
             </div>
-            <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center text-sm">🤖</div>
+            <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center text-sm">
+              {opponentPlayer?.is_ai ? '🤖' : opponentPlayer?.display_name?.[0] || '?'}
+            </div>
           </div>
         </div>
 
@@ -550,9 +808,11 @@ const BibleBattlePage = () => {
               {questions[currentQ]?.explanation && (
                 <p className="text-xs text-muted-foreground leading-relaxed">{questions[currentQ].explanation}</p>
               )}
-              <p className="text-[10px] text-muted-foreground mt-2">
-                {answerResult.ai_correct ? '🤖 IA acertou' : '🤖 IA errou'} ({answerResult.ai_points}pts)
-              </p>
+              {answerResult.ai_correct !== undefined && (
+                <p className="text-[10px] text-muted-foreground mt-2">
+                  {opponentPlayer?.is_ai ? '🤖' : '👤'} {opponentPlayer?.display_name?.replace(/🤖 /, '') || 'Oponente'}: {answerResult.ai_correct ? 'acertou' : 'errou'} ({answerResult.ai_points}pts)
+                </p>
+              )}
             </Card>
             <Button onClick={nextQuestion} className="w-full rounded-xl bg-gradient-to-r from-purple-600 to-blue-600">
               {currentQ >= questions.length - 1 ? 'Ver Resultado' : 'Próxima Pergunta'}
@@ -589,8 +849,8 @@ const BibleBattlePage = () => {
   // =================== RESULT ===================
   if (screen === 'result') {
     const won = finalResult?.human_won;
-    const humanFinal = finalResult?.players?.find((p: any) => !p.is_ai);
-    const aiFinal = finalResult?.players?.find((p: any) => p.is_ai);
+    const humanFinal = finalResult?.players?.find((p: any) => p.user_id === user?.id) || finalResult?.players?.find((p: any) => !p.is_ai);
+    const opponentFinal = finalResult?.players?.find((p: any) => p.id !== humanFinal?.id);
 
     return (
       <div className="min-h-screen p-4 flex flex-col items-center justify-center space-y-6 animate-fade-in">
@@ -622,9 +882,9 @@ const BibleBattlePage = () => {
             <p className="text-[10px] text-muted-foreground">{humanFinal?.correct_answers || 0}/{humanFinal?.total_answers || 0} acertos</p>
           </Card>
           <Card className={`p-4 rounded-2xl text-center ${!won ? 'border-red-500/30 bg-red-500/5' : 'border-muted'}`}>
-            <p className="text-xs text-muted-foreground">IA</p>
-            <p className="font-bold text-2xl text-red-400">{aiFinal?.score || 0}</p>
-            <p className="text-[10px] text-muted-foreground">{aiFinal?.correct_answers || 0}/{aiFinal?.total_answers || 0} acertos</p>
+            <p className="text-xs text-muted-foreground">{opponentFinal?.is_ai ? 'IA' : opponentFinal?.display_name || 'Oponente'}</p>
+            <p className="font-bold text-2xl text-red-400">{opponentFinal?.score || 0}</p>
+            <p className="text-[10px] text-muted-foreground">{opponentFinal?.correct_answers || 0}/{opponentFinal?.total_answers || 0} acertos</p>
           </Card>
         </div>
 
@@ -667,7 +927,7 @@ const BibleBattlePage = () => {
 
         {/* Actions */}
         <div className="w-full max-w-sm space-y-2">
-          <Button onClick={() => { setScreen('lobby'); }} className="w-full rounded-xl bg-gradient-to-r from-purple-600 to-blue-600">
+          <Button onClick={goToLobby} className="w-full rounded-xl bg-gradient-to-r from-purple-600 to-blue-600">
             <Swords className="w-4 h-4 mr-2" /> Jogar Novamente
           </Button>
           <Button variant="outline" onClick={() => navigate('/church')} className="w-full rounded-xl">

@@ -15,24 +15,18 @@ function extractJsonArray(text) {
   return JSON.parse(match[0]);
 }
 
-// POST /api/church/battles/start-solo — start a solo battle
-router.post('/start-solo', async (req, res) => {
-  try {
-    const churchId = req.user.church_id;
-    const { difficulty = 'medium' } = req.body;
+async function generateQuestions(difficulty) {
+  const { rows: providerRows } = await pool.query(
+    'SELECT * FROM ai_providers WHERE is_active = true ORDER BY created_at LIMIT 1'
+  );
+  if (!providerRows.length) throw new Error('Nenhum provedor de IA ativo.');
+  const provider = providerRows[0];
+  const apiKey = getProviderApiKey(provider);
+  if (!apiKey) throw new Error('API key não configurada.');
 
-    // Get AI provider
-    const { rows: providerRows } = await pool.query(
-      'SELECT * FROM ai_providers WHERE is_active = true ORDER BY created_at LIMIT 1'
-    );
-    if (!providerRows.length) return res.status(400).json({ error: 'Nenhum provedor de IA ativo.' });
-    const provider = providerRows[0];
-    const apiKey = getProviderApiKey(provider);
-    if (!apiKey) return res.status(400).json({ error: 'API key não configurada.' });
-
-    const diffLabels = { easy: 'fácil', medium: 'médio', hard: 'difícil' };
-    const systemPrompt = 'Você é um criador de perguntas bíblicas para um jogo competitivo. Responda SOMENTE com JSON válido.';
-    const prompt = `Crie exatamente 10 perguntas bíblicas para um jogo de batalha bíblica.
+  const diffLabels = { easy: 'fácil', medium: 'médio', hard: 'difícil' };
+  const systemPrompt = 'Você é um criador de perguntas bíblicas para um jogo competitivo. Responda SOMENTE com JSON válido.';
+  const prompt = `Crie exatamente 10 perguntas bíblicas para um jogo de batalha bíblica.
 Dificuldade: ${diffLabels[difficulty] || 'médio'}.
 ${difficulty === 'easy' ? 'Perguntas simples sobre histórias conhecidas.' : ''}
 ${difficulty === 'medium' ? 'Perguntas intermediárias sobre personagens, eventos e livros.' : ''}
@@ -49,13 +43,52 @@ Retorne um JSON array:
   }
 ]`;
 
-    const aiText = await callAI(provider, apiKey, systemPrompt, prompt, 0.8, 8192);
-    const questions = extractJsonArray(aiText);
-    if (!Array.isArray(questions) || questions.length < 5) {
-      return res.status(502).json({ error: 'IA não gerou perguntas suficientes.' });
-    }
+  const aiText = await callAI(provider, apiKey, systemPrompt, prompt, 0.8, 8192);
+  const questions = extractJsonArray(aiText);
+  if (!Array.isArray(questions) || questions.length < 5) {
+    throw new Error('IA não gerou perguntas suficientes.');
+  }
+  return questions;
+}
 
-    // Create room
+async function insertQuestions(roomId, questions) {
+  const dbQuestions = [];
+  for (let i = 0; i < Math.min(questions.length, 10); i++) {
+    const q = questions[i];
+    if (!q.question || !q.options || !q.correct) continue;
+    const { rows: [dbQ] } = await pool.query(
+      `INSERT INTO battle_questions (room_id, question_text, bible_reference, explanation, option_a, option_b, option_c, option_d, correct_option, question_order)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+      [roomId, q.question, q.reference || '', q.explanation || '', q.options.a, q.options.b, q.options.c, q.options.d, q.correct, i]
+    );
+    dbQuestions.push(dbQ);
+  }
+  return dbQuestions;
+}
+
+function sanitizeQuestions(dbQuestions) {
+  return dbQuestions.map(q => ({
+    id: q.id,
+    question_text: q.question_text,
+    bible_reference: q.bible_reference,
+    explanation: q.explanation,
+    option_a: q.option_a,
+    option_b: q.option_b,
+    option_c: q.option_c,
+    option_d: q.option_d,
+    question_order: q.question_order,
+  }));
+}
+
+// ========== SOLO ==========
+
+router.post('/start-solo', async (req, res) => {
+  try {
+    const churchId = req.user.church_id;
+    const { difficulty = 'medium' } = req.body;
+
+    const questions = await generateQuestions(difficulty);
+
     const inviteCode = crypto.randomBytes(3).toString('hex').toUpperCase();
     const { rows: [room] } = await pool.query(
       `INSERT INTO battle_rooms (church_id, mode, difficulty, status, max_players, invite_code, created_by, started_at)
@@ -63,14 +96,12 @@ Retorne um JSON array:
       [churchId, difficulty, inviteCode, req.user.id]
     );
 
-    // Create human player
     const { rows: [humanPlayer] } = await pool.query(
       `INSERT INTO battle_players (room_id, user_id, is_ai, display_name, avatar_url)
        VALUES ($1, $2, false, $3, $4) RETURNING *`,
       [room.id, req.user.id, req.user.name, req.user.avatar_url]
     );
 
-    // Create AI player
     const aiNames = { easy: '🤖 Noé (Fácil)', medium: '🤖 Davi (Médio)', hard: '🤖 Salomão (Difícil)' };
     const { rows: [aiPlayer] } = await pool.query(
       `INSERT INTO battle_players (room_id, is_ai, ai_difficulty, display_name)
@@ -78,35 +109,13 @@ Retorne um JSON array:
       [room.id, difficulty, aiNames[difficulty] || '🤖 IA']
     );
 
-    // Insert questions
-    const dbQuestions = [];
-    for (let i = 0; i < Math.min(questions.length, 10); i++) {
-      const q = questions[i];
-      if (!q.question || !q.options || !q.correct) continue;
-      const { rows: [dbQ] } = await pool.query(
-        `INSERT INTO battle_questions (room_id, question_text, bible_reference, explanation, option_a, option_b, option_c, option_d, correct_option, question_order)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
-        [room.id, q.question, q.reference || '', q.explanation || '', q.options.a, q.options.b, q.options.c, q.options.d, q.correct, i]
-      );
-      dbQuestions.push(dbQ);
-    }
+    const dbQuestions = await insertQuestions(room.id, questions);
 
     res.json({
       room,
       human_player: humanPlayer,
       ai_player: aiPlayer,
-      questions: dbQuestions.map(q => ({
-        id: q.id,
-        question_text: q.question_text,
-        bible_reference: q.bible_reference,
-        explanation: q.explanation,
-        option_a: q.option_a,
-        option_b: q.option_b,
-        option_c: q.option_c,
-        option_d: q.option_d,
-        question_order: q.question_order,
-        // Don't send correct_option to client — validated on submit
-      })),
+      questions: sanitizeQuestions(dbQuestions),
     });
   } catch (err) {
     console.error('Start solo battle error:', err);
@@ -114,37 +123,184 @@ Retorne um JSON array:
   }
 });
 
-// POST /api/church/battles/:roomId/answer — submit answer for a question
+// ========== PVP ==========
+
+// POST /api/church/battles/create-room — create PvP room
+router.post('/create-room', async (req, res) => {
+  try {
+    const churchId = req.user.church_id;
+    const { difficulty = 'medium', max_players = 2 } = req.body;
+
+    const inviteCode = crypto.randomBytes(3).toString('hex').toUpperCase();
+    const { rows: [room] } = await pool.query(
+      `INSERT INTO battle_rooms (church_id, mode, difficulty, status, max_players, invite_code, created_by)
+       VALUES ($1, 'pvp', $2, 'waiting', $3, $4, $5) RETURNING *`,
+      [churchId, difficulty, Math.min(max_players, 4), inviteCode, req.user.id]
+    );
+
+    const { rows: [player] } = await pool.query(
+      `INSERT INTO battle_players (room_id, user_id, is_ai, display_name, avatar_url)
+       VALUES ($1, $2, false, $3, $4) RETURNING *`,
+      [room.id, req.user.id, req.user.name, req.user.avatar_url]
+    );
+
+    res.json({ room, player });
+  } catch (err) {
+    console.error('Create PvP room error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/church/battles/join-room — join PvP room by invite code
+router.post('/join-room', async (req, res) => {
+  try {
+    const { invite_code } = req.body;
+    if (!invite_code) return res.status(400).json({ error: 'Código de convite obrigatório.' });
+
+    const { rows: [room] } = await pool.query(
+      "SELECT * FROM battle_rooms WHERE invite_code = $1 AND status = 'waiting'",
+      [invite_code.toUpperCase()]
+    );
+    if (!room) return res.status(404).json({ error: 'Sala não encontrada ou já iniciada.' });
+
+    // Check if already in room
+    const { rows: existing } = await pool.query(
+      'SELECT * FROM battle_players WHERE room_id = $1 AND user_id = $2',
+      [room.id, req.user.id]
+    );
+    if (existing.length) return res.json({ room, player: existing[0], already_joined: true });
+
+    // Check if room is full
+    const { rows: currentPlayers } = await pool.query(
+      'SELECT COUNT(*) as cnt FROM battle_players WHERE room_id = $1',
+      [room.id]
+    );
+    if (parseInt(currentPlayers[0].cnt) >= room.max_players) {
+      return res.status(400).json({ error: 'Sala cheia.' });
+    }
+
+    const { rows: [player] } = await pool.query(
+      `INSERT INTO battle_players (room_id, user_id, is_ai, display_name, avatar_url)
+       VALUES ($1, $2, false, $3, $4) RETURNING *`,
+      [room.id, req.user.id, req.user.name, req.user.avatar_url]
+    );
+
+    res.json({ room, player });
+  } catch (err) {
+    console.error('Join PvP room error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/church/battles/room/:roomId/status — poll room status
+router.get('/room/:roomId/status', async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const { rows: [room] } = await pool.query('SELECT * FROM battle_rooms WHERE id = $1', [roomId]);
+    if (!room) return res.status(404).json({ error: 'Sala não encontrada.' });
+
+    const { rows: players } = await pool.query(
+      'SELECT id, user_id, display_name, avatar_url, is_ai, score, combo, correct_answers, total_answers FROM battle_players WHERE room_id = $1 ORDER BY joined_at',
+      [roomId]
+    );
+
+    // If room has questions already, return them (game started)
+    let questions = [];
+    if (room.status === 'playing') {
+      const { rows: qs } = await pool.query(
+        'SELECT * FROM battle_questions WHERE room_id = $1 ORDER BY question_order',
+        [roomId]
+      );
+      questions = sanitizeQuestions(qs);
+    }
+
+    // Check all answers for current progress
+    const { rows: answers } = await pool.query(
+      'SELECT player_id, question_id, is_correct, points_awarded FROM battle_answers WHERE room_id = $1',
+      [roomId]
+    );
+
+    res.json({ room, players, questions, answers });
+  } catch (err) {
+    console.error('Room status error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/church/battles/room/:roomId/start — host starts the PvP game
+router.post('/room/:roomId/start', async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const { rows: [room] } = await pool.query('SELECT * FROM battle_rooms WHERE id = $1', [roomId]);
+    if (!room) return res.status(404).json({ error: 'Sala não encontrada.' });
+    if (room.created_by !== req.user.id) return res.status(403).json({ error: 'Apenas o criador pode iniciar.' });
+    if (room.status !== 'waiting') return res.status(400).json({ error: 'Sala já iniciada.' });
+
+    const { rows: players } = await pool.query('SELECT * FROM battle_players WHERE room_id = $1', [roomId]);
+    if (players.length < 2) return res.status(400).json({ error: 'Aguardando mais jogadores.' });
+
+    // Generate questions
+    const questions = await generateQuestions(room.difficulty || 'medium');
+    const dbQuestions = await insertQuestions(roomId, questions);
+
+    await pool.query(
+      "UPDATE battle_rooms SET status = 'playing', started_at = NOW() WHERE id = $1",
+      [roomId]
+    );
+
+    res.json({
+      room: { ...room, status: 'playing', started_at: new Date() },
+      questions: sanitizeQuestions(dbQuestions),
+      players,
+    });
+  } catch (err) {
+    console.error('Start PvP error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ========== ANSWER (shared solo + pvp) ==========
+
 router.post('/:roomId/answer', async (req, res) => {
   try {
     const { roomId } = req.params;
     const { question_id, selected_option, time_ms, power_used } = req.body;
 
-    // Get question
     const { rows: [question] } = await pool.query(
       'SELECT * FROM battle_questions WHERE id = $1 AND room_id = $2',
       [question_id, roomId]
     );
     if (!question) return res.status(404).json({ error: 'Pergunta não encontrada' });
 
-    // Get player
     const { rows: [player] } = await pool.query(
       'SELECT * FROM battle_players WHERE room_id = $1 AND user_id = $2 AND is_ai = false',
       [roomId, req.user.id]
     );
     if (!player) return res.status(404).json({ error: 'Jogador não encontrado' });
 
+    // Check if already answered
+    const { rows: existingAnswer } = await pool.query(
+      'SELECT * FROM battle_answers WHERE question_id = $1 AND player_id = $2',
+      [question_id, player.id]
+    );
+    if (existingAnswer.length) {
+      return res.json({
+        is_correct: existingAnswer[0].is_correct,
+        correct_option: question.correct_option,
+        explanation: question.explanation,
+        points_awarded: existingAnswer[0].points_awarded,
+        already_answered: true,
+      });
+    }
+
     const isCorrect = selected_option === question.correct_option;
-    
-    // Calculate points: base 100, speed bonus up to 100, combo bonus
+
     let points = 0;
     if (isCorrect) {
       const speedBonus = Math.max(0, Math.floor((10000 - (time_ms || 10000)) / 100));
       const currentCombo = player.combo + 1;
       const comboMultiplier = 1 + (currentCombo - 1) * 0.2;
       points = Math.floor((100 + speedBonus) * comboMultiplier);
-      
-      // Check for double power
       if (power_used === 'double') points *= 2;
 
       await pool.query(
@@ -158,14 +314,12 @@ router.post('/:roomId/answer', async (req, res) => {
       );
     }
 
-    // Record answer
     await pool.query(
       `INSERT INTO battle_answers (room_id, question_id, player_id, selected_option, is_correct, time_ms, points_awarded, power_used)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
       [roomId, question_id, player.id, selected_option, isCorrect, time_ms || 0, points, power_used || null]
     );
 
-    // Record power usage
     if (power_used) {
       await pool.query(
         'INSERT INTO battle_powers (player_id, power_type, used_at_question) VALUES ($1,$2,$3)',
@@ -173,45 +327,50 @@ router.post('/:roomId/answer', async (req, res) => {
       );
     }
 
-    // Simulate AI answer
-    const { rows: [aiPlayer] } = await pool.query(
-      'SELECT * FROM battle_players WHERE room_id = $1 AND is_ai = true LIMIT 1',
-      [roomId]
-    );
+    // Get room to check mode
+    const { rows: [room] } = await pool.query('SELECT mode FROM battle_rooms WHERE id = $1', [roomId]);
+
     let aiCorrect = false;
     let aiPoints = 0;
-    if (aiPlayer) {
-      const diff = aiPlayer.ai_difficulty || 'medium';
-      const correctChance = diff === 'easy' ? 0.4 : diff === 'medium' ? 0.65 : 0.85;
-      aiCorrect = Math.random() < correctChance;
-      if (aiCorrect) {
-        const aiTimeMs = diff === 'easy' ? 5000 + Math.random() * 4000 : diff === 'medium' ? 3000 + Math.random() * 3000 : 1500 + Math.random() * 2000;
-        const aiSpeedBonus = Math.max(0, Math.floor((10000 - aiTimeMs) / 100));
-        const aiCombo = aiPlayer.combo + 1;
-        const aiComboMult = 1 + (aiCombo - 1) * 0.2;
-        aiPoints = Math.floor((100 + aiSpeedBonus) * aiComboMult);
+
+    // Only simulate AI in solo mode
+    if (room && room.mode === 'solo') {
+      const { rows: [aiPlayer] } = await pool.query(
+        'SELECT * FROM battle_players WHERE room_id = $1 AND is_ai = true LIMIT 1',
+        [roomId]
+      );
+      if (aiPlayer) {
+        const diff = aiPlayer.ai_difficulty || 'medium';
+        const correctChance = diff === 'easy' ? 0.4 : diff === 'medium' ? 0.65 : 0.85;
+        aiCorrect = Math.random() < correctChance;
+        if (aiCorrect) {
+          const aiTimeMs = diff === 'easy' ? 5000 + Math.random() * 4000 : diff === 'medium' ? 3000 + Math.random() * 3000 : 1500 + Math.random() * 2000;
+          const aiSpeedBonus = Math.max(0, Math.floor((10000 - aiTimeMs) / 100));
+          const aiCombo = aiPlayer.combo + 1;
+          const aiComboMult = 1 + (aiCombo - 1) * 0.2;
+          aiPoints = Math.floor((100 + aiSpeedBonus) * aiComboMult);
+          await pool.query(
+            'UPDATE battle_players SET score = score + $1, combo = combo + 1, max_combo = GREATEST(max_combo, combo + 1), correct_answers = correct_answers + 1, total_answers = total_answers + 1 WHERE id = $2',
+            [aiPoints, aiPlayer.id]
+          );
+        } else {
+          await pool.query(
+            'UPDATE battle_players SET combo = 0, total_answers = total_answers + 1 WHERE id = $1',
+            [aiPlayer.id]
+          );
+        }
+        const aiSelectedOption = aiCorrect ? question.correct_option : ['a','b','c','d'].filter(o => o !== question.correct_option)[Math.floor(Math.random() * 3)];
         await pool.query(
-          'UPDATE battle_players SET score = score + $1, combo = combo + 1, max_combo = GREATEST(max_combo, combo + 1), correct_answers = correct_answers + 1, total_answers = total_answers + 1 WHERE id = $2',
-          [aiPoints, aiPlayer.id]
-        );
-      } else {
-        await pool.query(
-          'UPDATE battle_players SET combo = 0, total_answers = total_answers + 1 WHERE id = $1',
-          [aiPlayer.id]
+          `INSERT INTO battle_answers (room_id, question_id, player_id, selected_option, is_correct, time_ms, points_awarded)
+           VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+          [roomId, question_id, aiPlayer.id, aiSelectedOption, aiCorrect, Math.floor(Math.random() * 8000 + 1000), aiPoints]
         );
       }
-      // Record AI answer
-      const aiSelectedOption = aiCorrect ? question.correct_option : ['a','b','c','d'].filter(o => o !== question.correct_option)[Math.floor(Math.random() * 3)];
-      await pool.query(
-        `INSERT INTO battle_answers (room_id, question_id, player_id, selected_option, is_correct, time_ms, points_awarded)
-         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-        [roomId, question_id, aiPlayer.id, aiSelectedOption, aiCorrect, Math.floor(Math.random() * 8000 + 1000), aiPoints]
-      );
     }
 
     // Get updated scores
     const { rows: players } = await pool.query(
-      'SELECT id, display_name, is_ai, score, combo, correct_answers, total_answers FROM battle_players WHERE room_id = $1 ORDER BY score DESC',
+      'SELECT id, user_id, display_name, is_ai, score, combo, correct_answers, total_answers FROM battle_players WHERE room_id = $1 ORDER BY score DESC',
       [roomId]
     );
 
@@ -230,7 +389,8 @@ router.post('/:roomId/answer', async (req, res) => {
   }
 });
 
-// POST /api/church/battles/:roomId/finish — finish the battle
+// ========== FINISH ==========
+
 router.post('/:roomId/finish', async (req, res) => {
   try {
     const { roomId } = req.params;
@@ -240,19 +400,16 @@ router.post('/:roomId/finish', async (req, res) => {
       [roomId]
     );
 
-    // Get final standings
     const { rows: players } = await pool.query(
       'SELECT * FROM battle_players WHERE room_id = $1 ORDER BY score DESC',
       [roomId]
     );
 
-    // Assign placements
     for (let i = 0; i < players.length; i++) {
       await pool.query('UPDATE battle_players SET placement = $1 WHERE id = $2', [i + 1, players[i].id]);
     }
 
-    // Calculate XP and points for human player
-    const human = players.find(p => !p.is_ai);
+    const human = players.find(p => !p.is_ai && p.user_id === req.user.id);
     if (human) {
       const won = players[0]?.id === human.id;
       const baseXP = 50;
@@ -267,7 +424,6 @@ router.post('/:roomId/finish', async (req, res) => {
         [totalXP, totalPoints, human.id]
       );
 
-      // Update user_game_points
       await pool.query(
         `INSERT INTO user_game_points (user_id, church_id, total_points, quizzes_completed)
          VALUES ($1, $2, $3, 1)
@@ -278,7 +434,6 @@ router.post('/:roomId/finish', async (req, res) => {
         [human.user_id, req.user.church_id, totalPoints]
       );
 
-      // Recalculate level
       const { rows: [gp] } = await pool.query(
         'SELECT total_points FROM user_game_points WHERE user_id = $1 AND church_id = $2',
         [human.user_id, req.user.church_id]
@@ -293,7 +448,6 @@ router.post('/:roomId/finish', async (req, res) => {
         await pool.query('UPDATE user_game_points SET current_level = $1 WHERE user_id = $2 AND church_id = $3', [level, human.user_id, req.user.church_id]);
       }
 
-      // Refetch
       const { rows: finalPlayers } = await pool.query(
         'SELECT * FROM battle_players WHERE room_id = $1 ORDER BY score DESC',
         [roomId]
@@ -315,7 +469,8 @@ router.post('/:roomId/finish', async (req, res) => {
   }
 });
 
-// GET /api/church/battles/history — user's battle history
+// ========== HISTORY & RANKING ==========
+
 router.get('/history', async (req, res) => {
   try {
     const { rows } = await pool.query(
@@ -333,7 +488,6 @@ router.get('/history', async (req, res) => {
   }
 });
 
-// GET /api/church/battles/ranking — battle leaderboard
 router.get('/ranking', async (req, res) => {
   try {
     const { rows } = await pool.query(
