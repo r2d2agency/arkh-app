@@ -93,7 +93,7 @@ const GroupsPage = () => {
 
   const filtered = groups.filter(g => g.name.toLowerCase().includes(search.toLowerCase()));
 
-  const FormFields = () => (
+  const formFields = (
     <div className="space-y-4">
       <div className="space-y-2">
         <Label>Nome do grupo *</Label>
@@ -225,7 +225,7 @@ const GroupsPage = () => {
             <DialogTitle>Novo Grupo</DialogTitle>
             <DialogDescription>Defina os detalhes do grupo e a reunião semanal</DialogDescription>
           </DialogHeader>
-          <FormFields />
+          {formFields}
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)} className="rounded-xl">Cancelar</Button>
             <Button onClick={handleCreate} disabled={loading} className="rounded-xl">
@@ -242,7 +242,7 @@ const GroupsPage = () => {
             <DialogTitle>Editar Grupo</DialogTitle>
             <DialogDescription>Atualize os dados do grupo</DialogDescription>
           </DialogHeader>
-          <FormFields />
+          {formFields}
           <DialogFooter>
             <Button variant="outline" onClick={() => { setEditGroup(null); resetForm(); }} className="rounded-xl">Cancelar</Button>
             <Button onClick={handleEdit} disabled={loading} className="rounded-xl">
