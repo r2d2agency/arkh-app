@@ -39,6 +39,9 @@ interface DynamicResponse {
   response: string;
   created_at: string;
 }
+interface JoinRequest {
+  id: string; user_name: string; user_email: string; user_id: string; created_at: string;
+}
 
 const categoryLabels: Record<string, string> = {
   icebreaker: 'Quebra-gelo',
