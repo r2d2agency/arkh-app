@@ -1,5 +1,80 @@
 const pool = require('../db/pool');
 
+function safeParseJson(raw, fallback) {
+  if (raw == null) return fallback;
+  if (typeof raw !== 'string') return raw;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    try {
+      const cleaned = raw
+        .replace(/```json\s*/gi, '')
+        .replace(/```\s*/g, '')
+        .replace(/,\s*}/g, '}')
+        .replace(/,\s*]/g, ']')
+        .trim();
+      return JSON.parse(cleaned);
+    } catch {
+      return fallback;
+    }
+  }
+}
+
+function detectTruncation(response) {
+  const text = String(response || '').trim();
+  const openBraces = (text.match(/{/g) || []).length;
+  const closeBraces = (text.match(/}/g) || []).length;
+  const openBrackets = (text.match(/\[/g) || []).length;
+  const closeBrackets = (text.match(/]/g) || []).length;
+  if (openBraces !== closeBraces || openBrackets !== closeBrackets) return true;
+  return [/\.\.\.$/, /…$/, /\[truncated\]/i, /\[continued\]/i].some((p) => p.test(text));
+}
+
+function extractJsonFromResponse(response) {
+  let cleaned = String(response || '')
+    .replace(/```json\s*/gi, '')
+    .replace(/```\s*/g, '')
+    .trim();
+
+  const jsonStart = cleaned.search(/[\[{]/);
+  const startChar = jsonStart !== -1 ? cleaned[jsonStart] : null;
+  const jsonEnd = startChar === '[' ? cleaned.lastIndexOf(']') : cleaned.lastIndexOf('}');
+
+  if (jsonStart === -1 || jsonEnd === -1) {
+    throw new Error('No JSON object found in response');
+  }
+
+  cleaned = cleaned.substring(jsonStart, jsonEnd + 1)
+    .replace(/,\s*}/g, '}')
+    .replace(/,\s*]/g, ']')
+    .replace(/[\x00-\x1F\x7F]/g, '');
+
+  return JSON.parse(cleaned);
+}
+
+function extractSummaryText(value) {
+  if (!value) return '';
+  if (typeof value !== 'string') return String(value);
+  const trimmed = value.trim();
+  if (!(trimmed.startsWith('{') || trimmed.startsWith('['))) return trimmed;
+  const parsed = safeParseJson(trimmed, null);
+  if (!parsed) return trimmed;
+  if (typeof parsed === 'string') return parsed;
+  return parsed.summary || parsed.resumo || parsed.expanded_summary || parsed.text || trimmed;
+}
+
+function normalizeTopicsForContext(raw) {
+  const parsed = safeParseJson(raw, []);
+  if (Array.isArray(parsed)) return parsed;
+  if (parsed && Array.isArray(parsed.topics)) return parsed.topics;
+  return [];
+}
+
+function normalizeVersesForContext(raw) {
+  const parsed = safeParseJson(raw, []);
+  if (Array.isArray(parsed)) return parsed;
+  return [];
+}
 /**
  * Process a service: fetch YouTube transcript, send to AI, save results.
  * Runs asynchronously (fire-and-forget from the route handler).
@@ -88,21 +163,24 @@ async function processService(serviceId, options = {}) {
       );
       if (prevRows.length > 0) {
         previousContext = '\n\n--- PREGAÇÕES ANTERIORES (para correlação) ---\n';
+        let usableCount = 0;
         prevRows.forEach((prev, i) => {
-          const topics = typeof prev.ai_topics === 'string' ? JSON.parse(prev.ai_topics) : (prev.ai_topics || []);
-          const verses = typeof prev.ai_key_verses === 'string' ? JSON.parse(prev.ai_key_verses) : (prev.ai_key_verses || []);
+          const topics = normalizeTopicsForContext(prev.ai_topics);
+          const verses = normalizeVersesForContext(prev.ai_key_verses);
+          const summary = extractSummaryText(prev.ai_summary).slice(0, 300);
           previousContext += `\n${i + 1}. "${prev.title}" - ${prev.preacher || 'Pregador não informado'} (${prev.service_date ? new Date(prev.service_date).toLocaleDateString('pt-BR') : 'data não informada'})`;
-          previousContext += `\nResumo: ${(prev.ai_summary || '').slice(0, 300)}`;
-          previousContext += `\nTópicos: ${topics.join(', ')}`;
-          previousContext += `\nVersículos: ${verses.map(v => v.reference || v).join(', ')}`;
+          previousContext += `\nResumo: ${summary || 'Sem resumo disponível'}`;
+          if (topics.length) previousContext += `\nTópicos: ${topics.join(', ')}`;
+          if (verses.length) previousContext += `\nVersículos: ${verses.map(v => v.reference || v).join(', ')}`;
           previousContext += '\n';
+          usableCount += 1;
         });
-        await addLog('context', `${prevRows.length} pregações anteriores carregadas para correlação`);
+        await addLog('context', `${usableCount} pregações anteriores carregadas para correlação`);
       } else {
         await addLog('context', 'Nenhuma pregação anterior encontrada', 'info');
       }
     } catch (e) {
-      await addLog('context', 'Erro ao buscar pregações anteriores, prosseguindo sem correlação', 'warn');
+      await addLog('context', `Erro ao buscar pregações anteriores, prosseguindo sem correlação: ${e.message}`, 'warn');
     }
 
     // 5. Fetch YouTube transcript
@@ -156,21 +234,22 @@ ${previousContext}`;
     await addLog('parse', 'Interpretando resposta da IA...');
     let parsed;
     try {
-      const jsonMatch = aiResult.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        parsed = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error('Resposta da IA não contém JSON válido');
+      if (detectTruncation(aiResult)) {
+        await addLog('parse', 'Resposta potencialmente truncada detectada; tentando extração robusta.', 'warn');
       }
+      parsed = extractJsonFromResponse(aiResult);
     } catch (err) {
       await addLog('parse', `Erro ao interpretar resposta: ${err.message}. Salvando como texto.`, 'warn');
       parsed = {
-        summary: aiResult,
+        summary: extractSummaryText(aiResult),
+        expanded_summary: '',
         topics: [],
         key_verses: [],
         practical_applications: [],
         connections: [],
         reflection_questions: [],
+        key_points: [],
+        deep_explanations: [],
       };
     }
 
@@ -309,8 +388,11 @@ Responda SEMPRE em JSON válido com a seguinte estrutura:
 
 REGRAS IMPORTANTES:
 - O resumo executivo deve ter 5-8 linhas objetivas
-- O resumo expandido deve ser detalhado com múltiplos parágrafos
+- O resumo expandido deve ter NO MÍNIMO 8 parágrafos curtos e explicar o raciocínio da mensagem passo a passo
+- Desmembre a pregação em blocos claros, com progressão de ideias
 - Liste PELO MENOS 5 tópicos relevantes
+- Gere PELO MENOS 5 key_points, cada um com meaning, concept e teaching
+- Gere PELO MENOS 3 deep_explanations com aprofundamento espiritual e exemplo prático
 - Cite TODOS os versículos mencionados com texto completo e contexto bíblico
 - Crie PELO MENOS 3 aplicações práticas com exemplos reais
 - Crie PELO MENOS 3 perguntas para reflexão pessoal
