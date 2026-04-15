@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,7 +33,8 @@ const GroupsPage = () => {
   const [editGroup, setEditGroup] = useState<Group | null>(null);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
-  const [form, setForm] = useState({ name: '', description: '', address: '', meeting_day: '', meeting_time: '', leader1_name: '', leader2_name: '' });
+  const [form, setForm] = useState({ name: '', description: '', cep: '', street: '', number: '', neighborhood: '', city: '', state: '', address: '', meeting_day: '', meeting_time: '', leader1_name: '', leader2_name: '' });
+  const [fetchingCep, setFetchingCep] = useState(false);
 
   const isAdmin = user?.role === 'admin_church' || user?.role === 'leader';
 
@@ -44,12 +45,40 @@ const GroupsPage = () => {
       .finally(() => setFetching(false));
   }, []);
 
-  const resetForm = () => setForm({ name: '', description: '', address: '', meeting_day: '', meeting_time: '', leader1_name: '', leader2_name: '' });
+  const resetForm = () => setForm({ name: '', description: '', cep: '', street: '', number: '', neighborhood: '', city: '', state: '', address: '', meeting_day: '', meeting_time: '', leader1_name: '', leader2_name: '' });
+
+  const buildAddress = (f: typeof form) => [f.street, f.number, f.neighborhood, f.city, f.state].filter(Boolean).join(', ');
+
+  const parseAddress = (address: string) => {
+    const parts = address.split(',').map(p => p.trim());
+    return { street: parts[0] || '', number: parts[1] || '', neighborhood: parts[2] || '', city: parts[3] || '', state: parts[4] || '' };
+  };
+
+  const lookupCep = useCallback(async (cep: string) => {
+    const clean = cep.replace(/\D/g, '');
+    if (clean.length !== 8) return;
+    setFetchingCep(true);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${clean}/json/`);
+      const data = await res.json();
+      if (!data.erro) {
+        setForm(f => ({ ...f, street: data.logradouro || f.street, neighborhood: data.bairro || f.neighborhood, city: data.localidade || f.city, state: data.uf || f.state }));
+      }
+    } catch {}
+    setFetchingCep(false);
+  }, []);
+
+  const formatCep = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 8);
+    if (digits.length > 5) return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+    return digits;
+  };
 
   const openEdit = (e: React.MouseEvent, g: Group) => {
     e.stopPropagation();
+    const parsed = parseAddress(g.address || '');
     setForm({
-      name: g.name || '', description: g.description || '', address: g.address || '',
+      name: g.name || '', description: g.description || '', cep: '', street: parsed.street, number: parsed.number, neighborhood: parsed.neighborhood, city: parsed.city, state: parsed.state, address: g.address || '',
       meeting_day: g.meeting_day || '', meeting_time: g.meeting_time?.slice(0,5) || '',
       leader1_name: g.leader1_name || '', leader2_name: g.leader2_name || '',
     });
@@ -60,7 +89,8 @@ const GroupsPage = () => {
     if (!form.name) { toast({ title: 'Nome obrigatório', variant: 'destructive' }); return; }
     setLoading(true);
     try {
-      const g = await api.post<Group>('/api/church/groups', form);
+      const payload = { ...form, address: buildAddress(form) };
+      const g = await api.post<Group>('/api/church/groups', payload);
       setGroups(prev => [g, ...prev]);
       resetForm();
       setCreateOpen(false);
@@ -73,7 +103,8 @@ const GroupsPage = () => {
     if (!editGroup || !form.name) return;
     setLoading(true);
     try {
-      const g = await api.put<Group>(`/api/church/groups/${editGroup.id}`, form);
+      const payload = { ...form, address: buildAddress(form) };
+      const g = await api.put<Group>(`/api/church/groups/${editGroup.id}`, payload);
       setGroups(prev => prev.map(gr => gr.id === editGroup.id ? { ...gr, ...g } : gr));
       setEditGroup(null);
       resetForm();
@@ -115,7 +146,43 @@ const GroupsPage = () => {
       </div>
       <div className="space-y-2">
         <Label>Endereço da reunião</Label>
-        <Input placeholder="Rua, número, bairro..." value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} className="rounded-xl" />
+        <div className="grid grid-cols-3 gap-2">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">CEP</Label>
+            <div className="relative">
+              <Input
+                placeholder="00000-000"
+                value={form.cep}
+                onChange={e => {
+                  const formatted = formatCep(e.target.value);
+                  setForm(f => ({ ...f, cep: formatted }));
+                  if (formatted.replace(/\D/g, '').length === 8) lookupCep(formatted);
+                }}
+                className="rounded-xl"
+                maxLength={9}
+              />
+              {fetchingCep && <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-primary" />}
+            </div>
+          </div>
+          <div className="col-span-2 space-y-1">
+            <Label className="text-xs text-muted-foreground">Rua</Label>
+            <Input placeholder="Rua..." value={form.street} onChange={e => setForm(f => ({ ...f, street: e.target.value }))} className="rounded-xl" />
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Número</Label>
+            <Input placeholder="Nº" value={form.number} onChange={e => setForm(f => ({ ...f, number: e.target.value }))} className="rounded-xl" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Bairro</Label>
+            <Input placeholder="Bairro" value={form.neighborhood} onChange={e => setForm(f => ({ ...f, neighborhood: e.target.value }))} className="rounded-xl" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Cidade</Label>
+            <Input placeholder="Cidade" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} className="rounded-xl" />
+          </div>
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
