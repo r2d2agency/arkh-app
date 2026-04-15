@@ -459,20 +459,20 @@ const MemberHome = () => {
             <p className="font-heading font-semibold text-[10px]">Louvor</p>
           </Card>
         </Link>
-        <Link to="/church/reading-plan">
-          <Card className="p-3 rounded-2xl card-hover text-center space-y-1.5 h-full border-green-500/15">
-            <div className="w-9 h-9 rounded-xl bg-green-500/10 flex items-center justify-center mx-auto">
-              <BookHeart className="w-4.5 h-4.5 text-green-500" />
-            </div>
-            <p className="font-heading font-semibold text-[10px]">Leitura</p>
-          </Card>
-        </Link>
         <Link to="/church/agenda">
           <Card className="p-3 rounded-2xl card-hover text-center space-y-1.5 h-full border-green-500/15">
             <div className="w-9 h-9 rounded-xl bg-green-500/10 flex items-center justify-center mx-auto">
               <Calendar className="w-4.5 h-4.5 text-green-500" />
             </div>
             <p className="font-heading font-semibold text-[10px]">Agenda</p>
+          </Card>
+        </Link>
+        <Link to="/church/reading-plan">
+          <Card className="p-3 rounded-2xl card-hover text-center space-y-1.5 h-full border-primary/15">
+            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center mx-auto">
+              <BookHeart className="w-4.5 h-4.5 text-primary" />
+            </div>
+            <p className="font-heading font-semibold text-[10px]">Leitura</p>
           </Card>
         </Link>
         {(() => {
