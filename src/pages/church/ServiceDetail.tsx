@@ -53,6 +53,7 @@ interface ServiceData {
   preacher: string;
   service_date: string;
   ai_status: string;
+  transcription?: string;
   ai_summary?: string;
   ai_topics?: string | string[] | AITopicsData;
   ai_key_verses?: string | KeyVerse[];
@@ -222,6 +223,10 @@ const ServiceDetailPage = () => {
   const hasAI = service.ai_status === 'completed';
   const topicsData = parseTopics(service.ai_topics);
   const verses = parseVerses(service.ai_key_verses);
+  const transcriptBlocks = (service.transcription || '')
+    .split(/\n\s*\n/)
+    .map((block) => block.trim())
+    .filter(Boolean);
   const rawSummary = service.ai_summary || '';
   const summaryText = (() => {
     const s = rawSummary.trim();
@@ -566,6 +571,33 @@ const ServiceDetailPage = () => {
             <p className="text-sm text-muted-foreground">
               O resumo, tópicos e versículos serão gerados em breve pela IA.
             </p>
+          </Card>
+        )}
+
+        {transcriptBlocks.length > 0 && (
+          <Card className="p-4 rounded-2xl space-y-3">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-primary" />
+              <h3 className="font-heading text-sm font-semibold">Transcrição completa</h3>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto space-y-2 pr-1">
+              {transcriptBlocks.map((block, index) => {
+                const isPause = /^\[pausa de .+\]$/i.test(block);
+                if (isPause) {
+                  return (
+                    <div key={`${index}-${block}`} className="text-center text-[11px] uppercase tracking-wide text-muted-foreground">
+                      {block}
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={`${index}-${block.slice(0, 24)}`} className="rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5">
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground">{block}</p>
+                  </div>
+                );
+              })}
+            </div>
           </Card>
         )}
 

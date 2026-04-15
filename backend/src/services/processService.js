@@ -92,6 +92,10 @@ function escapeRegex(value) {
   return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function normalizeTokenForScan(value) {
+  return normalizeSearchText(value).replace(/[^a-z0-9]/g, '');
+}
+
 function normalizeVerseRange(value) {
   return String(value || '')
     .replace(/[–—]/g, '-')
@@ -170,6 +174,57 @@ const BIBLE_BOOKS = [
 ];
 
 const CANONICAL_TO_ALIASES = new Map(BIBLE_BOOKS.map((book) => [book.canonical, book.aliases]));
+const NUMBER_WORDS = new Map([
+  ['um', { value: 1, kind: 'unit' }],
+  ['uma', { value: 1, kind: 'unit' }],
+  ['dois', { value: 2, kind: 'unit' }],
+  ['duas', { value: 2, kind: 'unit' }],
+  ['tres', { value: 3, kind: 'unit' }],
+  ['quatro', { value: 4, kind: 'unit' }],
+  ['cinco', { value: 5, kind: 'unit' }],
+  ['seis', { value: 6, kind: 'unit' }],
+  ['sete', { value: 7, kind: 'unit' }],
+  ['oito', { value: 8, kind: 'unit' }],
+  ['nove', { value: 9, kind: 'unit' }],
+  ['dez', { value: 10, kind: 'teen' }],
+  ['onze', { value: 11, kind: 'teen' }],
+  ['doze', { value: 12, kind: 'teen' }],
+  ['treze', { value: 13, kind: 'teen' }],
+  ['catorze', { value: 14, kind: 'teen' }],
+  ['quatorze', { value: 14, kind: 'teen' }],
+  ['quinze', { value: 15, kind: 'teen' }],
+  ['dezesseis', { value: 16, kind: 'teen' }],
+  ['dezessete', { value: 17, kind: 'teen' }],
+  ['dezoito', { value: 18, kind: 'teen' }],
+  ['dezenove', { value: 19, kind: 'teen' }],
+  ['vinte', { value: 20, kind: 'tens' }],
+  ['trinta', { value: 30, kind: 'tens' }],
+  ['quarenta', { value: 40, kind: 'tens' }],
+  ['cinquenta', { value: 50, kind: 'tens' }],
+  ['sessenta', { value: 60, kind: 'tens' }],
+  ['setenta', { value: 70, kind: 'tens' }],
+  ['oitenta', { value: 80, kind: 'tens' }],
+  ['noventa', { value: 90, kind: 'tens' }],
+  ['cem', { value: 100, kind: 'hundred' }],
+  ['cento', { value: 100, kind: 'hundred' }],
+]);
+const CHAPTER_LABELS = new Set(['cap', 'capitulo', 'capitulos']);
+const VERSE_LABELS = new Set(['versiculo', 'versiculos', 'verso', 'versos']);
+const OPTIONAL_REFERENCE_FILLERS = new Set(['de', 'do', 'da', 'no', 'na', 'nos', 'nas', 'numero', 'num', 'n']);
+const INTERNAL_NUMBER_CONNECTORS = new Set(['e']);
+const RANGE_CONNECTORS = new Set(['a', 'ao', 'ate']);
+const LIST_CONNECTORS = new Set(['e']);
+const BOOK_ALIAS_ENTRIES = BIBLE_BOOKS
+  .flatMap((book) => book.aliases.map((alias) => ({
+    book: book.canonical,
+    alias,
+    tokens: alias
+      .split(/\s+/)
+      .map((token) => normalizeTokenForScan(token))
+      .filter(Boolean),
+  })))
+  .filter((entry) => entry.tokens.length > 0)
+  .sort((a, b) => b.tokens.length - a.tokens.length || b.alias.length - a.alias.length);
 
 function buildBookAliasPattern(aliases) {
   return aliases
@@ -219,6 +274,169 @@ function extractContextSnippet(source, index, matchLength) {
   return source.slice(start, end).trim();
 }
 
+function tokenizeReferenceSource(source) {
+  const tokens = [];
+  const pattern = /[A-Za-zÀ-ÿ0-9]+|[:.,;\-–—]/g;
+  let match;
+
+  while ((match = pattern.exec(source)) !== null) {
+    tokens.push({
+      raw: match[0],
+      normalized: normalizeTokenForScan(match[0]),
+      start: match.index,
+      end: match.index + match[0].length,
+      isNumeric: /^\d+$/.test(match[0]),
+    });
+  }
+
+  return tokens;
+}
+
+function consumeReferenceNumber(tokens, startIndex) {
+  const firstToken = tokens[startIndex];
+  if (!firstToken) return null;
+
+  if (firstToken.isNumeric) {
+    return {
+      value: Number(firstToken.raw),
+      endIndex: startIndex + 1,
+      usedDigits: true,
+    };
+  }
+
+  let value = 0;
+  let index = startIndex;
+  let consumed = false;
+  let lastKind = null;
+  let expectingContinuation = false;
+
+  while (index < tokens.length) {
+    const current = tokens[index];
+    const info = NUMBER_WORDS.get(current.normalized);
+
+    if (info) {
+      value = info.kind === 'hundred' ? (value === 0 ? info.value : value + info.value) : value + info.value;
+      consumed = true;
+      lastKind = info.kind;
+      expectingContinuation = false;
+      index += 1;
+      continue;
+    }
+
+    if (
+      INTERNAL_NUMBER_CONNECTORS.has(current.normalized) &&
+      consumed &&
+      !expectingContinuation &&
+      (lastKind === 'tens' || lastKind === 'hundred')
+    ) {
+      const next = tokens[index + 1];
+      if (next && NUMBER_WORDS.has(next.normalized)) {
+        expectingContinuation = true;
+        index += 1;
+        continue;
+      }
+    }
+
+    break;
+  }
+
+  if (!consumed || expectingContinuation || value < 1) return null;
+
+  return {
+    value,
+    endIndex: index,
+    usedDigits: false,
+  };
+}
+
+function matchesAliasAt(tokens, startIndex, aliasTokens) {
+  for (let offset = 0; offset < aliasTokens.length; offset += 1) {
+    if (tokens[startIndex + offset]?.normalized !== aliasTokens[offset]) return false;
+  }
+  return true;
+}
+
+function extractTokenizedVerseMentionsFromTranscript(transcript) {
+  const source = normalizeWhitespace(transcript);
+  if (!source) return [];
+
+  const tokens = tokenizeReferenceSource(source);
+  const mentions = [];
+  const seen = new Set();
+
+  for (let index = 0; index < tokens.length; index += 1) {
+    for (const aliasEntry of BOOK_ALIAS_ENTRIES) {
+      if (!matchesAliasAt(tokens, index, aliasEntry.tokens)) continue;
+
+      let cursor = index + aliasEntry.tokens.length;
+      while (OPTIONAL_REFERENCE_FILLERS.has(tokens[cursor]?.normalized)) cursor += 1;
+
+      if (CHAPTER_LABELS.has(tokens[cursor]?.normalized)) {
+        cursor += 1;
+        while (OPTIONAL_REFERENCE_FILLERS.has(tokens[cursor]?.normalized)) cursor += 1;
+      }
+
+      const chapter = consumeReferenceNumber(tokens, cursor);
+      if (!chapter || chapter.value > 150) continue;
+      cursor = chapter.endIndex;
+
+      let explicitSeparator = false;
+      while (tokens[cursor]) {
+        const current = tokens[cursor];
+        if ([':', '.', ','].includes(current.raw) || VERSE_LABELS.has(current.normalized)) {
+          explicitSeparator = true;
+          cursor += 1;
+          continue;
+        }
+        if (OPTIONAL_REFERENCE_FILLERS.has(current.normalized)) {
+          cursor += 1;
+          continue;
+        }
+        break;
+      }
+
+      const nextLooksLikeVerse = tokens[cursor]?.isNumeric || NUMBER_WORDS.has(tokens[cursor]?.normalized || '');
+      if (!explicitSeparator && !nextLooksLikeVerse) continue;
+
+      const firstVerse = consumeReferenceNumber(tokens, cursor);
+      if (!firstVerse || firstVerse.value > 200) continue;
+      cursor = firstVerse.endIndex;
+
+      const verseParts = [String(firstVerse.value)];
+      while (tokens[cursor]) {
+        const connectorToken = tokens[cursor];
+        const isDash = ['-', '–', '—'].includes(connectorToken.raw);
+        const isRange = isDash || RANGE_CONNECTORS.has(connectorToken.normalized);
+        const isList = connectorToken.raw === ',' || LIST_CONNECTORS.has(connectorToken.normalized);
+        if (!isRange && !isList) break;
+
+        const nextVerse = consumeReferenceNumber(tokens, cursor + 1);
+        if (!nextVerse || nextVerse.value > 200) break;
+
+        verseParts.push(`${isRange ? '-' : ','}${nextVerse.value}`);
+        cursor = nextVerse.endIndex;
+      }
+
+      const reference = buildCanonicalReference(aliasEntry.book, chapter.value, verseParts.join(''));
+      const key = normalizeReferenceKey(reference);
+      if (seen.has(key)) break;
+
+      const endToken = tokens[cursor - 1] || tokens[chapter.endIndex - 1];
+      mentions.push({
+        key,
+        reference,
+        excerpt: extractContextSnippet(source, tokens[index].start, endToken.end - tokens[index].start),
+        index: tokens[index].start,
+      });
+      seen.add(key);
+      index = Math.max(index, cursor - 1);
+      break;
+    }
+  }
+
+  return mentions;
+}
+
 function extractExplicitVerseMentionsFromTranscript(transcript) {
   const source = normalizeWhitespace(transcript);
   if (!source) return [];
@@ -245,6 +463,12 @@ function extractExplicitVerseMentionsFromTranscript(transcript) {
         index: match.index,
       });
     }
+  }
+
+  for (const mention of extractTokenizedVerseMentionsFromTranscript(source)) {
+    if (seen.has(mention.key)) continue;
+    seen.add(mention.key);
+    mentions.push(mention);
   }
 
   return mentions.sort((a, b) => a.index - b.index);
@@ -501,6 +725,65 @@ function buildVerseEvidenceForPrompt(mentions) {
 function isLikelyTruncated(result) {
   const reason = String(result?.finishReason || result?.stopReason || '').toLowerCase();
   return reason === 'length' || reason === 'max_tokens' || detectTruncation(result?.text || '');
+}
+
+function sanitizeCaptionText(text) {
+  return String(text || '')
+    .replace(/\u200b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function buildReadableTranscriptFromEvents(events, startMs, endMs) {
+  const preparedEvents = (events || [])
+    .filter((event) => event.segs && event.segs.length > 0)
+    .filter((event) => {
+      if (!startMs && !endMs) return true;
+      const time = event.tStartMs || 0;
+      if (startMs && time < startMs) return false;
+      if (endMs && time > endMs) return false;
+      return true;
+    })
+    .map((event) => ({
+      start: event.tStartMs || 0,
+      end: (event.tStartMs || 0) + (event.dDurationMs || 0),
+      text: sanitizeCaptionText(event.segs.map((segment) => segment.utf8).join('')),
+    }))
+    .filter((event) => event.text);
+
+  if (preparedEvents.length === 0) return '';
+
+  const blocks = [];
+  let currentBlock = '';
+  let lastEnd = null;
+
+  for (const event of preparedEvents) {
+    const gap = lastEnd == null ? 0 : Math.max(0, event.start - lastEnd);
+
+    if (gap >= 7000) {
+      if (currentBlock) {
+        blocks.push(currentBlock.trim());
+        currentBlock = '';
+      }
+      blocks.push(`[pausa de ${Math.round(gap / 1000)}s]`);
+    }
+
+    const shouldBreakBlock = !currentBlock || gap >= 2500 || /[.!?…:]$/.test(currentBlock) || currentBlock.length + event.text.length > 220;
+    if (!currentBlock) {
+      currentBlock = event.text;
+    } else if (shouldBreakBlock) {
+      blocks.push(currentBlock.trim());
+      currentBlock = event.text;
+    } else {
+      currentBlock = `${currentBlock} ${event.text}`;
+    }
+
+    lastEnd = event.end;
+  }
+
+  if (currentBlock) blocks.push(currentBlock.trim());
+
+  return blocks.join('\n\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 /**
  * Process a service: fetch YouTube transcript, send to AI, save results.
@@ -881,20 +1164,9 @@ async function fetchYouTubeTranscript(videoId, startTime, endTime) {
         if (data.events && data.events.length > 0) {
           let startMs = timeToMs(startTime);
           let endMs = timeToMs(endTime);
-          
-          const segments = data.events
-            .filter(e => e.segs && e.segs.length > 0)
-            .filter(e => {
-              if (!startMs && !endMs) return true;
-              const t = e.tStartMs || 0;
-              if (startMs && t < startMs) return false;
-              if (endMs && t > endMs) return false;
-              return true;
-            })
-            .map(e => e.segs.map(s => s.utf8).join(''))
-            .join(' ');
-          
-          if (segments.length > 50) return segments;
+
+          const transcript = buildReadableTranscriptFromEvents(data.events, startMs, endMs);
+          if (transcript.length > 50) return transcript;
         }
       }
     } catch (e) {
@@ -923,18 +1195,9 @@ async function fetchYouTubeTranscript(videoId, startTime, endTime) {
           if (data.events) {
             let startMs = timeToMs(startTime);
             let endMs = timeToMs(endTime);
-            
-            return data.events
-              .filter(e => e.segs && e.segs.length > 0)
-              .filter(e => {
-                if (!startMs && !endMs) return true;
-                const t = e.tStartMs || 0;
-                if (startMs && t < startMs) return false;
-                if (endMs && t > endMs) return false;
-                return true;
-              })
-              .map(e => e.segs.map(s => s.utf8).join(''))
-              .join(' ');
+
+              const transcript = buildReadableTranscriptFromEvents(data.events, startMs, endMs);
+              if (transcript.length > 50) return transcript;
           }
         }
       }
