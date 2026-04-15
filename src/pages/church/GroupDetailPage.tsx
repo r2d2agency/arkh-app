@@ -82,8 +82,14 @@ const GroupDetailPage = () => {
   const [myResponse, setMyResponse] = useState('');
   const [generatingDynamic, setGeneratingDynamic] = useState(false);
   const [respondingDynamic, setRespondingDynamic] = useState(false);
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
 
   const isAdmin = user?.role === 'admin_church' || user?.role === 'leader';
+
+  const dayLabels: Record<string, string> = {
+    monday: 'Segunda', tuesday: 'Terça', wednesday: 'Quarta', thursday: 'Quinta',
+    friday: 'Sexta', saturday: 'Sábado', sunday: 'Domingo',
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -94,7 +100,8 @@ const GroupDetailPage = () => {
       api.get<ChurchMember[]>('/api/church/members').catch(() => []),
       api.get<Group[]>('/api/church/groups').catch(() => []),
       api.get<Dynamic[]>('/api/church/groups/dynamics/available').catch(() => []),
-    ]).then(([m, a, c, cm, groups, dyn]) => {
+      api.get<JoinRequest[]>(`/api/church/groups/${id}/join-requests`).catch(() => []),
+    ]).then(([m, a, c, cm, groups, dyn, jr]) => {
       setMembers(m || []);
       setAnnouncements(a || []);
       setContents(c || []);
@@ -102,6 +109,7 @@ const GroupDetailPage = () => {
       const g = (groups || []).find((g: Group) => g.id === id);
       setGroup(g || null);
       setDynamics(dyn || []);
+      setJoinRequests(jr || []);
     }).finally(() => setLoading(false));
   }, [id]);
 
