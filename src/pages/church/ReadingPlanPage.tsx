@@ -2,116 +2,31 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { BookHeart, Check, Flame, ArrowLeft, RotateCcw } from 'lucide-react';
+import { BookHeart, Check, Flame, ArrowLeft, RotateCcw, BookOpen } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import {
+  bibleBooks, TOTAL_CHAPTERS, planOptions, difficultyOptions,
+  buildDailySchedule, type PlanData, type Difficulty,
+} from '@/components/reading-plan/BibleData';
+import ChapterStudyModal from '@/components/reading-plan/ChapterStudyModal';
 
 const STORAGE_KEY = 'arkhe_reading_plan';
-
-const bibleBooks = [
-  { name: 'Gênesis', chapters: 50, testament: 'old' },
-  { name: 'Êxodo', chapters: 40, testament: 'old' },
-  { name: 'Levítico', chapters: 27, testament: 'old' },
-  { name: 'Números', chapters: 36, testament: 'old' },
-  { name: 'Deuteronômio', chapters: 34, testament: 'old' },
-  { name: 'Josué', chapters: 24, testament: 'old' },
-  { name: 'Juízes', chapters: 21, testament: 'old' },
-  { name: 'Rute', chapters: 4, testament: 'old' },
-  { name: '1 Samuel', chapters: 31, testament: 'old' },
-  { name: '2 Samuel', chapters: 24, testament: 'old' },
-  { name: '1 Reis', chapters: 22, testament: 'old' },
-  { name: '2 Reis', chapters: 25, testament: 'old' },
-  { name: '1 Crônicas', chapters: 29, testament: 'old' },
-  { name: '2 Crônicas', chapters: 36, testament: 'old' },
-  { name: 'Esdras', chapters: 10, testament: 'old' },
-  { name: 'Neemias', chapters: 13, testament: 'old' },
-  { name: 'Ester', chapters: 10, testament: 'old' },
-  { name: 'Jó', chapters: 42, testament: 'old' },
-  { name: 'Salmos', chapters: 150, testament: 'old' },
-  { name: 'Provérbios', chapters: 31, testament: 'old' },
-  { name: 'Eclesiastes', chapters: 12, testament: 'old' },
-  { name: 'Cantares', chapters: 8, testament: 'old' },
-  { name: 'Isaías', chapters: 66, testament: 'old' },
-  { name: 'Jeremias', chapters: 52, testament: 'old' },
-  { name: 'Lamentações', chapters: 5, testament: 'old' },
-  { name: 'Ezequiel', chapters: 48, testament: 'old' },
-  { name: 'Daniel', chapters: 12, testament: 'old' },
-  { name: 'Oséias', chapters: 14, testament: 'old' },
-  { name: 'Joel', chapters: 3, testament: 'old' },
-  { name: 'Amós', chapters: 9, testament: 'old' },
-  { name: 'Obadias', chapters: 1, testament: 'old' },
-  { name: 'Jonas', chapters: 4, testament: 'old' },
-  { name: 'Miquéias', chapters: 7, testament: 'old' },
-  { name: 'Naum', chapters: 3, testament: 'old' },
-  { name: 'Habacuque', chapters: 3, testament: 'old' },
-  { name: 'Sofonias', chapters: 3, testament: 'old' },
-  { name: 'Ageu', chapters: 2, testament: 'old' },
-  { name: 'Zacarias', chapters: 14, testament: 'old' },
-  { name: 'Malaquias', chapters: 4, testament: 'old' },
-  { name: 'Mateus', chapters: 28, testament: 'new' },
-  { name: 'Marcos', chapters: 16, testament: 'new' },
-  { name: 'Lucas', chapters: 24, testament: 'new' },
-  { name: 'João', chapters: 21, testament: 'new' },
-  { name: 'Atos', chapters: 28, testament: 'new' },
-  { name: 'Romanos', chapters: 16, testament: 'new' },
-  { name: '1 Coríntios', chapters: 16, testament: 'new' },
-  { name: '2 Coríntios', chapters: 13, testament: 'new' },
-  { name: 'Gálatas', chapters: 6, testament: 'new' },
-  { name: 'Efésios', chapters: 6, testament: 'new' },
-  { name: 'Filipenses', chapters: 4, testament: 'new' },
-  { name: 'Colossenses', chapters: 4, testament: 'new' },
-  { name: '1 Tessalonicenses', chapters: 5, testament: 'new' },
-  { name: '2 Tessalonicenses', chapters: 3, testament: 'new' },
-  { name: '1 Timóteo', chapters: 6, testament: 'new' },
-  { name: '2 Timóteo', chapters: 4, testament: 'new' },
-  { name: 'Tito', chapters: 3, testament: 'new' },
-  { name: 'Filemom', chapters: 1, testament: 'new' },
-  { name: 'Hebreus', chapters: 13, testament: 'new' },
-  { name: 'Tiago', chapters: 5, testament: 'new' },
-  { name: '1 Pedro', chapters: 5, testament: 'new' },
-  { name: '2 Pedro', chapters: 3, testament: 'new' },
-  { name: '1 João', chapters: 5, testament: 'new' },
-  { name: '2 João', chapters: 1, testament: 'new' },
-  { name: '3 João', chapters: 1, testament: 'new' },
-  { name: 'Judas', chapters: 1, testament: 'new' },
-  { name: 'Apocalipse', chapters: 22, testament: 'new' },
-];
-
-const TOTAL_CHAPTERS = bibleBooks.reduce((s, b) => s + b.chapters, 0); // 1189
-
-const planOptions = [
-  { key: '3m', label: '3 meses', days: 90 },
-  { key: '6m', label: '6 meses', days: 180 },
-  { key: '1y', label: '1 ano', days: 365 },
-];
-
-interface PlanData {
-  planKey: string;
-  startDate: string;
-  completed: Record<string, boolean>; // "bookIndex-chapter" => true
-}
-
-function buildDailySchedule(days: number) {
-  const allChapters: { book: string; bookIdx: number; chapter: number }[] = [];
-  bibleBooks.forEach((b, idx) => {
-    for (let c = 1; c <= b.chapters; c++) {
-      allChapters.push({ book: b.name, bookIdx: idx, chapter: c });
-    }
-  });
-  const perDay = Math.ceil(allChapters.length / days);
-  const schedule: typeof allChapters[] = [];
-  for (let i = 0; i < allChapters.length; i += perDay) {
-    schedule.push(allChapters.slice(i, i + perDay));
-  }
-  return schedule;
-}
 
 const ReadingPlanPage = () => {
   const [plan, setPlan] = useState<PlanData | null>(null);
   const [filter, setFilter] = useState<'all' | 'old' | 'new'>('all');
+  const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('easy');
+  const [studyModal, setStudyModal] = useState<{ bookIdx: number; chapter: number } | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) setPlan(JSON.parse(saved));
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Migrate old plans without difficulty
+      if (!parsed.difficulty) parsed.difficulty = 'easy';
+      setPlan(parsed);
+      setSelectedDifficulty(parsed.difficulty);
+    }
   }, []);
 
   const savePlan = (p: PlanData) => {
@@ -120,7 +35,12 @@ const ReadingPlanPage = () => {
   };
 
   const startPlan = (key: string) => {
-    savePlan({ planKey: key, startDate: new Date().toISOString().slice(0, 10), completed: {} });
+    savePlan({
+      planKey: key,
+      difficulty: selectedDifficulty,
+      startDate: new Date().toISOString().slice(0, 10),
+      completed: {},
+    });
   };
 
   const resetPlan = () => {
@@ -140,16 +60,10 @@ const ReadingPlanPage = () => {
   const completedCount = plan ? Object.keys(plan.completed).length : 0;
   const progress = plan ? Math.round((completedCount / TOTAL_CHAPTERS) * 100) : 0;
 
-  // Streak calculation
   const getStreak = () => {
     if (!plan || completedCount === 0) return 0;
-    const today = new Date();
     let streak = 0;
     for (let d = 0; d < 365; d++) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - d);
-      // Simple streak: if any chapter was completed, count the day
-      // For simplicity, just count consecutive days from plan start
       if (d === 0 && completedCount > 0) streak++;
       else if (completedCount > d) streak++;
       else break;
@@ -157,6 +71,7 @@ const ReadingPlanPage = () => {
     return Math.min(streak, completedCount);
   };
 
+  // === PLAN SELECTION SCREEN ===
   if (!plan) {
     return (
       <div className="p-4 space-y-5">
@@ -171,36 +86,71 @@ const ReadingPlanPage = () => {
           <BookHeart className="w-12 h-12 text-primary mx-auto" />
           <h2 className="font-heading text-lg font-bold">Leia a Bíblia toda!</h2>
           <p className="text-sm text-muted-foreground">
-            Escolha um plano e acompanhe seu progresso diário de leitura. São {TOTAL_CHAPTERS} capítulos no total.
+            Escolha seu nível e plano. São {TOTAL_CHAPTERS} capítulos com estudo integrado.
           </p>
         </Card>
 
-        <div className="space-y-3">
-          {planOptions.map(opt => {
-            const perDay = Math.ceil(TOTAL_CHAPTERS / opt.days);
-            return (
-              <Card key={opt.key} className="p-4 rounded-2xl space-y-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-heading font-bold text-base">{opt.label}</h3>
-                    <p className="text-xs text-muted-foreground">~{perDay} capítulos por dia</p>
+        {/* Difficulty selection */}
+        <div className="space-y-2">
+          <h3 className="font-heading text-sm font-bold text-muted-foreground">Seu nível de estudo</h3>
+          <div className="space-y-2">
+            {difficultyOptions.map(d => (
+              <button
+                key={d.key}
+                onClick={() => setSelectedDifficulty(d.key)}
+                className={`w-full text-left p-3 rounded-xl border-2 transition-all ${
+                  selectedDifficulty === d.key
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:border-muted-foreground/30'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">{d.icon}</span>
+                  <div className="flex-1">
+                    <p className={`font-heading font-bold text-sm ${d.color}`}>{d.label}</p>
+                    <p className="text-xs text-muted-foreground">{d.desc}</p>
                   </div>
-                  <Button onClick={() => startPlan(opt.key)} className="rounded-xl">
-                    Começar
-                  </Button>
+                  {selectedDifficulty === d.key && (
+                    <Check className="w-5 h-5 text-primary" />
+                  )}
                 </div>
-              </Card>
-            );
-          })}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Plan duration */}
+        <div className="space-y-2">
+          <h3 className="font-heading text-sm font-bold text-muted-foreground">Duração do plano</h3>
+          <div className="space-y-2">
+            {planOptions.map(opt => {
+              const perDay = Math.ceil(TOTAL_CHAPTERS / opt.days);
+              return (
+                <Card key={opt.key} className="p-4 rounded-2xl">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-heading font-bold text-base">{opt.label}</h3>
+                      <p className="text-xs text-muted-foreground">~{perDay} capítulos por dia</p>
+                    </div>
+                    <Button onClick={() => startPlan(opt.key)} className="rounded-xl">
+                      Começar
+                    </Button>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
         </div>
       </div>
     );
   }
 
+  // === ACTIVE PLAN SCREEN ===
   const currentPlan = planOptions.find(p => p.key === plan.planKey);
   const schedule = buildDailySchedule(currentPlan?.days || 365);
   const daysSinceStart = Math.floor((Date.now() - new Date(plan.startDate).getTime()) / 86400000);
   const currentDay = Math.min(daysSinceStart, schedule.length - 1);
+  const diff = difficultyOptions.find(d => d.key === plan.difficulty);
 
   const filteredBooks = bibleBooks
     .map((b, idx) => ({ ...b, idx }))
@@ -218,10 +168,13 @@ const ReadingPlanPage = () => {
         </Button>
       </div>
 
+      {/* Stats card */}
       <Card className="p-4 rounded-2xl space-y-3 border-primary/20">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs text-muted-foreground">{currentPlan?.label} • Dia {daysSinceStart + 1}</p>
+            <p className="text-xs text-muted-foreground">
+              {currentPlan?.label} • Dia {daysSinceStart + 1} • {diff?.icon} {diff?.label}
+            </p>
             <p className="font-heading font-bold text-2xl text-primary">{progress}%</p>
           </div>
           <div className="flex items-center gap-1.5 bg-orange-500/10 px-3 py-1.5 rounded-xl">
@@ -235,9 +188,9 @@ const ReadingPlanPage = () => {
 
       {/* Today's reading */}
       {schedule[currentDay] && (
-        <Card className="p-4 rounded-2xl space-y-2 border-gold/20 bg-gold/5">
+        <Card className="p-4 rounded-2xl space-y-2 border-primary/10 bg-primary/5">
           <h3 className="font-heading text-sm font-bold flex items-center gap-2">
-            <BookHeart className="w-4 h-4 text-gold" />
+            <BookHeart className="w-4 h-4 text-primary" />
             Leitura de hoje
           </h3>
           <div className="flex flex-wrap gap-1.5">
@@ -245,18 +198,26 @@ const ReadingPlanPage = () => {
               const key = `${ch.bookIdx}-${ch.chapter}`;
               const done = plan.completed[key];
               return (
-                <button
-                  key={key}
-                  onClick={() => toggleChapter(ch.bookIdx, ch.chapter)}
-                  className={`text-xs px-2.5 py-1.5 rounded-lg transition-all ${
-                    done
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted hover:bg-muted/80 text-foreground'
-                  }`}
-                >
-                  {done && <Check className="w-3 h-3 inline mr-0.5" />}
-                  {ch.book} {ch.chapter}
-                </button>
+                <div key={key} className="flex items-center gap-0.5">
+                  <button
+                    onClick={() => toggleChapter(ch.bookIdx, ch.chapter)}
+                    className={`text-xs px-2.5 py-1.5 rounded-l-lg transition-all ${
+                      done
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted hover:bg-muted/80 text-foreground'
+                    }`}
+                  >
+                    {done && <Check className="w-3 h-3 inline mr-0.5" />}
+                    {ch.book} {ch.chapter}
+                  </button>
+                  <button
+                    onClick={() => setStudyModal({ bookIdx: ch.bookIdx, chapter: ch.chapter })}
+                    className="text-xs px-1.5 py-1.5 rounded-r-lg bg-muted hover:bg-primary/20 text-primary transition-all"
+                    title="Ver estudo"
+                  >
+                    <BookOpen className="w-3 h-3" />
+                  </button>
+                </div>
               );
             })}
           </div>
@@ -300,23 +261,31 @@ const ReadingPlanPage = () => {
                   {bookProgress === 100 && <Check className="w-4 h-4 text-primary" />}
                 </div>
               </summary>
-              <div className="flex flex-wrap gap-1.5 p-3 pt-2">
+              <div className="flex flex-wrap gap-1 p-3 pt-2">
                 {Array.from({ length: book.chapters }, (_, i) => {
                   const ch = i + 1;
                   const key = `${book.idx}-${ch}`;
                   const done = plan.completed[key];
                   return (
-                    <button
-                      key={ch}
-                      onClick={() => toggleChapter(book.idx, ch)}
-                      className={`w-9 h-9 rounded-lg text-xs font-medium transition-all ${
-                        done
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted hover:bg-muted/70 text-foreground'
-                      }`}
-                    >
-                      {ch}
-                    </button>
+                    <div key={ch} className="flex flex-col items-center">
+                      <button
+                        onClick={() => toggleChapter(book.idx, ch)}
+                        className={`w-9 h-9 rounded-t-lg text-xs font-medium transition-all ${
+                          done
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted hover:bg-muted/70 text-foreground'
+                        }`}
+                      >
+                        {ch}
+                      </button>
+                      <button
+                        onClick={() => setStudyModal({ bookIdx: book.idx, chapter: ch })}
+                        className="w-9 h-5 rounded-b-lg bg-muted/50 hover:bg-primary/20 text-primary transition-all flex items-center justify-center"
+                        title="Estudo"
+                      >
+                        <BookOpen className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
                   );
                 })}
               </div>
@@ -324,6 +293,17 @@ const ReadingPlanPage = () => {
           );
         })}
       </div>
+
+      {/* Study Modal */}
+      {studyModal && (
+        <ChapterStudyModal
+          open={!!studyModal}
+          onClose={() => setStudyModal(null)}
+          bookIdx={studyModal.bookIdx}
+          chapter={studyModal.chapter}
+          difficulty={plan.difficulty}
+        />
+      )}
     </div>
   );
 };
