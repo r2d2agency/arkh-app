@@ -52,6 +52,7 @@ import AnnouncementsPage from "@/pages/church/AnnouncementsPage";
 import WorshipPage from "@/pages/church/WorshipPage";
 import SocialPostPage from "@/pages/church/SocialPostPage";
 import WordSearchPage from "@/pages/church/WordSearchPage";
+import ExploreGroupsPage from "@/pages/church/ExploreGroupsPage";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -124,6 +125,7 @@ const AppRoutes = () => (
         <Route path="/church/worship" element={<WorshipPage />} />
         <Route path="/church/social-post" element={<SocialPostPage />} />
         <Route path="/church/word-search" element={<WordSearchPage />} />
+        <Route path="/church/explore-groups" element={<ExploreGroupsPage />} />
       </Route>
 
       {/* Admin-only management pages (with sidebar layout) */}
