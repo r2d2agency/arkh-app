@@ -39,6 +39,10 @@ interface ChurchInfo {
   pix_key_type: string | null;
   pix_beneficiary: string | null;
   pix_enabled: boolean;
+  settings?: {
+    groups_shortcut?: { label?: string; icon?: string; color?: string; };
+    [key: string]: any;
+  };
 }
 
 interface Announcement {
