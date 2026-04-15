@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import {
   ArrowLeft, BookOpen, BookMarked, Target, Lightbulb,
-  HelpCircle, CheckCircle, Loader2, Save, Video,
+  HelpCircle, CheckCircle, Loader2, Save, Video, FileText, ExternalLink,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
@@ -25,8 +25,37 @@ interface StudyDetail {
   conclusion: string;
   category: string;
   author_name: string;
+  pdf_url: string;
+  video_url: string;
+  thumbnail_url: string;
   linked_services: { id: string; title: string; preacher: string; service_date: string }[];
   user_progress: { completed: boolean } | null;
+}
+
+/** Convert URLs in text to clickable links */
+function linkify(text: string) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+  return parts.map((part, i) =>
+    urlRegex.test(part) ? (
+      <a key={i} href={part} target="_blank" rel="noopener noreferrer"
+        className="text-primary underline hover:text-primary/80 break-all">
+        {part}
+      </a>
+    ) : part
+  );
+}
+
+/** Convert YouTube/Vimeo URLs to embed */
+function getEmbedUrl(url: string): string | null {
+  if (!url) return null;
+  // YouTube
+  const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]+)/);
+  if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}`;
+  // Vimeo
+  const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+  if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+  return null;
 }
 
 const StudyDetailPage = () => {
@@ -91,12 +120,20 @@ const StudyDetailPage = () => {
 
   const topics = typeof study.topics === 'string' ? JSON.parse(study.topics) : (study.topics || []);
   const questions = typeof study.questions === 'string' ? JSON.parse(study.questions) : (study.questions || []);
+  const embedUrl = study.video_url ? getEmbedUrl(study.video_url) : null;
 
   return (
     <div className="space-y-4 animate-fade-in p-4">
       <Link to="/church/studies" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
         <ArrowLeft className="w-4 h-4" /> Voltar aos estudos
       </Link>
+
+      {/* Thumbnail */}
+      {study.thumbnail_url && (
+        <div className="aspect-video w-full rounded-2xl overflow-hidden bg-muted">
+          <img src={study.thumbnail_url} alt={study.title} className="w-full h-full object-cover" />
+        </div>
+      )}
 
       {/* Header */}
       <div className="space-y-2">
@@ -111,6 +148,36 @@ const StudyDetailPage = () => {
         {study.category && <Badge variant="secondary" className="rounded-full">{study.category}</Badge>}
         {study.author_name && <p className="text-xs text-muted-foreground">Por {study.author_name}</p>}
       </div>
+
+      {/* Video embed */}
+      {embedUrl && (
+        <div className="aspect-video w-full rounded-2xl overflow-hidden bg-black">
+          <iframe src={embedUrl} className="w-full h-full" allowFullScreen
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" />
+        </div>
+      )}
+
+      {/* Video link (if not embeddable) */}
+      {study.video_url && !embedUrl && (
+        <a href={study.video_url} target="_blank" rel="noopener noreferrer">
+          <Card className="p-4 rounded-2xl flex items-center gap-3 hover:bg-muted/50 transition-colors">
+            <Video className="w-5 h-5 text-primary" />
+            <span className="text-sm font-medium flex-1">Assistir vídeo</span>
+            <ExternalLink className="w-4 h-4 text-muted-foreground" />
+          </Card>
+        </a>
+      )}
+
+      {/* PDF link */}
+      {study.pdf_url && (
+        <a href={study.pdf_url} target="_blank" rel="noopener noreferrer">
+          <Card className="p-4 rounded-2xl flex items-center gap-3 hover:bg-muted/50 transition-colors">
+            <FileText className="w-5 h-5 text-red-500" />
+            <span className="text-sm font-medium flex-1">Baixar PDF do estudo</span>
+            <ExternalLink className="w-4 h-4 text-muted-foreground" />
+          </Card>
+        </a>
+      )}
 
       {/* Objective */}
       {study.objective && (
@@ -151,7 +218,15 @@ const StudyDetailPage = () => {
       {study.introduction && (
         <Card className="p-4 rounded-2xl space-y-2">
           <h3 className="font-heading text-sm font-semibold">Introdução</h3>
-          <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{study.introduction}</p>
+          <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{linkify(study.introduction)}</p>
+        </Card>
+      )}
+
+      {/* Description with clickable links */}
+      {study.description && (
+        <Card className="p-4 rounded-2xl space-y-2">
+          <h3 className="font-heading text-sm font-semibold">Descrição</h3>
+          <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{linkify(study.description)}</p>
         </Card>
       )}
 
@@ -163,7 +238,7 @@ const StudyDetailPage = () => {
             {topics.map((topic: string, i: number) => (
               <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-muted/50">
                 <span className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0">{i + 1}</span>
-                <p className="text-sm">{topic}</p>
+                <p className="text-sm">{linkify(topic)}</p>
               </div>
             ))}
           </div>
@@ -177,7 +252,7 @@ const StudyDetailPage = () => {
             <Lightbulb className="w-4 h-4 text-gold" />
             <h3 className="font-heading text-sm font-semibold">Aplicação prática</h3>
           </div>
-          <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{study.application}</p>
+          <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{linkify(study.application)}</p>
         </Card>
       )}
 
@@ -203,7 +278,7 @@ const StudyDetailPage = () => {
       {study.conclusion && (
         <Card className="p-4 rounded-2xl space-y-2">
           <h3 className="font-heading text-sm font-semibold">Conclusão</h3>
-          <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{study.conclusion}</p>
+          <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{linkify(study.conclusion)}</p>
         </Card>
       )}
 
@@ -236,8 +311,7 @@ const StudyDetailPage = () => {
         </h3>
         <Textarea
           placeholder="Escreva suas reflexões sobre este estudo..."
-          value={note}
-          onChange={e => setNote(e.target.value)}
+          value={note} onChange={e => setNote(e.target.value)}
           className="rounded-xl min-h-[80px] bg-muted/30 border-0 resize-none"
         />
         <Button size="sm" className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground" onClick={handleSaveNote} disabled={!note.trim() || savingNote}>

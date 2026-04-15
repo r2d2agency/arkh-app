@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { BookOpen, Plus, Trash2, Pencil, Loader2, Search, Eye, EyeOff, CheckCircle } from 'lucide-react';
+import { BookOpen, Plus, Trash2, Pencil, Loader2, Search, Eye, EyeOff, CheckCircle, FileText, Video, Image, Link as LinkIcon } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
@@ -29,12 +29,16 @@ interface Study {
   completions: number;
   author_name: string;
   created_at: string;
+  pdf_url: string;
+  video_url: string;
+  thumbnail_url: string;
 }
 
 const defaultForm = {
   title: '', description: '', objective: '', key_verse: '', base_reading: '',
   introduction: '', topics: [] as string[], application: '',
   questions: [] as string[], conclusion: '', category: '', is_published: false,
+  pdf_url: '', video_url: '', thumbnail_url: '',
 };
 
 const ChurchStudiesAdmin = () => {
@@ -68,6 +72,8 @@ const ChurchStudiesAdmin = () => {
         topics, application: study.application || '', questions,
         conclusion: study.conclusion || '', category: study.category || '',
         is_published: study.is_published,
+        pdf_url: study.pdf_url || '', video_url: study.video_url || '',
+        thumbnail_url: study.thumbnail_url || '',
       });
     } else {
       setEditing(null);
@@ -110,25 +116,10 @@ const ChurchStudiesAdmin = () => {
     }
   };
 
-  const addTopic = () => {
-    if (!newTopic.trim()) return;
-    setForm(f => ({ ...f, topics: [...f.topics, newTopic.trim()] }));
-    setNewTopic('');
-  };
-
-  const removeTopic = (i: number) => {
-    setForm(f => ({ ...f, topics: f.topics.filter((_, idx) => idx !== i) }));
-  };
-
-  const addQuestion = () => {
-    if (!newQuestion.trim()) return;
-    setForm(f => ({ ...f, questions: [...f.questions, newQuestion.trim()] }));
-    setNewQuestion('');
-  };
-
-  const removeQuestion = (i: number) => {
-    setForm(f => ({ ...f, questions: f.questions.filter((_, idx) => idx !== i) }));
-  };
+  const addTopic = () => { if (!newTopic.trim()) return; setForm(f => ({ ...f, topics: [...f.topics, newTopic.trim()] })); setNewTopic(''); };
+  const removeTopic = (i: number) => { setForm(f => ({ ...f, topics: f.topics.filter((_, idx) => idx !== i) })); };
+  const addQuestion = () => { if (!newQuestion.trim()) return; setForm(f => ({ ...f, questions: [...f.questions, newQuestion.trim()] })); setNewQuestion(''); };
+  const removeQuestion = (i: number) => { setForm(f => ({ ...f, questions: f.questions.filter((_, idx) => idx !== i) })); };
 
   const filtered = studies.filter(s =>
     s.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -168,31 +159,38 @@ const ChurchStudiesAdmin = () => {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filtered.map(study => (
-            <Card key={study.id} className="p-5 rounded-xl border-border/60 space-y-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-heading font-semibold truncate">{study.title}</h3>
-                  {study.category && <Badge variant="secondary" className="rounded-full text-[10px] mt-1">{study.category}</Badge>}
+            <Card key={study.id} className="rounded-xl border-border/60 overflow-hidden">
+              {study.thumbnail_url && (
+                <div className="aspect-video w-full bg-muted overflow-hidden">
+                  <img src={study.thumbnail_url} alt={study.title} className="w-full h-full object-cover" />
                 </div>
-                <Badge variant={study.is_published ? 'default' : 'outline'} className="text-[10px] shrink-0">
-                  {study.is_published ? <><Eye className="w-3 h-3 mr-0.5" /> Publicado</> : <><EyeOff className="w-3 h-3 mr-0.5" /> Rascunho</>}
-                </Badge>
-              </div>
-              {study.description && <p className="text-xs text-muted-foreground line-clamp-2">{study.description}</p>}
-              {study.key_verse && <p className="text-xs text-gold italic">📖 {study.key_verse}</p>}
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <CheckCircle className="w-3 h-3" />
-                <span>{study.completions || 0} completaram</span>
-                <span>•</span>
-                <span>{study.author_name}</span>
-              </div>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" className="rounded-lg flex-1" onClick={() => handleOpen(study)}>
-                  <Pencil className="w-3 h-3 mr-1" /> Editar
-                </Button>
-                <Button size="sm" variant="ghost" className="rounded-lg text-destructive" onClick={() => handleDelete(study.id)}>
-                  <Trash2 className="w-3 h-3" />
-                </Button>
+              )}
+              <div className="p-5 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-heading font-semibold truncate">{study.title}</h3>
+                    {study.category && <Badge variant="secondary" className="rounded-full text-[10px] mt-1">{study.category}</Badge>}
+                  </div>
+                  <Badge variant={study.is_published ? 'default' : 'outline'} className="text-[10px] shrink-0">
+                    {study.is_published ? <><Eye className="w-3 h-3 mr-0.5" /> Publicado</> : <><EyeOff className="w-3 h-3 mr-0.5" /> Rascunho</>}
+                  </Badge>
+                </div>
+                {study.description && <p className="text-xs text-muted-foreground line-clamp-2">{study.description}</p>}
+                {study.key_verse && <p className="text-xs text-gold italic">📖 {study.key_verse}</p>}
+                <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                  <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3" /> {study.completions || 0} completaram</span>
+                  <span>• {study.author_name}</span>
+                  {study.pdf_url && <Badge variant="outline" className="text-[9px] gap-0.5"><FileText className="w-2.5 h-2.5" /> PDF</Badge>}
+                  {study.video_url && <Badge variant="outline" className="text-[9px] gap-0.5"><Video className="w-2.5 h-2.5" /> Vídeo</Badge>}
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" className="rounded-lg flex-1" onClick={() => handleOpen(study)}>
+                    <Pencil className="w-3 h-3 mr-1" /> Editar
+                  </Button>
+                  <Button size="sm" variant="ghost" className="rounded-lg text-destructive" onClick={() => handleDelete(study.id)}>
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </div>
               </div>
             </Card>
           ))}
@@ -221,9 +219,29 @@ const ChurchStudiesAdmin = () => {
                 <Input value={form.key_verse} onChange={e => setForm(f => ({ ...f, key_verse: e.target.value }))} className="rounded-xl" placeholder="Ex: Filipenses 4:6" />
               </div>
             </div>
+
+            {/* Media section */}
+            <div className="space-y-3 p-3 rounded-xl bg-muted/50 border border-border">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <LinkIcon className="w-3.5 h-3.5" /> Mídia & Links
+              </Label>
+              <div className="space-y-2">
+                <Label className="text-xs flex items-center gap-1"><Image className="w-3 h-3" /> Thumbnail (URL da imagem)</Label>
+                <Input value={form.thumbnail_url} onChange={e => setForm(f => ({ ...f, thumbnail_url: e.target.value }))} className="rounded-xl" placeholder="https://..." />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs flex items-center gap-1"><FileText className="w-3 h-3" /> PDF (URL do arquivo)</Label>
+                <Input value={form.pdf_url} onChange={e => setForm(f => ({ ...f, pdf_url: e.target.value }))} className="rounded-xl" placeholder="https://drive.google.com/..." />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs flex items-center gap-1"><Video className="w-3 h-3" /> Vídeo (YouTube, Vimeo, etc.)</Label>
+                <Input value={form.video_url} onChange={e => setForm(f => ({ ...f, video_url: e.target.value }))} className="rounded-xl" placeholder="https://youtube.com/watch?v=..." />
+              </div>
+            </div>
+
             <div className="space-y-2">
-              <Label>Descrição</Label>
-              <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="rounded-xl" placeholder="Breve descrição do estudo" rows={2} />
+              <Label>Descrição <span className="text-xs text-muted-foreground">(aceita links: cole URLs completas)</span></Label>
+              <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="rounded-xl" placeholder="Breve descrição do estudo. Links serão clicáveis automaticamente." rows={2} />
             </div>
             <div className="space-y-2">
               <Label>Objetivo</Label>
@@ -245,9 +263,7 @@ const ChurchStudiesAdmin = () => {
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {form.topics.map((t, i) => (
-                  <Badge key={i} variant="secondary" className="rounded-full gap-1 cursor-pointer" onClick={() => removeTopic(i)}>
-                    {t} ✕
-                  </Badge>
+                  <Badge key={i} variant="secondary" className="rounded-full gap-1 cursor-pointer" onClick={() => removeTopic(i)}>{t} ✕</Badge>
                 ))}
               </div>
             </div>
