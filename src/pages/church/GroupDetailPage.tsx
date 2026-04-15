@@ -9,13 +9,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Users, Megaphone, BookOpen, Video, Plus, Trash2, UserPlus, Shield, Loader2, Send, Sparkles, Zap, Clock, UsersRound, MessageCircle, Star } from 'lucide-react';
+import { ArrowLeft, Users, Megaphone, BookOpen, Video, Plus, Trash2, UserPlus, Shield, Loader2, Send, Sparkles, Zap, Clock, UsersRound, MessageCircle, Star, MapPin, Heart, CheckCircle, XCircle, Calendar } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
 import { toast as sonnerToast } from 'sonner';
 
-interface Group { id: string; name: string; description: string; member_count?: number; }
+interface Group { id: string; name: string; description: string; member_count?: number; address?: string; meeting_day?: string; meeting_time?: string; leader1_name?: string; leader2_name?: string; }
 interface GroupMember { id: string; user_id: string; name: string; email: string; role: string; }
 interface Announcement { id: string; content: string; author_name: string; created_at: string; author_id: string; }
 interface GroupContent { id: string; content_type: string; content_id: string; content_title: string; created_at: string; }
