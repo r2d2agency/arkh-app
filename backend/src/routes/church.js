@@ -326,7 +326,7 @@ router.get('/info', async (req, res) => {
     const churchId = req.user.church_id;
     if (!churchId) return res.status(400).json({ error: 'No church' });
     const { rows } = await pool.query(
-      `SELECT id, name, slug, logo_url, status, address, city, state, region, lat, lng, whatsapp, phone, description, cover_url, cep, pix_key_type, pix_key, pix_beneficiary, pix_enabled
+      `SELECT id, name, slug, logo_url, status, settings, address, city, state, region, lat, lng, whatsapp, phone, description, cover_url, cep, pix_key_type, pix_key, pix_beneficiary, pix_enabled
        FROM churches WHERE id = $1`,
       [churchId]
     );
