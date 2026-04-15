@@ -298,6 +298,37 @@ const ServiceDetailPage = () => {
                 )}
               </Card>
 
+              {topicsData.expanded_summary && (
+                <Card className="p-4 rounded-2xl space-y-3 border-primary/20 bg-primary/5">
+                  <div className="flex items-center gap-2">
+                    <BookMarked className="w-4 h-4 text-primary" />
+                    <h3 className="font-heading text-sm font-semibold">Resumo detalhado da pregação</h3>
+                  </div>
+                  <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                    {topicsData.expanded_summary}
+                  </div>
+                </Card>
+              )}
+
+              {topicsData.key_points && topicsData.key_points.length > 0 && (
+                <Card className="p-4 rounded-2xl space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Lightbulb className="w-4 h-4 text-primary" />
+                    <h3 className="font-heading text-sm font-semibold">Pontos desmembrados</h3>
+                  </div>
+                  <div className="space-y-3">
+                    {topicsData.key_points.map((item, i) => (
+                      <div key={i} className="p-3 rounded-xl bg-muted/30 space-y-1.5">
+                        <p className="text-sm font-semibold">{i + 1}. {item.point}</p>
+                        {item.meaning && <p className="text-xs text-muted-foreground"><strong className="text-foreground">Significado:</strong> {item.meaning}</p>}
+                        {item.concept && <p className="text-xs text-muted-foreground"><strong className="text-foreground">Conceito:</strong> {item.concept}</p>}
+                        {item.teaching && <p className="text-xs text-muted-foreground"><strong className="text-foreground">Ensino:</strong> {item.teaching}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
               {/* Theological Context */}
               {topicsData.theological_context && (
                 <Card className="p-4 rounded-2xl space-y-3 border-gold/20 bg-gold/5">
