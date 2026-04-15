@@ -176,7 +176,112 @@ router.post('/:id/progress', async (req, res) => {
   }
 });
 
-// ========== STUDY TRAILS ==========
+// POST /api/church/studies/generate-ai — AI auto-fill study based on context
+router.post('/generate-ai', async (req, res) => {
+  try {
+    const { context } = req.body;
+    if (!context || !context.trim()) {
+      return res.status(400).json({ error: 'Informe o contexto/tema' });
+    }
+
+    // Get active AI provider
+    const { rows: providerRows } = await pool.query(
+      `SELECT id, provider, model, api_keys_encrypted
+       FROM ai_providers
+       WHERE is_active = true AND COALESCE(array_length(api_keys_encrypted, 1), 0) > 0
+       ORDER BY created_at LIMIT 1`
+    );
+    if (!providerRows.length) {
+      return res.status(400).json({ error: 'Nenhum provedor de IA configurado' });
+    }
+
+    const prov = providerRows[0];
+    const apiKey = prov.api_keys_encrypted[Math.floor(Math.random() * prov.api_keys_encrypted.length)];
+
+    const systemPrompt = `Você é um pastor e teólogo experiente. Gere um estudo bíblico completo e estruturado em português brasileiro baseado no tema/contexto fornecido. Responda APENAS com JSON válido (sem markdown, sem backticks), no formato:
+{
+  "title": "título do estudo",
+  "description": "descrição breve",
+  "objective": "objetivo do estudo",
+  "key_verse": "versículo chave com referência",
+  "base_reading": "passagem bíblica base",
+  "introduction": "texto introdutório (2-3 parágrafos)",
+  "topics": ["tópico 1 com explicação", "tópico 2 com explicação", "tópico 3 com explicação"],
+  "application": "aplicação prática no dia a dia",
+  "questions": ["pergunta reflexiva 1?", "pergunta reflexiva 2?", "pergunta reflexiva 3?"],
+  "conclusion": "conclusão do estudo",
+  "category": "categoria do estudo"
+}`;
+
+    let aiResponse = '';
+
+    if (prov.provider === 'openai' || prov.provider === 'deepseek') {
+      const baseUrl = prov.provider === 'deepseek' ? 'https://api.deepseek.com/v1' : 'https://api.openai.com/v1';
+      const r = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: prov.model,
+          messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: context }],
+          max_tokens: 2000, temperature: 0.7,
+        }),
+      });
+      const data = await r.json();
+      aiResponse = data.choices?.[0]?.message?.content || '';
+    } else if (prov.provider === 'google') {
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${prov.model}:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: context }] }],
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          generationConfig: { maxOutputTokens: 2000, temperature: 0.7 },
+        }),
+      });
+      const data = await r.json();
+      aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    } else if (prov.provider === 'anthropic') {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({
+          model: prov.model, max_tokens: 2000, system: systemPrompt,
+          messages: [{ role: 'user', content: context }],
+        }),
+      });
+      const data = await r.json();
+      aiResponse = data.content?.[0]?.text || '';
+    } else if (prov.provider === 'groq') {
+      const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: prov.model,
+          messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: context }],
+          max_tokens: 2000, temperature: 0.7,
+        }),
+      });
+      const data = await r.json();
+      aiResponse = data.choices?.[0]?.message?.content || '';
+    }
+
+    if (!aiResponse) {
+      return res.status(500).json({ error: 'IA não retornou resposta' });
+    }
+
+    // Clean markdown backticks if present
+    let cleaned = aiResponse.trim();
+    if (cleaned.startsWith('```')) {
+      cleaned = cleaned.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '');
+    }
+
+    const study = JSON.parse(cleaned);
+    res.json(study);
+  } catch (err) {
+    console.error('AI generate study error:', err);
+    res.status(500).json({ error: 'Erro ao gerar estudo com IA' });
+  }
+});
 
 // GET /api/church/trails
 router.get('/trails/list', async (req, res) => {

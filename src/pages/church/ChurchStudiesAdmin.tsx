@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { BookOpen, Plus, Trash2, Pencil, Loader2, Search, Eye, EyeOff, CheckCircle, FileText, Video, Image, Link as LinkIcon } from 'lucide-react';
+import { BookOpen, Plus, Trash2, Pencil, Loader2, Search, Eye, EyeOff, CheckCircle, FileText, Video, Image, Link as LinkIcon, Upload, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
@@ -52,6 +52,13 @@ const ChurchStudiesAdmin = () => {
   const [form, setForm] = useState({ ...defaultForm });
   const [newTopic, setNewTopic] = useState('');
   const [newQuestion, setNewQuestion] = useState('');
+  const [uploadingThumb, setUploadingThumb] = useState(false);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiContext, setAiContext] = useState('');
+  const [showAiDialog, setShowAiDialog] = useState(false);
+  const thumbInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     api.get<Study[]>('/api/church/studies')
@@ -113,6 +120,64 @@ const ChurchStudiesAdmin = () => {
       toast({ title: 'Estudo removido' });
     } catch {
       toast({ title: 'Erro ao remover', variant: 'destructive' });
+    }
+  };
+
+  const handleFileUpload = async (file: File, type: 'thumbnail' | 'pdf') => {
+    const setter = type === 'thumbnail' ? setUploadingThumb : setUploadingPdf;
+    setter(true);
+    try {
+      const formData = new FormData();
+      formData.append('files', file);
+      const token = localStorage.getItem('token');
+      const baseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+      const resp = await fetch(`${baseUrl}/api/church/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await resp.json();
+      if (data.urls && data.urls[0]) {
+        const field = type === 'thumbnail' ? 'thumbnail_url' : 'pdf_url';
+        setForm(f => ({ ...f, [field]: data.urls[0] }));
+        toast({ title: `${type === 'thumbnail' ? 'Imagem' : 'PDF'} enviado com sucesso!` });
+      }
+    } catch {
+      toast({ title: 'Erro no upload', variant: 'destructive' });
+    } finally {
+      setter(false);
+    }
+  };
+
+  const handleAiGenerate = async () => {
+    if (!aiContext.trim()) {
+      toast({ title: 'Informe o tema ou contexto', variant: 'destructive' });
+      return;
+    }
+    setAiGenerating(true);
+    try {
+      const result = await api.post<any>('/api/church/studies/generate-ai', { context: aiContext });
+      setForm(f => ({
+        ...f,
+        title: result.title || f.title,
+        description: result.description || f.description,
+        objective: result.objective || f.objective,
+        key_verse: result.key_verse || f.key_verse,
+        base_reading: result.base_reading || f.base_reading,
+        introduction: result.introduction || f.introduction,
+        topics: result.topics || f.topics,
+        application: result.application || f.application,
+        questions: result.questions || f.questions,
+        conclusion: result.conclusion || f.conclusion,
+        category: result.category || f.category,
+      }));
+      toast({ title: 'Estudo gerado pela IA! Revise e ajuste.' });
+      setShowAiDialog(false);
+      setAiContext('');
+    } catch (err: any) {
+      toast({ title: err.message || 'Erro ao gerar com IA', variant: 'destructive' });
+    } finally {
+      setAiGenerating(false);
     }
   };
 
@@ -197,13 +262,36 @@ const ChurchStudiesAdmin = () => {
         </div>
       )}
 
+      {/* Hidden file inputs */}
+      <input ref={thumbInputRef} type="file" accept="image/*" className="hidden" onChange={e => {
+        const file = e.target.files?.[0];
+        if (file) handleFileUpload(file, 'thumbnail');
+        e.target.value = '';
+      }} />
+      <input ref={pdfInputRef} type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={e => {
+        const file = e.target.files?.[0];
+        if (file) handleFileUpload(file, 'pdf');
+        e.target.value = '';
+      }} />
+
       {/* Create/Edit Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="rounded-xl max-w-2xl max-h-[85vh] overflow-y-auto" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>{editing ? 'Editar Estudo' : 'Novo Estudo Bíblico'}</DialogTitle>
-            <DialogDescription>Preencha os campos para criar um estudo completo.</DialogDescription>
+            <DialogDescription>Preencha os campos ou use IA para gerar automaticamente.</DialogDescription>
           </DialogHeader>
+
+          {/* AI Generate Button */}
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-xl w-full border-dashed border-primary/50 text-primary hover:bg-primary/10 gap-2"
+            onClick={() => setShowAiDialog(true)}
+          >
+            <Sparkles className="w-4 h-4" /> Gerar com IA
+          </Button>
+
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2 col-span-2">
@@ -220,19 +308,47 @@ const ChurchStudiesAdmin = () => {
               </div>
             </div>
 
-            {/* Media section */}
+            {/* Media section with upload buttons */}
             <div className="space-y-3 p-3 rounded-xl bg-muted/50 border border-border">
               <Label className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                <LinkIcon className="w-3.5 h-3.5" /> Mídia & Links
+                <LinkIcon className="w-3.5 h-3.5" /> Mídia & Arquivos
               </Label>
+
+              {/* Thumbnail */}
               <div className="space-y-2">
-                <Label className="text-xs flex items-center gap-1"><Image className="w-3 h-3" /> Thumbnail (URL da imagem)</Label>
-                <Input value={form.thumbnail_url} onChange={e => setForm(f => ({ ...f, thumbnail_url: e.target.value }))} className="rounded-xl" placeholder="https://..." />
+                <Label className="text-xs flex items-center gap-1"><Image className="w-3 h-3" /> Thumbnail</Label>
+                <div className="flex gap-2">
+                  <Input value={form.thumbnail_url} onChange={e => setForm(f => ({ ...f, thumbnail_url: e.target.value }))} className="rounded-xl flex-1" placeholder="URL da imagem ou faça upload" />
+                  <Button type="button" variant="outline" size="sm" className="rounded-xl shrink-0 gap-1" onClick={() => thumbInputRef.current?.click()} disabled={uploadingThumb}>
+                    {uploadingThumb ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                    Enviar
+                  </Button>
+                </div>
+                {form.thumbnail_url && (
+                  <div className="w-20 h-14 rounded-lg overflow-hidden bg-muted">
+                    <img src={form.thumbnail_url} alt="thumb" className="w-full h-full object-cover" />
+                  </div>
+                )}
               </div>
+
+              {/* PDF */}
               <div className="space-y-2">
-                <Label className="text-xs flex items-center gap-1"><FileText className="w-3 h-3" /> PDF (URL do arquivo)</Label>
-                <Input value={form.pdf_url} onChange={e => setForm(f => ({ ...f, pdf_url: e.target.value }))} className="rounded-xl" placeholder="https://drive.google.com/..." />
+                <Label className="text-xs flex items-center gap-1"><FileText className="w-3 h-3" /> PDF / Documento</Label>
+                <div className="flex gap-2">
+                  <Input value={form.pdf_url} onChange={e => setForm(f => ({ ...f, pdf_url: e.target.value }))} className="rounded-xl flex-1" placeholder="URL do PDF ou faça upload" />
+                  <Button type="button" variant="outline" size="sm" className="rounded-xl shrink-0 gap-1" onClick={() => pdfInputRef.current?.click()} disabled={uploadingPdf}>
+                    {uploadingPdf ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                    Enviar
+                  </Button>
+                </div>
+                {form.pdf_url && (
+                  <a href={form.pdf_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline flex items-center gap-1">
+                    <FileText className="w-3 h-3" /> Ver arquivo
+                  </a>
+                )}
               </div>
+
+              {/* Video URL */}
               <div className="space-y-2">
                 <Label className="text-xs flex items-center gap-1"><Video className="w-3 h-3" /> Vídeo (YouTube, Vimeo, etc.)</Label>
                 <Input value={form.video_url} onChange={e => setForm(f => ({ ...f, video_url: e.target.value }))} className="rounded-xl" placeholder="https://youtube.com/watch?v=..." />
@@ -299,6 +415,36 @@ const ChurchStudiesAdmin = () => {
             <Button variant="outline" onClick={() => setOpen(false)} className="rounded-xl">Cancelar</Button>
             <Button onClick={handleSave} disabled={loading} className="rounded-xl bg-primary hover:bg-primary/90 border-0 text-primary-foreground">
               {loading ? 'Salvando...' : editing ? 'Salvar' : 'Criar estudo'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Context Dialog */}
+      <Dialog open={showAiDialog} onOpenChange={setShowAiDialog}>
+        <DialogContent className="rounded-xl max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Sparkles className="w-5 h-5 text-primary" /> Gerar Estudo com IA</DialogTitle>
+            <DialogDescription>
+              Descreva o tema, passagem bíblica ou contexto. A IA vai preencher todos os campos automaticamente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Textarea
+              value={aiContext}
+              onChange={e => setAiContext(e.target.value)}
+              className="rounded-xl"
+              placeholder="Ex: Estudo sobre fé baseado em Hebreus 11, focado em como manter a fé em tempos difíceis..."
+              rows={4}
+            />
+            <p className="text-xs text-muted-foreground">
+              Quanto mais detalhes você der, melhor será o resultado. Você pode editar tudo depois.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAiDialog(false)} className="rounded-xl">Cancelar</Button>
+            <Button onClick={handleAiGenerate} disabled={aiGenerating} className="rounded-xl bg-primary hover:bg-primary/90 border-0 text-primary-foreground gap-2">
+              {aiGenerating ? <><Loader2 className="w-4 h-4 animate-spin" /> Gerando...</> : <><Sparkles className="w-4 h-4" /> Gerar</>}
             </Button>
           </DialogFooter>
         </DialogContent>
