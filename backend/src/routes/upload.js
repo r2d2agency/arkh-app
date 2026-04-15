@@ -16,7 +16,7 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  const allowed = /\.(jpg|jpeg|png|gif|webp|mp4|mov|webm)$/i;
+  const allowed = /\.(jpg|jpeg|png|gif|webp|mp4|mov|webm|pdf|doc|docx)$/i;
   if (allowed.test(path.extname(file.originalname))) {
     cb(null, true);
   } else {
