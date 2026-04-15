@@ -59,6 +59,7 @@ const ChurchSettings = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingInfo, setSavingInfo] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const isAdmin = user?.role === 'admin_church';
 
