@@ -12,7 +12,7 @@ import { Calendar, Plus, Trash2, Pencil, Loader2, MapPin, Clock, ChevronLeft, Ch
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
-import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
+import ConfirmDialog from '@/components/admin/ConfirmDialog';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
