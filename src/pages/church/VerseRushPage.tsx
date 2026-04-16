@@ -59,6 +59,8 @@ interface HistoryRow {
   xp_earned: number;
   points_earned: number;
   max_combo: number;
+  correct_taps: number;
+  wrong_taps: number;
 }
 
 // ============== UTIL ==============
