@@ -414,8 +414,8 @@ const BibleBattlePage = () => {
             >
               <div className="text-center space-y-2">
                 <Users className="w-8 h-8 text-blue-400 mx-auto" />
-                <h3 className="font-bold text-sm">PvP Online</h3>
-                <p className="text-xs text-muted-foreground">Desafie amigos</p>
+                <h3 className="font-bold text-sm">Desafio Online</h3>
+                <p className="text-xs text-muted-foreground">Desafie um oponente</p>
               </div>
             </Card>
           </div>
@@ -479,7 +479,7 @@ const BibleBattlePage = () => {
               className="w-full h-14 rounded-2xl text-lg font-bold bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-lg shadow-blue-500/20"
             >
               <Swords className="w-5 h-5 mr-2" />
-              Criar Sala PvP
+              Criar Sala de Desafio
             </Button>
             <Button
               variant="outline"
@@ -534,7 +534,7 @@ const BibleBattlePage = () => {
                       <span className="text-lg">{h.placement === 1 ? '🏆' : '⚔️'}</span>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-xs">
-                          {h.mode === 'pvp' ? '⚔️ PvP' : '🤖 Solo'} · {difficultyConfig[h.difficulty as Difficulty]?.label || h.difficulty}
+                          {h.mode === 'pvp' ? '⚔️ Desafio Online' : '🤖 Solo'} · {difficultyConfig[h.difficulty as Difficulty]?.label || h.difficulty}
                         </p>
                         <p className="text-[10px] text-muted-foreground">
                           {h.correct_answers}/{h.total_answers} acertos · +{h.xp_earned}XP
@@ -601,7 +601,7 @@ const BibleBattlePage = () => {
             <Swords className="w-16 h-16 text-blue-400 mx-auto" />
             <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-blue-500 animate-ping" />
           </div>
-          <h2 className="font-heading text-2xl font-bold">Sala PvP</h2>
+          <h2 className="font-heading text-2xl font-bold">Sala de Desafio</h2>
           <p className="text-sm text-muted-foreground">
             {difficultyConfig[difficulty]?.emoji} {difficultyConfig[difficulty]?.label}
           </p>
