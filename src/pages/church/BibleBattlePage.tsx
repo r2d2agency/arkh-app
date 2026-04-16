@@ -534,7 +534,7 @@ const BibleBattlePage = () => {
                       <span className="text-lg">{h.placement === 1 ? '🏆' : '⚔️'}</span>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-xs">
-                          {h.mode === 'pvp' ? '⚔️ PvP' : '🤖 Solo'} · {difficultyConfig[h.difficulty as Difficulty]?.label || h.difficulty}
+                          {h.mode === 'pvp' ? '⚔️ Desafio Online' : '🤖 Solo'} · {difficultyConfig[h.difficulty as Difficulty]?.label || h.difficulty}
                         </p>
                         <p className="text-[10px] text-muted-foreground">
                           {h.correct_answers}/{h.total_answers} acertos · +{h.xp_earned}XP
@@ -601,7 +601,7 @@ const BibleBattlePage = () => {
             <Swords className="w-16 h-16 text-blue-400 mx-auto" />
             <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-blue-500 animate-ping" />
           </div>
-          <h2 className="font-heading text-2xl font-bold">Sala PvP</h2>
+          <h2 className="font-heading text-2xl font-bold">Sala de Desafio</h2>
           <p className="text-sm text-muted-foreground">
             {difficultyConfig[difficulty]?.emoji} {difficultyConfig[difficulty]?.label}
           </p>
