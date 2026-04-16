@@ -414,8 +414,8 @@ const BibleBattlePage = () => {
             >
               <div className="text-center space-y-2">
                 <Users className="w-8 h-8 text-blue-400 mx-auto" />
-                <h3 className="font-bold text-sm">PvP Online</h3>
-                <p className="text-xs text-muted-foreground">Desafie amigos</p>
+                <h3 className="font-bold text-sm">Desafio Online</h3>
+                <p className="text-xs text-muted-foreground">Desafie um oponente</p>
               </div>
             </Card>
           </div>
@@ -479,7 +479,7 @@ const BibleBattlePage = () => {
               className="w-full h-14 rounded-2xl text-lg font-bold bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-lg shadow-blue-500/20"
             >
               <Swords className="w-5 h-5 mr-2" />
-              Criar Sala PvP
+              Criar Sala de Desafio
             </Button>
             <Button
               variant="outline"
