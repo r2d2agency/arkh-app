@@ -60,6 +60,7 @@ app.use('/api/church/upload', authenticate, require('./routes/upload'));
 app.use('/api/church/social', authenticate, require('./routes/social'));
 app.use('/api/church/gallery', authenticate, require('./routes/gallery'));
 app.use('/api/church/battles', authenticate, require('./routes/battles'));
+app.use('/api/church/verse-rush', authenticate, require('./routes/verse-rush'));
 app.use('/api/bible-study', authenticate, require('./routes/bible-study'));
 
 app.use((err, req, res, next) => {
