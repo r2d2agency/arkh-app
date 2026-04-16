@@ -483,6 +483,18 @@ const MemberHome = () => {
             <p className="font-heading font-semibold text-[10px]">Batalha</p>
           </Card>
         </Link>
+        <Link to="/church/verse-rush">
+          <Card className="p-3 rounded-2xl card-hover text-center space-y-1.5 h-full border-pink-500/20" style={{
+            background: 'linear-gradient(135deg, rgba(236,72,153,0.08), rgba(139,92,246,0.08))',
+          }}>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center mx-auto" style={{
+              background: 'linear-gradient(135deg, #ec4899, #8b5cf6)',
+            }}>
+              <Zap className="w-4.5 h-4.5 text-white" />
+            </div>
+            <p className="font-heading font-semibold text-[10px]">Rush</p>
+          </Card>
+        </Link>
         {(() => {
           const gs = churchInfo?.settings?.groups_shortcut;
           const iconMap: Record<string, LucideIcon> = {
