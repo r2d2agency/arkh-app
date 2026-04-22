@@ -894,23 +894,34 @@ async function processService(serviceId, options = {}) {
     // ============================================================
     // ETAPA 1 — TRANSCRIÇÃO
     // ============================================================
-    await addLog('transcript', '🎙️ Etapa 1/4: Buscando transcrição do YouTube...');
     let transcript = '';
     let transcriptOk = false;
-    try {
-      transcript = await fetchYouTubeTranscript(service.video_id, service.ai_start_time, service.ai_end_time);
-      if (transcript && transcript.length >= 200) {
-        transcriptOk = true;
-        await addLog('transcript', `✅ Transcrição obtida com sucesso: ${transcript.length.toLocaleString('pt-BR')} caracteres`, 'success');
-      } else {
-        await addLog('transcript', `⚠️ Transcrição muito curta (${transcript?.length || 0} caracteres). O vídeo pode não ter legendas disponíveis.`, 'warn');
+    let transcriptSource = null;
+
+    // Reusa transcrição salva (evita gastar requisição ao YouTube em reprocessamentos)
+    const canReuse = options.reuse_transcription !== false && service.transcription && service.transcription.length >= 200;
+    if (canReuse) {
+      transcript = service.transcription;
+      transcriptOk = true;
+      transcriptSource = service.transcription_source || 'cached';
+      await addLog('transcript', `♻️ Etapa 1/4: Reutilizando transcrição salva (${transcript.length.toLocaleString('pt-BR')} caracteres). Sem nova chamada ao YouTube.`, 'success');
+    } else {
+      await addLog('transcript', '🎙️ Etapa 1/4: Buscando transcrição do YouTube...');
+      try {
+        transcript = await fetchYouTubeTranscript(service.video_id, service.ai_start_time, service.ai_end_time);
+        if (transcript && transcript.length >= 200) {
+          transcriptOk = true;
+          transcriptSource = 'youtube';
+          await addLog('transcript', `✅ Transcrição obtida: ${transcript.length.toLocaleString('pt-BR')} caracteres (íntegra preservada no banco para reprocessamentos)`, 'success');
+        } else {
+          await addLog('transcript', `⚠️ Transcrição muito curta (${transcript?.length || 0} caracteres). O vídeo pode não ter legendas disponíveis.`, 'warn');
+        }
+      } catch (err) {
+        await addLog('transcript', `❌ Falha ao obter transcrição: ${err.message}`, 'error');
       }
-    } catch (err) {
-      await addLog('transcript', `❌ Falha ao obter transcrição: ${err.message}`, 'error');
     }
 
     if (!transcriptOk) {
-      // Sem transcrição não há análise possível — registra erro claro e para
       await addLog('transcript', 'Não é possível analisar este culto sem transcrição. Verifique se o vídeo do YouTube tem legendas (automáticas ou manuais) habilitadas.', 'error');
       await pool.query(
         `UPDATE services SET ai_status = 'error', processing_error = $1, transcription = $2 WHERE id = $3`,
@@ -919,8 +930,14 @@ async function processService(serviceId, options = {}) {
       return;
     }
 
-    // Save transcription immediately so user already vê algo na tela
-    await pool.query('UPDATE services SET transcription = $1 WHERE id = $2', [transcript, serviceId]);
+    // Salva ÍNTEGRA da transcrição (sem cortes) + metadados, antes de qualquer recorte
+    if (!canReuse) {
+      await pool.query(
+        `UPDATE services SET transcription = $1, transcribed_at = NOW(), transcription_source = $2, transcription_length = $3 WHERE id = $4`,
+        [transcript, transcriptSource, transcript.length, serviceId]
+      );
+      await addLog('transcript', '💾 Transcrição completa salva no banco (disponível para reprocessamentos futuros).');
+    }
 
     const explicitVerseMentions = extractExplicitVerseMentionsFromTranscript(transcript);
     if (explicitVerseMentions.length > 0) {

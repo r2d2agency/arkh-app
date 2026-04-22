@@ -107,17 +107,17 @@ router.post('/services/:id/process', async (req, res) => {
     );
     if (!svcRows.length) return res.status(404).json({ error: 'Service not found' });
     
-    const { provider_id } = req.body || {};
-    
+    const { provider_id, reuse_transcription } = req.body || {};
+
     // Set status to processing and clear old logs
     await pool.query(
       `UPDATE services SET ai_status = 'processing', processing_logs = '[]', processing_error = NULL WHERE id = $1`,
       [req.params.id]
     );
-    
+
     // Fire-and-forget: process asynchronously
     const { processService } = require('../services/processService');
-    processService(req.params.id, { provider_id }).catch(err => {
+    processService(req.params.id, { provider_id, reuse_transcription: reuse_transcription !== false }).catch(err => {
       console.error('Background processing error:', err);
     });
     
