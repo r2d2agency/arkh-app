@@ -891,114 +891,141 @@ async function processService(serviceId, options = {}) {
       await addLog('context', `Erro ao buscar pregações anteriores, prosseguindo sem correlação: ${e.message}`, 'warn');
     }
 
-    // 5. Fetch YouTube transcript
-    await addLog('transcript', 'Buscando legenda/transcrição do YouTube...');
+    // ============================================================
+    // ETAPA 1 — TRANSCRIÇÃO
+    // ============================================================
+    await addLog('transcript', '🎙️ Etapa 1/4: Buscando transcrição do YouTube...');
     let transcript = '';
+    let transcriptOk = false;
     try {
       transcript = await fetchYouTubeTranscript(service.video_id, service.ai_start_time, service.ai_end_time);
-      if (!transcript || transcript.length < 50) {
-        await addLog('transcript', 'Legenda não disponível ou muito curta. Tentando com descrição do vídeo...', 'warn');
-        transcript = `Vídeo: ${service.title}. Pregador: ${service.preacher || 'Não informado'}. Não foi possível obter a transcrição automática deste vídeo.`;
+      if (transcript && transcript.length >= 200) {
+        transcriptOk = true;
+        await addLog('transcript', `✅ Transcrição obtida com sucesso: ${transcript.length.toLocaleString('pt-BR')} caracteres`, 'success');
       } else {
-        await addLog('transcript', `Transcrição obtida: ${transcript.length} caracteres`);
+        await addLog('transcript', `⚠️ Transcrição muito curta (${transcript?.length || 0} caracteres). O vídeo pode não ter legendas disponíveis.`, 'warn');
       }
     } catch (err) {
-      await addLog('transcript', `Erro ao buscar transcrição: ${err.message}. Prosseguindo com informações básicas.`, 'warn');
-      transcript = `Vídeo: ${service.title}. Pregador: ${service.preacher || 'Não informado'}. Transcrição indisponível.`;
+      await addLog('transcript', `❌ Falha ao obter transcrição: ${err.message}`, 'error');
     }
 
-    // Save transcription
+    if (!transcriptOk) {
+      // Sem transcrição não há análise possível — registra erro claro e para
+      await addLog('transcript', 'Não é possível analisar este culto sem transcrição. Verifique se o vídeo do YouTube tem legendas (automáticas ou manuais) habilitadas.', 'error');
+      await pool.query(
+        `UPDATE services SET ai_status = 'error', processing_error = $1, transcription = $2 WHERE id = $3`,
+        ['Transcrição indisponível. Ative as legendas no YouTube ou escolha outro vídeo.', transcript || '', serviceId]
+      );
+      return;
+    }
+
+    // Save transcription immediately so user already vê algo na tela
     await pool.query('UPDATE services SET transcription = $1 WHERE id = $2', [transcript, serviceId]);
 
     const explicitVerseMentions = extractExplicitVerseMentionsFromTranscript(transcript);
     if (explicitVerseMentions.length > 0) {
-      await addLog('transcript', `${explicitVerseMentions.length} versículo(s) explícito(s) detectado(s) na transcrição`);
+      await addLog('transcript', `🔎 ${explicitVerseMentions.length} versículo(s) explícito(s) detectado(s) automaticamente`);
     } else {
-      await addLog('transcript', 'Nenhum versículo explícito foi detectado automaticamente na transcrição', 'warn');
+      await addLog('transcript', 'ℹ️ Nenhum versículo explícito detectado automaticamente. A IA tentará identificar.', 'warn');
     }
-
-    // 6. Call AI for deep analysis
-    await addLog('ai', 'Enviando para IA analisar em profundidade...');
 
     const systemPrompt = churchPrompt || getDefaultSystemPrompt();
-
     const transcriptForPrompt = buildTranscriptForPrompt(transcript);
     if (transcriptForPrompt.length < transcript.length) {
-      await addLog('ai', 'Transcrição muito longa; enviado recorte inteligente com início, meio e fim para manter o contexto.', 'warn');
+      await addLog('ai', '✂️ Transcrição muito longa; usando recorte inteligente (início + meio + fim).', 'warn');
     }
-
     const verseEvidenceForPrompt = buildVerseEvidenceForPrompt(explicitVerseMentions);
-
-    const userPrompt = `Analise esta pregação/culto de forma PROFUNDA e COMPLETA.
-
-IMPORTANTE:
-- Baseie summary, expanded_summary, sermon_structure, key_points, deep_explanations e key_verses SOMENTE no culto atual.
-- Use o contexto de pregações anteriores APENAS para preencher "connections" e "continuation_suggestions".
-- Não resuma demais: detalhe a progressão da mensagem, os argumentos do pregador, as aplicações práticas e os versículos realmente citados.
-
-Título: ${service.title}
-Pregador: ${service.preacher || 'Não informado'}
-Data: ${service.service_date ? new Date(service.service_date).toLocaleDateString('pt-BR') : 'Não informada'}
-
-TRANSCRIÇÃO DO CULTO ATUAL:
-${transcriptForPrompt}
-
-${verseEvidenceForPrompt
-  ? `VERSÍCULOS EXPLICITAMENTE DETECTADOS NA TRANSCRIÇÃO (prioridade máxima para key_verses):\n${verseEvidenceForPrompt}`
-  : 'Nenhum versículo explícito foi detectado automaticamente; se a transcrição não citar versículo específico, retorne key_verses vazio ([]).'}
-
-${previousContext
-  ? `CONTEXTO DE PREGAÇÕES ANTERIORES (usar apenas em "connections" e continuidade; NÃO usar para summary, expanded_summary ou key_verses do culto atual):\n${previousContext}`
-  : ''}`;
 
     const temperature = churchTemp ? parseFloat(churchTemp) : (parseFloat(provider.temperature) || 0.7);
     const configuredMaxTokens = Number(churchMaxTokens || provider.max_tokens || 8192);
     const maxTokens = Number.isFinite(configuredMaxTokens) && configuredMaxTokens > 0 ? configuredMaxTokens : 8192;
 
-    let aiResponse;
-    try {
-      aiResponse = await callAIWithMeta(provider, apiKey, systemPrompt, userPrompt, temperature, maxTokens);
-      if (isLikelyTruncated(aiResponse)) {
-        const retryTokens = Math.min(Math.max(Math.ceil(maxTokens * 1.5), maxTokens + 2048), 16384);
-        if (retryTokens > maxTokens) {
-          await addLog('ai', `Resposta da IA aparenta ter sido truncada (${aiResponse.finishReason || aiResponse.stopReason || 'sem motivo informado'}). Tentando novamente com mais espaço...`, 'warn');
-          aiResponse = await callAIWithMeta(provider, apiKey, systemPrompt, userPrompt, temperature, retryTokens);
+    const meta = {
+      title: service.title,
+      preacher: service.preacher || 'Não informado',
+      date: service.service_date ? new Date(service.service_date).toLocaleDateString('pt-BR') : 'Não informada',
+    };
+
+    const runStage = async (stageName, label, sysPrompt, usrPrompt, tokens) => {
+      await addLog('ai', `🧠 ${label}...`);
+      let resp;
+      try {
+        resp = await callAIWithMeta(provider, apiKey, sysPrompt, usrPrompt, temperature, tokens);
+        if (isLikelyTruncated(resp)) {
+          const retryTokens = Math.min(Math.max(Math.ceil(tokens * 1.5), tokens + 2048), 16384);
+          if (retryTokens > tokens) {
+            await addLog('ai', `↻ ${stageName}: resposta truncada, tentando com mais espaço...`, 'warn');
+            resp = await callAIWithMeta(provider, apiKey, sysPrompt, usrPrompt, temperature, retryTokens);
+          }
         }
+      } catch (err) {
+        await addLog('ai', `❌ ${stageName} falhou: ${err.message}`, 'error');
+        throw err;
       }
-      await addLog('ai', 'Resposta da IA recebida, processando...');
+      try {
+        return extractJsonFromResponse(resp.text || '');
+      } catch (err) {
+        await addLog('parse', `⚠️ ${stageName}: JSON inválido, usando fallback. (${err.message})`, 'warn');
+        return null;
+      }
+    };
+
+    let summaryData = null;
+    let versesData = null;
+    let keyPointsData = null;
+
+    try {
+      // ============================================================
+      // ETAPA 2 — RESUMO (executivo + expandido + tema central + estrutura)
+      // ============================================================
+      summaryData = await runStage(
+        'Resumo',
+        'Etapa 2/4: Gerando resumo do culto',
+        getSummarySystemPrompt(systemPrompt),
+        buildSummaryUserPrompt(meta, transcriptForPrompt, previousContext),
+        Math.min(maxTokens, 6000)
+      );
+      await addLog('ai', '✅ Resumo gerado.', 'success');
+
+      // ============================================================
+      // ETAPA 3 — VERSÍCULOS (extração e validação cruzada)
+      // ============================================================
+      versesData = await runStage(
+        'Versículos',
+        'Etapa 3/4: Extraindo versículos citados',
+        getVersesSystemPrompt(systemPrompt),
+        buildVersesUserPrompt(meta, transcriptForPrompt, verseEvidenceForPrompt),
+        Math.min(maxTokens, 5000)
+      );
+      await addLog('ai', '✅ Versículos extraídos.', 'success');
+
+      // ============================================================
+      // ETAPA 4 — PONTOS-CHAVE (key points + aplicações + reflexões)
+      // ============================================================
+      keyPointsData = await runStage(
+        'Pontos-chave',
+        'Etapa 4/4: Identificando pontos-chave e aplicações',
+        getKeyPointsSystemPrompt(systemPrompt),
+        buildKeyPointsUserPrompt(meta, transcriptForPrompt, previousContext),
+        Math.min(maxTokens, 6000)
+      );
+      await addLog('ai', '✅ Pontos-chave identificados.', 'success');
     } catch (err) {
-      await addLog('ai', `Erro na chamada à IA: ${err.message}`, 'error');
       await pool.query(`UPDATE services SET ai_status = 'error', processing_error = $1 WHERE id = $2`, [err.message, serviceId]);
       return;
     }
 
-    const aiResult = aiResponse.text || '';
+    // 7. Merge das 3 respostas em um payload único
+    await addLog('parse', '🔗 Consolidando resultados...');
+    const merged = {
+      ...(summaryData || {}),
+      ...(keyPointsData || {}),
+      key_verses: (versesData && (versesData.key_verses || versesData.verses)) || [],
+      biblical_connections: (versesData && versesData.biblical_connections) || (keyPointsData && keyPointsData.biblical_connections) || [],
+    };
 
-    // 7. Parse AI response
-    await addLog('parse', 'Interpretando resposta da IA...');
-    let parsed;
-    try {
-      if (detectTruncation(aiResult)) {
-        await addLog('parse', 'Resposta potencialmente truncada detectada; tentando extração robusta.', 'warn');
-      }
-      parsed = extractJsonFromResponse(aiResult);
-    } catch (err) {
-      await addLog('parse', `Erro ao interpretar resposta: ${err.message}. Salvando como texto.`, 'warn');
-      parsed = {
-        summary: extractSummaryText(aiResult),
-        expanded_summary: '',
-        topics: [],
-        key_verses: [],
-        practical_applications: [],
-        connections: [],
-        reflection_questions: [],
-        key_points: [],
-        deep_explanations: [],
-      };
-    }
-
-    parsed = normalizeAnalysisPayload(parsed, transcript);
-    await addLog('parse', `${parsed.key_verses.length} versículo(s) validado(s) a partir da transcrição atual`);
+    let parsed = normalizeAnalysisPayload(merged, transcript);
+    await addLog('parse', `📖 ${parsed.key_verses.length} versículo(s) validado(s) na transcrição`);
 
     // 8. Save results
     await addLog('save', 'Salvando resultados...');
