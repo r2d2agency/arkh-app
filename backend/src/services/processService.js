@@ -1083,6 +1083,140 @@ async function processService(serviceId, options = {}) {
   }
 }
 
+// ============================================================
+// PROMPTS ESPECIALIZADOS POR ETAPA (resumo, versículos, pontos-chave)
+// ============================================================
+
+function getSummarySystemPrompt(churchExtra) {
+  return `Você é um teólogo evangélico que escreve resumos claros e profundos de pregações cristãs.
+Sua tarefa é APENAS produzir o resumo do culto (não extrair versículos nem listar pontos-chave — outras etapas farão isso).
+
+${churchExtra ? `Contexto da igreja: ${churchExtra}\n` : ''}
+Responda SEMPRE em JSON válido:
+{
+  "summary": "Resumo executivo de 5 a 8 linhas, mencionando os versículos citados pelo pregador.",
+  "expanded_summary": "Resumo expandido com NO MÍNIMO 8 parágrafos, explicando passo a passo o raciocínio da mensagem, citando versículos quando o pregador os usar.",
+  "central_theme": "Frase clara definindo o tema principal.",
+  "theological_context": "Fundamento bíblico do tema à luz da Bíblia como um todo.",
+  "sermon_structure": [
+    {"part": "Introdução", "description": "O que foi abordado e versículos usados"},
+    {"part": "Desenvolvimento 1", "description": "..."},
+    {"part": "Desenvolvimento 2", "description": "..."},
+    {"part": "Conclusão", "description": "..."}
+  ]
+}
+
+REGRAS:
+- Não invente versículos: mencione apenas os que aparecerem na transcrição.
+- Mantenha neutralidade denominacional.
+- Não retorne campos além dos pedidos.`;
+}
+
+function buildSummaryUserPrompt(meta, transcript, previousContext) {
+  return `Resuma esta pregação em profundidade.
+
+Título: ${meta.title}
+Pregador: ${meta.preacher}
+Data: ${meta.date}
+
+TRANSCRIÇÃO DO CULTO:
+${transcript}
+
+${previousContext ? `CONTEXTO DE PREGAÇÕES ANTERIORES (use apenas para perceber continuidade temática):\n${previousContext}` : ''}`;
+}
+
+function getVersesSystemPrompt(churchExtra) {
+  return `Você é um especialista em referências bíblicas. Sua única tarefa é EXTRAIR e EXPLICAR os versículos citados pelo pregador.
+
+${churchExtra ? `Contexto da igreja: ${churchExtra}\n` : ''}
+⚠️ REGRA ABSOLUTA:
+- "key_verses" = SOMENTE versículos EXPLICITAMENTE CITADOS, LIDOS ou MENCIONADOS pelo pregador na transcrição.
+- NÃO inclua versículos que apenas "combinam" com o tema. Esses vão em "biblical_connections".
+- Se a transcrição não mencionar nenhum versículo específico, key_verses deve ser [].
+
+Responda SEMPRE em JSON válido:
+{
+  "key_verses": [
+    {
+      "reference": "João 3:16",
+      "text": "Texto completo (Almeida Revista e Atualizada).",
+      "biblical_context": "Contexto histórico/literário do versículo na Bíblia.",
+      "meaning": "Significado dentro do contexto da pregação.",
+      "usage_in_sermon": "COMO o pregador usou — transcreva o trecho da fala se possível."
+    }
+  ],
+  "biblical_connections": [
+    {
+      "reference": "Romanos 8:28",
+      "text": "Texto completo do versículo.",
+      "why_connected": "Por que se relaciona com o tema.",
+      "how_reinforces": "Como complementa o ensino (sugestão sua, não citado pelo pregador)."
+    }
+  ]
+}`;
+}
+
+function buildVersesUserPrompt(meta, transcript, verseEvidence) {
+  return `Extraia os versículos da transcrição abaixo.
+
+Título: ${meta.title}
+Pregador: ${meta.preacher}
+
+TRANSCRIÇÃO:
+${transcript}
+
+${verseEvidence
+  ? `🔎 VERSÍCULOS DETECTADOS AUTOMATICAMENTE (prioridade máxima — todos devem aparecer em key_verses):\n${verseEvidence}`
+  : 'Nenhum versículo detectado automaticamente. Procure cuidadosamente. Se não houver citação explícita, retorne key_verses: [].'}`;
+}
+
+function getKeyPointsSystemPrompt(churchExtra) {
+  return `Você é um teólogo educador. Sua tarefa é APENAS identificar os pontos-chave, aplicações práticas e perguntas de reflexão (não resumir nem extrair versículos — outras etapas cuidam disso).
+
+${churchExtra ? `Contexto da igreja: ${churchExtra}\n` : ''}
+Responda SEMPRE em JSON válido:
+{
+  "topics": ["tópico 1", "tópico 2", "tópico 3", "tópico 4", "tópico 5"],
+  "key_points": [
+    {"point": "Ponto principal", "meaning": "Significado", "concept": "Conceito desenvolvido", "teaching": "O que ensina"}
+  ],
+  "deep_explanations": [
+    {"point": "Ponto", "deep_meaning": "Aprofundamento", "spiritual_context": "Contexto espiritual", "biblical_principles": "Princípios bíblicos", "practical_examples": "Exemplos práticos"}
+  ],
+  "practical_applications": [
+    "Aplicação prática 1 — como aplicar no dia a dia",
+    "Aplicação prática 2 — mudança de comportamento",
+    "Aplicação prática 3 — reflexão para a semana"
+  ],
+  "reflection_questions": ["Pergunta 1?", "Pergunta 2?", "Pergunta 3?"],
+  "group_study_questions": ["Pergunta para grupo 1?", "Pergunta 2?", "Pergunta 3?"],
+  "key_phrases": ["Frase marcante 1", "Frase marcante 2"],
+  "derived_themes": ["tema derivado 1", "tema derivado 2"],
+  "continuation_suggestions": ["Sugestão de continuidade 1", "Sugestão 2"],
+  "connections": [
+    {"sermon_title": "Pregação anterior", "connection": "Conexão temática"}
+  ]
+}
+
+REGRAS:
+- Pelo menos 5 key_points, 3 deep_explanations, 3 aplicações, 3 perguntas de reflexão e 3 perguntas de grupo.
+- Use connections SOMENTE com base no contexto de pregações anteriores fornecido.
+- Mantenha neutralidade denominacional.`;
+}
+
+function buildKeyPointsUserPrompt(meta, transcript, previousContext) {
+  return `Identifique pontos-chave, aplicações e perguntas para esta pregação.
+
+Título: ${meta.title}
+Pregador: ${meta.preacher}
+Data: ${meta.date}
+
+TRANSCRIÇÃO:
+${transcript}
+
+${previousContext ? `CONTEXTO DE PREGAÇÕES ANTERIORES (use APENAS em "connections" e "continuation_suggestions"):\n${previousContext}` : ''}`;
+}
+
 function getDefaultSystemPrompt() {
   return `Você é um teólogo e analista bíblico especializado em pregações cristãs. Sua função é transformar o conteúdo de um culto em um material COMPLETO de estudo bíblico — organizado, profundo, claro e aplicável.
 
