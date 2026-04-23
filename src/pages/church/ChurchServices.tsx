@@ -259,7 +259,34 @@ const ChurchServices = () => {
     }
   };
 
-  const openLogs = (id: string) => {
+  const runStage = async (serviceId: string, stage: StageKey, force = false) => {
+    try {
+      // optimistic UI: marca como processing
+      setServices(prev => prev.map(s => s.id === serviceId ? {
+        ...s,
+        processing_stages: { ...(s.processing_stages || {}), [stage]: 'processing' },
+      } : s));
+
+      await api.post(`/api/church/services/${serviceId}/stage/${stage}`, { force });
+
+      const labels: Record<StageKey, string> = {
+        transcribe: 'Transcrição',
+        summary: 'Resumo',
+        verses: 'Versículos',
+        keypoints: 'Pontos-chave',
+      };
+      toast({ title: `${labels[stage]}: iniciado!`, description: 'Acompanhe o progresso pelos logs.' });
+      setSelectedServiceId(serviceId);
+      setLogDialogOpen(true);
+    } catch (err: any) {
+      toast({ title: err.message || `Erro ao iniciar etapa ${stage}`, variant: 'destructive' });
+      // reverte optimistic
+      setServices(prev => prev.map(s => s.id === serviceId ? {
+        ...s,
+        processing_stages: { ...(s.processing_stages || {}), [stage]: 'error' },
+      } : s));
+    }
+  };
     setSelectedServiceId(id);
     setLogData(null);
     setLogDialogOpen(true);
