@@ -2,6 +2,24 @@ const router = require('express').Router();
 const pool = require('../db/pool');
 const bcrypt = require('bcryptjs');
 
+// Extrai o ID de qualquer formato de URL do YouTube (watch, youtu.be, shorts, live, embed)
+function extractYouTubeId(url) {
+  if (!url || typeof url !== 'string') return null;
+  const patterns = [
+    /[?&]v=([a-zA-Z0-9_-]{11})/,           // watch?v=ID
+    /youtu\.be\/([a-zA-Z0-9_-]{11})/,      // youtu.be/ID
+    /\/shorts\/([a-zA-Z0-9_-]{11})/,       // /shorts/ID
+    /\/live\/([a-zA-Z0-9_-]{11})/,         // /live/ID
+    /\/embed\/([a-zA-Z0-9_-]{11})/,        // /embed/ID
+    /\/v\/([a-zA-Z0-9_-]{11})/,            // /v/ID
+  ];
+  for (const re of patterns) {
+    const m = url.match(re);
+    if (m) return m[1];
+  }
+  return null;
+}
+
 // ========== SERVICES ==========
 
 // GET /api/church/services
