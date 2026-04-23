@@ -81,11 +81,24 @@ router.put('/services/:id', async (req, res) => {
   try {
     const churchId = req.user.church_id;
     const { title, youtube_url, preacher, service_date, ai_start_time, ai_end_time } = req.body;
+    const newVideoId = youtube_url ? extractYouTubeId(youtube_url) : null;
+    const newThumb = newVideoId ? `https://img.youtube.com/vi/${newVideoId}/mqdefault.jpg` : null;
     const { rows } = await pool.query(
-      `UPDATE services SET title=COALESCE($1,title), youtube_url=COALESCE($2,youtube_url), preacher=COALESCE($3,preacher), service_date=COALESCE($4,service_date), ai_start_time=COALESCE($5,ai_start_time), ai_end_time=COALESCE($6,ai_end_time) WHERE id=$7 AND church_id=$8 RETURNING *`,
+      `UPDATE services SET
+         title=COALESCE($1,title),
+         youtube_url=COALESCE($2,youtube_url),
+         video_id=COALESCE($3,video_id),
+         thumbnail_url=COALESCE($4,thumbnail_url),
+         preacher=COALESCE($5,preacher),
+         service_date=COALESCE($6,service_date),
+         ai_start_time=COALESCE($7,ai_start_time),
+         ai_end_time=COALESCE($8,ai_end_time)
+       WHERE id=$9 AND church_id=$10 RETURNING *`,
       [
         title || null,
         youtube_url || null,
+        newVideoId,
+        newThumb,
         preacher || null,
         service_date || null,
         ai_start_time || null,
