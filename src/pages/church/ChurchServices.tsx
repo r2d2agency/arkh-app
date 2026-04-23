@@ -81,6 +81,89 @@ function getProcessingProgress(logs: ProcessingLog[]): number {
   return Math.round(((idx + 1) / PROCESSING_STEPS.length) * 100);
 }
 
+// ============================================================
+// Botões por etapa: Transcrever → Resumo → Versículos → Pontos-chave
+// Cada botão só ativa quando o anterior estiver 'completed'.
+// ============================================================
+const STAGE_DEFS: Array<{
+  key: StageKey;
+  label: string;
+  icon: typeof Mic;
+  number: number;
+}> = [
+  { key: 'transcribe', label: 'Transcrever', icon: Mic, number: 1 },
+  { key: 'summary', label: 'Resumo', icon: BookText, number: 2 },
+  { key: 'verses', label: 'Versículos', icon: BookMarked, number: 3 },
+  { key: 'keypoints', label: 'Pontos-chave', icon: Lightbulb, number: 4 },
+];
+
+function StageButtons({
+  service,
+  onRun,
+}: {
+  service: Service;
+  onRun: (stage: StageKey, force?: boolean) => void;
+}) {
+  const stages = service.processing_stages || {};
+  const transcribeDone = stages.transcribe === 'completed' || service.has_transcription;
+
+  return (
+    <div className="rounded-xl border border-border/60 bg-muted/30 p-2.5 space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+          Pipeline de IA
+        </p>
+        {service.transcription_length && service.transcription_length > 0 ? (
+          <span className="text-[10px] text-muted-foreground">
+            {service.transcription_length.toLocaleString('pt-BR')} chars
+          </span>
+        ) : null}
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+        {STAGE_DEFS.map((def) => {
+          const status: StageStatus = (stages[def.key] as StageStatus) || 'pending';
+          const isLocked = def.key !== 'transcribe' && !transcribeDone;
+          const isDone = status === 'completed';
+          const isProc = status === 'processing';
+          const isErr = status === 'error';
+          const Icon = isProc ? Loader2 : isLocked ? Lock : isDone ? CheckCircle : isErr ? AlertCircle : def.icon;
+
+          return (
+            <Button
+              key={def.key}
+              size="sm"
+              variant={isDone || isErr ? 'outline' : 'default'}
+              disabled={isLocked || isProc}
+              onClick={() => onRun(def.key, isDone)}
+              className={`rounded-lg text-[11px] h-8 px-2 justify-start gap-1.5 ${
+                isDone
+                  ? 'border-emerald-500/30 text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20'
+                  : isErr
+                  ? 'border-destructive/40 text-destructive hover:bg-destructive/10'
+                  : isLocked
+                  ? 'opacity-50'
+                  : 'bg-primary text-primary-foreground hover:bg-primary/90'
+              }`}
+              title={
+                isLocked
+                  ? 'Faça a transcrição primeiro'
+                  : isDone
+                  ? `${def.label} concluído — clique para refazer`
+                  : isErr
+                  ? `Erro em ${def.label} — clique para tentar de novo`
+                  : `Executar ${def.label}`
+              }
+            >
+              <Icon className={`w-3 h-3 shrink-0 ${isProc ? 'animate-spin' : ''}`} />
+              <span className="truncate">{def.number}. {def.label}</span>
+            </Button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 const ChurchServices = () => {
   const { user } = useAuth();
   const { toast } = useToast();
