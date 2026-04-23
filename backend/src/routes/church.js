@@ -44,8 +44,7 @@ router.post('/services', async (req, res) => {
     if (!churchId) return res.status(400).json({ error: 'No church associated' });
     const { title, youtube_url, preacher, service_date, ai_start_time, ai_end_time } = req.body;
     if (!title || !youtube_url) return res.status(400).json({ error: 'Title and YouTube URL required' });
-    const match = youtube_url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-    const videoId = match ? match[1] : null;
+    const videoId = extractYouTubeId(youtube_url);
     const thumbnailUrl = videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : null;
     const { rows } = await pool.query(
       `INSERT INTO services (church_id, title, youtube_url, video_id, thumbnail_url, preacher, service_date, ai_start_time, ai_end_time, ai_status)
