@@ -287,6 +287,8 @@ const ChurchServices = () => {
       } : s));
     }
   };
+
+  const openLogs = (id: string) => {
     setSelectedServiceId(id);
     setLogData(null);
     setLogDialogOpen(true);
