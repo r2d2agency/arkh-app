@@ -225,7 +225,10 @@ router.get('/services/:id/status', async (req, res) => {
   try {
     const churchId = req.user.church_id;
     const { rows } = await pool.query(
-      `SELECT ai_status, processing_logs, processing_error, ai_summary, ai_topics, ai_key_verses 
+      `SELECT ai_status, processing_logs, processing_error, ai_summary, ai_topics, ai_key_verses,
+              processing_stages,
+              CASE WHEN transcription IS NOT NULL AND length(transcription) >= 200 THEN true ELSE false END AS has_transcription,
+              transcription_length, transcribed_at, transcription_source
        FROM services WHERE id = $1 AND church_id = $2`,
       [req.params.id, churchId]
     );
