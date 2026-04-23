@@ -2,10 +2,11 @@
  * Transcrição de vídeos do YouTube via OpenAI Whisper.
  *
  * Estratégia:
- *  1. Baixa o áudio do YouTube com @distube/ytdl-core (formato opus/webm).
- *  2. Converte/recorta para mp3 mono 16k via ffmpeg (passa CLI, sem dependência nativa).
- *  3. Divide em chunks de até ~10 minutos para respeitar o limite de 25MB do Whisper.
- *  4. Envia cada chunk para a API /v1/audio/transcriptions (modelo whisper-1) e concatena.
+ *  1. Tenta baixar o áudio do YouTube com yt-dlp (mais resiliente contra bloqueios).
+ *  2. Se necessário, cai para @distube/ytdl-core como fallback.
+ *  3. Converte/recorta para mp3 mono 16k via ffmpeg.
+ *  4. Divide em chunks de até ~10 minutos para respeitar o limite de 25MB do Whisper.
+ *  5. Envia cada chunk para a API /v1/audio/transcriptions (modelo whisper-1) e concatena.
  */
 
 const fs = require('fs');
@@ -196,6 +197,7 @@ async function downloadYouTubeAudio(videoId, workDir, onProgress) {
     return { audioPath, transport: 'yt-dlp' };
   } catch (err) {
     failures.push(`yt-dlp: ${err.message}`);
+    onProgress && onProgress('⚠️ yt-dlp falhou; tentando método alternativo de captura...');
   }
 
   try {
