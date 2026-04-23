@@ -98,35 +98,76 @@ router.delete('/services/:id', async (req, res) => {
 });
 
 // POST /api/church/services/:id/process
+// Mantido por compatibilidade (executa todas as etapas em sequência via processService legado)
 router.post('/services/:id/process', async (req, res) => {
   try {
     const churchId = req.user.church_id;
     const { rows: svcRows } = await pool.query(
-      'SELECT * FROM services WHERE id = $1 AND church_id = $2',
+      'SELECT id FROM services WHERE id = $1 AND church_id = $2',
       [req.params.id, churchId]
     );
     if (!svcRows.length) return res.status(404).json({ error: 'Service not found' });
-    
+
     const { provider_id, reuse_transcription } = req.body || {};
 
-    // Set status to processing and clear old logs
     await pool.query(
       `UPDATE services SET ai_status = 'processing', processing_logs = '[]', processing_error = NULL WHERE id = $1`,
       [req.params.id]
     );
 
-    // Fire-and-forget: process asynchronously
     const { processService } = require('../services/processService');
     processService(req.params.id, { provider_id, reuse_transcription: reuse_transcription !== false }).catch(err => {
       console.error('Background processing error:', err);
     });
-    
+
     res.json({ message: 'AI processing started', status: 'processing' });
   } catch (err) {
     console.error('Process service error:', err);
     res.status(500).json({ error: 'Internal error' });
   }
 });
+
+// ============================================================
+// Endpoints por ETAPA (transcribe / summary / verses / keypoints)
+// Cada um roda em background e atualiza services.processing_stages para a UI
+// poder habilitar o próximo botão.
+// ============================================================
+function makeStageRoute(stageName, runner) {
+  return async (req, res) => {
+    try {
+      const churchId = req.user.church_id;
+      const { rows } = await pool.query(
+        'SELECT id FROM services WHERE id = $1 AND church_id = $2',
+        [req.params.id, churchId]
+      );
+      if (!rows.length) return res.status(404).json({ error: 'Service not found' });
+      const { provider_id, force } = req.body || {};
+
+      await pool.query(
+        `UPDATE services SET
+          processing_stages = COALESCE(processing_stages, '{}'::jsonb) || jsonb_build_object($1::text, 'processing'::text),
+          processing_error = NULL
+         WHERE id = $2`,
+        [stageName, req.params.id]
+      );
+
+      runner(req.params.id, { provider_id, force: !!force }).catch((err) => {
+        console.error(`Stage ${stageName} failed for ${req.params.id}:`, err.message);
+      });
+
+      res.json({ message: `Stage ${stageName} started`, stage: stageName, status: 'processing' });
+    } catch (err) {
+      console.error(`Stage ${stageName} error:`, err);
+      res.status(500).json({ error: 'Internal error' });
+    }
+  };
+}
+
+const stages = require('../services/processService');
+router.post('/services/:id/stage/transcribe', makeStageRoute('transcribe', stages.runTranscribeStage));
+router.post('/services/:id/stage/summary', makeStageRoute('summary', stages.runSummaryStage));
+router.post('/services/:id/stage/verses', makeStageRoute('verses', stages.runVersesStage));
+router.post('/services/:id/stage/keypoints', makeStageRoute('keypoints', stages.runKeyPointsStage));
 
 // GET /api/church/ai-settings — get church AI settings
 router.get('/ai-settings', async (req, res) => {
