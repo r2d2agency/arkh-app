@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Video, Plus, Search, Trash2, ExternalLink, Clock, User, Calendar, Sparkles, Loader2, FileText, CheckCircle, AlertCircle, Info, Pencil, Brain } from 'lucide-react';
+import { Video, Plus, Search, Trash2, ExternalLink, Clock, User, Calendar, Sparkles, Loader2, FileText, CheckCircle, AlertCircle, Info, Pencil, Brain, Mic, BookText, BookMarked, Lightbulb, Lock, RotateCw } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -18,6 +18,9 @@ interface AIProviderOption {
   provider: string;
   model: string;
 }
+
+type StageStatus = 'pending' | 'processing' | 'completed' | 'error';
+type StageKey = 'transcribe' | 'summary' | 'verses' | 'keypoints';
 
 interface Service {
   id: string;
@@ -31,6 +34,9 @@ interface Service {
   ai_summary?: string;
   processing_logs?: ProcessingLog[];
   processing_error?: string;
+  processing_stages?: Partial<Record<StageKey, StageStatus>>;
+  has_transcription?: boolean;
+  transcription_length?: number;
   created_at: string;
 }
 
