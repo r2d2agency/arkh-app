@@ -1640,7 +1640,7 @@ async function runTranscribeStage(serviceId, options = {}) {
         transcription_source = $2,
         transcription_length = $3
        WHERE id = $4`,
-      [result.source || 'whisper', result.text.length, serviceId]
+      [result.text, result.source || 'whisper', result.text.length, serviceId]
     );
     await appendStageLog(serviceId, 'transcribe', `✅ Transcrição concluída (${result.text.length.toLocaleString('pt-BR')} caracteres) e salva no banco.`, 'success');
     await setStageStatus(serviceId, 'transcribe', 'completed');
