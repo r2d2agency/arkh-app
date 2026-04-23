@@ -404,40 +404,14 @@ const ChurchServices = () => {
                       <Progress value={getProcessingProgress(service.processing_logs || [])} className="h-1.5" />
                     </div>
                   )}
+                  {isAdmin && (
+                    <StageButtons
+                      service={service}
+                      onRun={(stage, force) => runStage(service.id, stage, force)}
+                    />
+                  )}
                   <div className="flex gap-2 pt-1 flex-wrap">
-                    {isAdmin && service.ai_status === 'pending' && (
-                      <Button
-                        size="sm"
-                        className="rounded-lg bg-gold hover:bg-gold-dark text-foreground font-medium"
-                        onClick={() => openProcessDialog(service.id)}
-                        disabled={isProcessing}
-                      >
-                        {isProcessing ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
-                        Processar IA
-                      </Button>
-                    )}
-                    {isAdmin && (service.ai_status === 'error' || service.ai_status === 'processing') && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="rounded-lg border-destructive text-destructive"
-                        onClick={() => openProcessDialog(service.id)}
-                        disabled={processingIds.has(service.id)}
-                      >
-                        <Sparkles className="w-3 h-3 mr-1" /> Reprocessar
-                      </Button>
-                    )}
-                    {isAdmin && service.ai_status === 'completed' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="rounded-lg"
-                        onClick={() => openProcessDialog(service.id)}
-                      >
-                        <Brain className="w-3 h-3 mr-1" /> Reprocessar
-                      </Button>
-                    )}
-                    {isAdmin && (service.ai_status === 'processing' || service.ai_status === 'completed' || service.ai_status === 'error') && (
+                    {isAdmin && (service.ai_status === 'processing' || service.ai_status === 'completed' || service.ai_status === 'error' || service.processing_stages) && (
                       <Button size="sm" variant="outline" className="rounded-lg" onClick={() => openLogs(service.id)}>
                         <FileText className="w-3 h-3 mr-1" /> Logs
                       </Button>
