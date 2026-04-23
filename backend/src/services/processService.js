@@ -1495,4 +1495,360 @@ async function callAIWithMeta(provider, apiKey, systemPrompt, userPrompt, temper
   throw new Error(`Provedor "${providerType}" não suportado`);
 }
 
-module.exports = { processService, callAI };
+// ============================================================
+// EXECUÇÃO POR ETAPA (transcribe, summary, verses, keypoints)
+// Cada função pode ser executada de forma independente. O status individual de cada
+// etapa fica em services.processing_stages (JSONB).
+// ============================================================
+
+const { transcribeYouTubeWithWhisper } = require('./whisperService');
+
+const VALID_STAGES = ['transcribe', 'summary', 'verses', 'keypoints'];
+
+async function setStageStatus(serviceId, stage, status) {
+  await pool.query(
+    `UPDATE services SET processing_stages = COALESCE(processing_stages, '{}'::jsonb) || jsonb_build_object($1::text, $2::text)
+     WHERE id = $3`,
+    [stage, status, serviceId]
+  );
+}
+
+async function appendStageLog(serviceId, stage, message, status = 'info') {
+  const entry = { step: stage, message, status, timestamp: new Date().toISOString() };
+  await pool.query(
+    `UPDATE services SET processing_logs = COALESCE(processing_logs, '[]'::jsonb) || $1::jsonb
+     WHERE id = $2`,
+    [JSON.stringify([entry]), serviceId]
+  );
+}
+
+async function loadServiceWithProvider(serviceId, providerId) {
+  const { rows } = await pool.query('SELECT * FROM services WHERE id = $1', [serviceId]);
+  if (!rows.length) throw new Error('Culto não encontrado');
+  const service = rows[0];
+
+  const targetProviderId = providerId || service.provider_id;
+  let providerRows;
+  if (targetProviderId) {
+    const r = await pool.query('SELECT * FROM ai_providers WHERE id = $1 AND is_active = true', [targetProviderId]);
+    providerRows = r.rows;
+  }
+  if (!providerRows || !providerRows.length) {
+    const r = await pool.query('SELECT * FROM ai_providers WHERE is_active = true ORDER BY created_at LIMIT 1');
+    providerRows = r.rows;
+  }
+  if (!providerRows.length) throw new Error('Nenhum provedor de IA configurado');
+
+  const provider = providerRows[0];
+  const apiKey = (provider.api_keys_encrypted || [])[0] || provider.api_key_encrypted;
+  if (!apiKey) throw new Error('API key do provedor não configurada');
+
+  let churchPrompt = null, churchTemp = null, churchMaxTokens = null;
+  if (service.church_id) {
+    const c = await pool.query(
+      'SELECT ai_prompt_template, ai_temperature, ai_max_tokens FROM churches WHERE id = $1',
+      [service.church_id]
+    );
+    if (c.rows.length) {
+      churchPrompt = c.rows[0].ai_prompt_template;
+      churchTemp = c.rows[0].ai_temperature;
+      churchMaxTokens = c.rows[0].ai_max_tokens;
+    }
+  }
+
+  return { service, provider, apiKey, churchPrompt, churchTemp, churchMaxTokens };
+}
+
+async function findOpenAIKey(preferredProvider) {
+  // Whisper só existe na OpenAI; se o provider escolhido for OpenAI usa a chave dele,
+  // senão procura qualquer provider OpenAI ativo.
+  if (preferredProvider?.provider === 'openai') {
+    const k = (preferredProvider.api_keys_encrypted || [])[0] || preferredProvider.api_key_encrypted;
+    if (k) return k;
+  }
+  const { rows } = await pool.query(
+    `SELECT api_keys_encrypted, api_key_encrypted FROM ai_providers
+     WHERE provider = 'openai' AND is_active = true ORDER BY created_at LIMIT 1`
+  );
+  if (rows.length) return (rows[0].api_keys_encrypted || [])[0] || rows[0].api_key_encrypted || null;
+  return null;
+}
+
+/**
+ * ETAPA 1 — Transcreve o áudio do YouTube via Whisper e salva no banco.
+ */
+async function runTranscribeStage(serviceId, options = {}) {
+  await setStageStatus(serviceId, 'transcribe', 'processing');
+  await appendStageLog(serviceId, 'transcribe', '🎙️ Iniciando transcrição via IA (Whisper)...');
+
+  try {
+    const { service, provider } = await loadServiceWithProvider(serviceId, options.provider_id);
+
+    // Reusa transcrição salva se existir e o usuário não pediu re-fazer
+    const force = options.force === true;
+    if (!force && service.transcription && service.transcription.length >= 200) {
+      await appendStageLog(serviceId, 'transcribe', `♻️ Transcrição já existe (${service.transcription.length.toLocaleString('pt-BR')} chars). Pulando.`, 'success');
+      await setStageStatus(serviceId, 'transcribe', 'completed');
+      return { skipped: true, length: service.transcription.length };
+    }
+
+    const openaiKey = await findOpenAIKey(provider);
+    if (!openaiKey) {
+      throw new Error('Nenhum provedor OpenAI configurado. Whisper requer uma API key da OpenAI.');
+    }
+
+    const result = await transcribeYouTubeWithWhisper({
+      videoId: service.video_id,
+      openaiApiKey: openaiKey,
+      startTime: service.ai_start_time,
+      endTime: service.ai_end_time,
+      onProgress: (msg) => { appendStageLog(serviceId, 'transcribe', msg).catch(() => {}); },
+    });
+
+    if (!result.text || result.text.length < 50) {
+      throw new Error('Transcrição vazia. Verifique se o vídeo tem áudio audível.');
+    }
+
+    await pool.query(
+      `UPDATE services SET
+        transcription = $1,
+        transcribed_at = NOW(),
+        transcription_source = $2,
+        transcription_length = $3
+       WHERE id = $4`,
+      [result.text, 'whisper', result.text.length, serviceId]
+    );
+    await appendStageLog(serviceId, 'transcribe', `✅ Transcrição concluída (${result.text.length.toLocaleString('pt-BR')} caracteres) e salva no banco.`, 'success');
+    await setStageStatus(serviceId, 'transcribe', 'completed');
+    return { length: result.text.length };
+  } catch (err) {
+    await appendStageLog(serviceId, 'transcribe', `❌ ${err.message}`, 'error');
+    await setStageStatus(serviceId, 'transcribe', 'error');
+    await pool.query(`UPDATE services SET processing_error = $1 WHERE id = $2`, [err.message, serviceId]);
+    throw err;
+  }
+}
+
+async function ensureTranscript(serviceId) {
+  const { rows } = await pool.query('SELECT transcription FROM services WHERE id = $1', [serviceId]);
+  if (!rows.length) throw new Error('Culto não encontrado');
+  const t = rows[0].transcription || '';
+  if (!t || t.length < 200) {
+    throw new Error('Transcrição ainda não foi feita. Execute a etapa de transcrição primeiro.');
+  }
+  return t;
+}
+
+async function runAIStage(serviceId, stageKey, label, sysPromptFn, userPromptFn, tokensCap, options = {}) {
+  await setStageStatus(serviceId, stageKey, 'processing');
+  await appendStageLog(serviceId, stageKey, `🧠 ${label}...`);
+  try {
+    const { service, provider, apiKey, churchPrompt, churchTemp, churchMaxTokens } =
+      await loadServiceWithProvider(serviceId, options.provider_id);
+
+    const transcript = await ensureTranscript(serviceId);
+    const transcriptForPrompt = buildTranscriptForPrompt(transcript);
+    const explicitVerseMentions = extractExplicitVerseMentionsFromTranscript(transcript);
+    const verseEvidence = buildVerseEvidenceForPrompt(explicitVerseMentions);
+    const systemPrompt = churchPrompt || getDefaultSystemPrompt();
+
+    const meta = {
+      title: service.title,
+      preacher: service.preacher || 'Não informado',
+      date: service.service_date ? new Date(service.service_date).toLocaleDateString('pt-BR') : 'Não informada',
+    };
+
+    // contexto de pregações anteriores
+    let previousContext = '';
+    try {
+      const { rows: prevRows } = await pool.query(
+        `SELECT title, preacher, service_date, ai_summary, ai_topics
+         FROM services WHERE church_id = $1 AND id != $2 AND ai_status = 'completed'
+         ORDER BY service_date DESC NULLS LAST LIMIT 5`,
+        [service.church_id, serviceId]
+      );
+      if (prevRows.length) {
+        previousContext = '\n--- PREGAÇÕES ANTERIORES ---\n' + prevRows.map((p, i) => {
+          const topics = normalizeTopicsForContext(p.ai_topics);
+          const summary = extractSummaryText(p.ai_summary).slice(0, 250);
+          return `${i + 1}. "${p.title}" - ${p.preacher || 's/ pregador'}\nResumo: ${summary}\nTópicos: ${topics.join(', ')}`;
+        }).join('\n\n');
+      }
+    } catch {}
+
+    const temperature = churchTemp ? parseFloat(churchTemp) : (parseFloat(provider.temperature) || 0.7);
+    const configuredMax = Number(churchMaxTokens || provider.max_tokens || 8192);
+    const maxTokens = Math.min(Number.isFinite(configuredMax) && configuredMax > 0 ? configuredMax : 8192, tokensCap);
+
+    const usrPrompt = userPromptFn(meta, transcriptForPrompt, previousContext, verseEvidence);
+    const sysPrompt = sysPromptFn(systemPrompt);
+
+    let resp = await callAIWithMeta(provider, apiKey, sysPrompt, usrPrompt, temperature, maxTokens);
+    if (isLikelyTruncated(resp)) {
+      const retryTokens = Math.min(Math.max(Math.ceil(maxTokens * 1.5), maxTokens + 2048), 16384);
+      if (retryTokens > maxTokens) {
+        await appendStageLog(serviceId, stageKey, '↻ Resposta truncada, reenviando com mais espaço...', 'warn');
+        resp = await callAIWithMeta(provider, apiKey, sysPrompt, usrPrompt, temperature, retryTokens);
+      }
+    }
+
+    let parsed;
+    try {
+      parsed = extractJsonFromResponse(resp.text || '');
+    } catch (err) {
+      throw new Error(`JSON inválido na resposta da IA: ${err.message}`);
+    }
+
+    return { parsed, transcript, service };
+  } catch (err) {
+    await appendStageLog(serviceId, stageKey, `❌ ${err.message}`, 'error');
+    await setStageStatus(serviceId, stageKey, 'error');
+    await pool.query(`UPDATE services SET processing_error = $1 WHERE id = $2`, [err.message, serviceId]);
+    throw err;
+  }
+}
+
+/**
+ * ETAPA 2 — Resumo (executivo + expandido + tema + estrutura)
+ */
+async function runSummaryStage(serviceId, options = {}) {
+  const { parsed, transcript } = await runAIStage(
+    serviceId,
+    'summary',
+    'Gerando resumo da pregação',
+    getSummarySystemPrompt,
+    (meta, t, prev) => buildSummaryUserPrompt(meta, t, prev),
+    6000,
+    options
+  );
+
+  const norm = normalizeAnalysisPayload(parsed, transcript);
+
+  // Mantém ai_topics existente e mescla campos do resumo (para não apagar versículos/pontos)
+  const { rows: cur } = await pool.query('SELECT ai_topics FROM services WHERE id = $1', [serviceId]);
+  let curTopics = {};
+  try { curTopics = cur[0]?.ai_topics ? (typeof cur[0].ai_topics === 'string' ? JSON.parse(cur[0].ai_topics) : cur[0].ai_topics) : {}; } catch {}
+
+  const merged = {
+    ...curTopics,
+    central_theme: norm.central_theme || curTopics.central_theme || '',
+    expanded_summary: norm.expanded_summary || curTopics.expanded_summary || '',
+    theological_context: norm.theological_context || curTopics.theological_context || '',
+    sermon_structure: norm.sermon_structure?.length ? norm.sermon_structure : (curTopics.sermon_structure || []),
+  };
+
+  await pool.query(
+    `UPDATE services SET ai_summary = $1, ai_topics = $2 WHERE id = $3`,
+    [norm.summary || '', JSON.stringify(merged), serviceId]
+  );
+
+  await appendStageLog(serviceId, 'summary', '✅ Resumo salvo com sucesso.', 'success');
+  await setStageStatus(serviceId, 'summary', 'completed');
+  await maybeMarkOverallStatus(serviceId);
+  return { summary_length: (norm.summary || '').length };
+}
+
+/**
+ * ETAPA 3 — Versículos (key_verses + biblical_connections)
+ */
+async function runVersesStage(serviceId, options = {}) {
+  const { parsed, transcript } = await runAIStage(
+    serviceId,
+    'verses',
+    'Extraindo versículos citados',
+    getVersesSystemPrompt,
+    (meta, t, prev, verseEvidence) => buildVersesUserPrompt(meta, t, verseEvidence),
+    5000,
+    options
+  );
+
+  const norm = normalizeAnalysisPayload(parsed, transcript);
+  const { rows: cur } = await pool.query('SELECT ai_topics FROM services WHERE id = $1', [serviceId]);
+  let curTopics = {};
+  try { curTopics = cur[0]?.ai_topics ? (typeof cur[0].ai_topics === 'string' ? JSON.parse(cur[0].ai_topics) : cur[0].ai_topics) : {}; } catch {}
+
+  const merged = {
+    ...curTopics,
+    biblical_connections: norm.biblical_connections?.length ? norm.biblical_connections : (curTopics.biblical_connections || []),
+  };
+
+  await pool.query(
+    `UPDATE services SET ai_key_verses = $1, ai_topics = $2 WHERE id = $3`,
+    [JSON.stringify(norm.key_verses || []), JSON.stringify(merged), serviceId]
+  );
+
+  await appendStageLog(serviceId, 'verses', `✅ ${norm.key_verses.length} versículo(s) extraído(s).`, 'success');
+  await setStageStatus(serviceId, 'verses', 'completed');
+  await maybeMarkOverallStatus(serviceId);
+  return { count: norm.key_verses.length };
+}
+
+/**
+ * ETAPA 4 — Pontos-chave (key_points + aplicações + reflexões)
+ */
+async function runKeyPointsStage(serviceId, options = {}) {
+  const { parsed, transcript } = await runAIStage(
+    serviceId,
+    'keypoints',
+    'Identificando pontos-chave e aplicações',
+    getKeyPointsSystemPrompt,
+    (meta, t, prev) => buildKeyPointsUserPrompt(meta, t, prev),
+    6000,
+    options
+  );
+
+  const norm = normalizeAnalysisPayload(parsed, transcript);
+  const { rows: cur } = await pool.query('SELECT ai_topics FROM services WHERE id = $1', [serviceId]);
+  let curTopics = {};
+  try { curTopics = cur[0]?.ai_topics ? (typeof cur[0].ai_topics === 'string' ? JSON.parse(cur[0].ai_topics) : cur[0].ai_topics) : {}; } catch {}
+
+  const merged = {
+    ...curTopics,
+    topics: norm.topics?.length ? norm.topics : (curTopics.topics || []),
+    key_points: norm.key_points?.length ? norm.key_points : (curTopics.key_points || []),
+    deep_explanations: norm.deep_explanations?.length ? norm.deep_explanations : (curTopics.deep_explanations || []),
+    practical_applications: norm.practical_applications?.length ? norm.practical_applications : (curTopics.practical_applications || []),
+    reflection_questions: norm.reflection_questions?.length ? norm.reflection_questions : (curTopics.reflection_questions || []),
+    group_study_questions: norm.group_study_questions?.length ? norm.group_study_questions : (curTopics.group_study_questions || []),
+    key_phrases: norm.key_phrases?.length ? norm.key_phrases : (curTopics.key_phrases || []),
+    derived_themes: norm.derived_themes?.length ? norm.derived_themes : (curTopics.derived_themes || []),
+    continuation_suggestions: norm.continuation_suggestions?.length ? norm.continuation_suggestions : (curTopics.continuation_suggestions || []),
+    connections: norm.connections?.length ? norm.connections : (curTopics.connections || []),
+  };
+
+  await pool.query(
+    `UPDATE services SET ai_topics = $1 WHERE id = $2`,
+    [JSON.stringify(merged), serviceId]
+  );
+
+  await appendStageLog(serviceId, 'keypoints', `✅ ${norm.key_points.length} pontos-chave + ${norm.practical_applications.length} aplicações.`, 'success');
+  await setStageStatus(serviceId, 'keypoints', 'completed');
+  await maybeMarkOverallStatus(serviceId);
+  return { points: norm.key_points.length };
+}
+
+/**
+ * Atualiza ai_status global para 'completed' quando todas as 4 etapas terminaram OK.
+ */
+async function maybeMarkOverallStatus(serviceId) {
+  const { rows } = await pool.query('SELECT processing_stages FROM services WHERE id = $1', [serviceId]);
+  const stages = rows[0]?.processing_stages || {};
+  const allDone = VALID_STAGES.every((s) => stages[s] === 'completed');
+  if (allDone) {
+    await pool.query(`UPDATE services SET ai_status = 'completed', processing_error = NULL WHERE id = $1`, [serviceId]);
+  } else if (Object.values(stages).some((v) => v === 'processing')) {
+    await pool.query(`UPDATE services SET ai_status = 'processing' WHERE id = $1`, [serviceId]);
+  } else if (Object.values(stages).some((v) => v === 'completed')) {
+    await pool.query(`UPDATE services SET ai_status = 'partial' WHERE id = $1 AND ai_status NOT IN ('completed')`, [serviceId]);
+  }
+}
+
+module.exports = {
+  processService,
+  callAI,
+  runTranscribeStage,
+  runSummaryStage,
+  runVersesStage,
+  runKeyPointsStage,
+  VALID_STAGES,
+};

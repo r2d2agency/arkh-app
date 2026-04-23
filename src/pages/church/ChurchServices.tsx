@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Video, Plus, Search, Trash2, ExternalLink, Clock, User, Calendar, Sparkles, Loader2, FileText, CheckCircle, AlertCircle, Info, Pencil, Brain } from 'lucide-react';
+import { Video, Plus, Search, Trash2, ExternalLink, Clock, User, Calendar, Sparkles, Loader2, FileText, CheckCircle, AlertCircle, Info, Pencil, Brain, Mic, BookText, BookMarked, Lightbulb, Lock, RotateCw } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -18,6 +18,9 @@ interface AIProviderOption {
   provider: string;
   model: string;
 }
+
+type StageStatus = 'pending' | 'processing' | 'completed' | 'error';
+type StageKey = 'transcribe' | 'summary' | 'verses' | 'keypoints';
 
 interface Service {
   id: string;
@@ -31,6 +34,9 @@ interface Service {
   ai_summary?: string;
   processing_logs?: ProcessingLog[];
   processing_error?: string;
+  processing_stages?: Partial<Record<StageKey, StageStatus>>;
+  has_transcription?: boolean;
+  transcription_length?: number;
   created_at: string;
 }
 
@@ -75,6 +81,89 @@ function getProcessingProgress(logs: ProcessingLog[]): number {
   return Math.round(((idx + 1) / PROCESSING_STEPS.length) * 100);
 }
 
+// ============================================================
+// Botões por etapa: Transcrever → Resumo → Versículos → Pontos-chave
+// Cada botão só ativa quando o anterior estiver 'completed'.
+// ============================================================
+const STAGE_DEFS: Array<{
+  key: StageKey;
+  label: string;
+  icon: typeof Mic;
+  number: number;
+}> = [
+  { key: 'transcribe', label: 'Transcrever', icon: Mic, number: 1 },
+  { key: 'summary', label: 'Resumo', icon: BookText, number: 2 },
+  { key: 'verses', label: 'Versículos', icon: BookMarked, number: 3 },
+  { key: 'keypoints', label: 'Pontos-chave', icon: Lightbulb, number: 4 },
+];
+
+function StageButtons({
+  service,
+  onRun,
+}: {
+  service: Service;
+  onRun: (stage: StageKey, force?: boolean) => void;
+}) {
+  const stages = service.processing_stages || {};
+  const transcribeDone = stages.transcribe === 'completed' || service.has_transcription;
+
+  return (
+    <div className="rounded-xl border border-border/60 bg-muted/30 p-2.5 space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+          Pipeline de IA
+        </p>
+        {service.transcription_length && service.transcription_length > 0 ? (
+          <span className="text-[10px] text-muted-foreground">
+            {service.transcription_length.toLocaleString('pt-BR')} chars
+          </span>
+        ) : null}
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+        {STAGE_DEFS.map((def) => {
+          const status: StageStatus = (stages[def.key] as StageStatus) || 'pending';
+          const isLocked = def.key !== 'transcribe' && !transcribeDone;
+          const isDone = status === 'completed';
+          const isProc = status === 'processing';
+          const isErr = status === 'error';
+          const Icon = isProc ? Loader2 : isLocked ? Lock : isDone ? CheckCircle : isErr ? AlertCircle : def.icon;
+
+          return (
+            <Button
+              key={def.key}
+              size="sm"
+              variant={isDone || isErr ? 'outline' : 'default'}
+              disabled={isLocked || isProc}
+              onClick={() => onRun(def.key, isDone)}
+              className={`rounded-lg text-[11px] h-8 px-2 justify-start gap-1.5 ${
+                isDone
+                  ? 'border-emerald-500/30 text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20'
+                  : isErr
+                  ? 'border-destructive/40 text-destructive hover:bg-destructive/10'
+                  : isLocked
+                  ? 'opacity-50'
+                  : 'bg-primary text-primary-foreground hover:bg-primary/90'
+              }`}
+              title={
+                isLocked
+                  ? 'Faça a transcrição primeiro'
+                  : isDone
+                  ? `${def.label} concluído — clique para refazer`
+                  : isErr
+                  ? `Erro em ${def.label} — clique para tentar de novo`
+                  : `Executar ${def.label}`
+              }
+            >
+              <Icon className={`w-3 h-3 shrink-0 ${isProc ? 'animate-spin' : ''}`} />
+              <span className="truncate">{def.number}. {def.label}</span>
+            </Button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 const ChurchServices = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -116,13 +205,16 @@ const ChurchServices = () => {
     fetchServices();
   }, []);
 
-  // Auto-poll ALL services that are in "processing" state
+  // Auto-poll services em "processing" OU com qualquer etapa em "processing"
   useEffect(() => {
-    const processingServices = services.filter(s => s.ai_status === 'processing');
-    if (processingServices.length === 0) return;
+    const inFlight = services.filter(s =>
+      s.ai_status === 'processing' ||
+      Object.values(s.processing_stages || {}).some(v => v === 'processing')
+    );
+    if (inFlight.length === 0) return;
 
     const poll = async () => {
-      for (const svc of processingServices) {
+      for (const svc of inFlight) {
         try {
           const data = await api.get<any>(`/api/church/services/${svc.id}/status`);
           setServices(prev => prev.map(s => s.id === svc.id ? {
@@ -130,6 +222,9 @@ const ChurchServices = () => {
             ai_status: data.ai_status,
             processing_logs: data.processing_logs || [],
             processing_error: data.processing_error,
+            processing_stages: data.processing_stages || {},
+            has_transcription: data.has_transcription,
+            transcription_length: data.transcription_length,
             ai_summary: data.ai_summary || s.ai_summary,
           } : s));
           if (selectedServiceId === svc.id && logDialogOpen) {
@@ -146,7 +241,7 @@ const ChurchServices = () => {
     poll();
     const interval = setInterval(poll, 3000);
     return () => clearInterval(interval);
-  }, [services.filter(s => s.ai_status === 'processing').map(s => s.id).join(','), selectedServiceId, logDialogOpen]);
+  }, [services.map(s => `${s.id}:${s.ai_status}:${Object.values(s.processing_stages || {}).join(',')}`).join('|'), selectedServiceId, logDialogOpen]);
 
   // Poll when log dialog is open for non-processing services (to load logs)
   useEffect(() => {
@@ -244,6 +339,35 @@ const ChurchServices = () => {
         n.delete(serviceId);
         return n;
       });
+    }
+  };
+
+  const runStage = async (serviceId: string, stage: StageKey, force = false) => {
+    try {
+      // optimistic UI: marca como processing
+      setServices(prev => prev.map(s => s.id === serviceId ? {
+        ...s,
+        processing_stages: { ...(s.processing_stages || {}), [stage]: 'processing' },
+      } : s));
+
+      await api.post(`/api/church/services/${serviceId}/stage/${stage}`, { force });
+
+      const labels: Record<StageKey, string> = {
+        transcribe: 'Transcrição',
+        summary: 'Resumo',
+        verses: 'Versículos',
+        keypoints: 'Pontos-chave',
+      };
+      toast({ title: `${labels[stage]}: iniciado!`, description: 'Acompanhe o progresso pelos logs.' });
+      setSelectedServiceId(serviceId);
+      setLogDialogOpen(true);
+    } catch (err: any) {
+      toast({ title: err.message || `Erro ao iniciar etapa ${stage}`, variant: 'destructive' });
+      // reverte optimistic
+      setServices(prev => prev.map(s => s.id === serviceId ? {
+        ...s,
+        processing_stages: { ...(s.processing_stages || {}), [stage]: 'error' },
+      } : s));
     }
   };
 
@@ -363,40 +487,14 @@ const ChurchServices = () => {
                       <Progress value={getProcessingProgress(service.processing_logs || [])} className="h-1.5" />
                     </div>
                   )}
+                  {isAdmin && (
+                    <StageButtons
+                      service={service}
+                      onRun={(stage, force) => runStage(service.id, stage, force)}
+                    />
+                  )}
                   <div className="flex gap-2 pt-1 flex-wrap">
-                    {isAdmin && service.ai_status === 'pending' && (
-                      <Button
-                        size="sm"
-                        className="rounded-lg bg-gold hover:bg-gold-dark text-foreground font-medium"
-                        onClick={() => openProcessDialog(service.id)}
-                        disabled={isProcessing}
-                      >
-                        {isProcessing ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
-                        Processar IA
-                      </Button>
-                    )}
-                    {isAdmin && (service.ai_status === 'error' || service.ai_status === 'processing') && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="rounded-lg border-destructive text-destructive"
-                        onClick={() => openProcessDialog(service.id)}
-                        disabled={processingIds.has(service.id)}
-                      >
-                        <Sparkles className="w-3 h-3 mr-1" /> Reprocessar
-                      </Button>
-                    )}
-                    {isAdmin && service.ai_status === 'completed' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="rounded-lg"
-                        onClick={() => openProcessDialog(service.id)}
-                      >
-                        <Brain className="w-3 h-3 mr-1" /> Reprocessar
-                      </Button>
-                    )}
-                    {isAdmin && (service.ai_status === 'processing' || service.ai_status === 'completed' || service.ai_status === 'error') && (
+                    {isAdmin && (service.ai_status === 'processing' || service.ai_status === 'completed' || service.ai_status === 'error' || service.processing_stages) && (
                       <Button size="sm" variant="outline" className="rounded-lg" onClick={() => openLogs(service.id)}>
                         <FileText className="w-3 h-3 mr-1" /> Logs
                       </Button>
