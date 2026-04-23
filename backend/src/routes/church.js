@@ -2,6 +2,24 @@ const router = require('express').Router();
 const pool = require('../db/pool');
 const bcrypt = require('bcryptjs');
 
+// Extrai o ID de qualquer formato de URL do YouTube (watch, youtu.be, shorts, live, embed)
+function extractYouTubeId(url) {
+  if (!url || typeof url !== 'string') return null;
+  const patterns = [
+    /[?&]v=([a-zA-Z0-9_-]{11})/,           // watch?v=ID
+    /youtu\.be\/([a-zA-Z0-9_-]{11})/,      // youtu.be/ID
+    /\/shorts\/([a-zA-Z0-9_-]{11})/,       // /shorts/ID
+    /\/live\/([a-zA-Z0-9_-]{11})/,         // /live/ID
+    /\/embed\/([a-zA-Z0-9_-]{11})/,        // /embed/ID
+    /\/v\/([a-zA-Z0-9_-]{11})/,            // /v/ID
+  ];
+  for (const re of patterns) {
+    const m = url.match(re);
+    if (m) return m[1];
+  }
+  return null;
+}
+
 // ========== SERVICES ==========
 
 // GET /api/church/services
@@ -44,8 +62,7 @@ router.post('/services', async (req, res) => {
     if (!churchId) return res.status(400).json({ error: 'No church associated' });
     const { title, youtube_url, preacher, service_date, ai_start_time, ai_end_time } = req.body;
     if (!title || !youtube_url) return res.status(400).json({ error: 'Title and YouTube URL required' });
-    const match = youtube_url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-    const videoId = match ? match[1] : null;
+    const videoId = extractYouTubeId(youtube_url);
     const thumbnailUrl = videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : null;
     const { rows } = await pool.query(
       `INSERT INTO services (church_id, title, youtube_url, video_id, thumbnail_url, preacher, service_date, ai_start_time, ai_end_time, ai_status)
@@ -64,11 +81,24 @@ router.put('/services/:id', async (req, res) => {
   try {
     const churchId = req.user.church_id;
     const { title, youtube_url, preacher, service_date, ai_start_time, ai_end_time } = req.body;
+    const newVideoId = youtube_url ? extractYouTubeId(youtube_url) : null;
+    const newThumb = newVideoId ? `https://img.youtube.com/vi/${newVideoId}/mqdefault.jpg` : null;
     const { rows } = await pool.query(
-      `UPDATE services SET title=COALESCE($1,title), youtube_url=COALESCE($2,youtube_url), preacher=COALESCE($3,preacher), service_date=COALESCE($4,service_date), ai_start_time=COALESCE($5,ai_start_time), ai_end_time=COALESCE($6,ai_end_time) WHERE id=$7 AND church_id=$8 RETURNING *`,
+      `UPDATE services SET
+         title=COALESCE($1,title),
+         youtube_url=COALESCE($2,youtube_url),
+         video_id=COALESCE($3,video_id),
+         thumbnail_url=COALESCE($4,thumbnail_url),
+         preacher=COALESCE($5,preacher),
+         service_date=COALESCE($6,service_date),
+         ai_start_time=COALESCE($7,ai_start_time),
+         ai_end_time=COALESCE($8,ai_end_time)
+       WHERE id=$9 AND church_id=$10 RETURNING *`,
       [
         title || null,
         youtube_url || null,
+        newVideoId,
+        newThumb,
         preacher || null,
         service_date || null,
         ai_start_time || null,

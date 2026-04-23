@@ -1597,8 +1597,32 @@ async function runTranscribeStage(serviceId, options = {}) {
       throw new Error('Nenhum provedor OpenAI configurado. Whisper requer uma API key da OpenAI.');
     }
 
+    // Recupera video_id se estiver vazio (cultos antigos ou URLs em formatos não cobertos)
+    let videoId = service.video_id;
+    if (!videoId && service.youtube_url) {
+      const patterns = [
+        /[?&]v=([a-zA-Z0-9_-]{11})/,
+        /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+        /\/shorts\/([a-zA-Z0-9_-]{11})/,
+        /\/live\/([a-zA-Z0-9_-]{11})/,
+        /\/embed\/([a-zA-Z0-9_-]{11})/,
+        /\/v\/([a-zA-Z0-9_-]{11})/,
+      ];
+      for (const re of patterns) {
+        const m = service.youtube_url.match(re);
+        if (m) { videoId = m[1]; break; }
+      }
+      if (videoId) {
+        await pool.query('UPDATE services SET video_id = $1 WHERE id = $2', [videoId, serviceId]);
+        await appendStageLog(serviceId, 'transcribe', `🔧 Video ID recuperado da URL: ${videoId}`);
+      }
+    }
+    if (!videoId) {
+      throw new Error('Video ID não encontrado na URL do YouTube. Edite o culto e cole um link válido (watch, youtu.be, shorts ou live).');
+    }
+
     const result = await transcribeYouTubeWithWhisper({
-      videoId: service.video_id,
+      videoId,
       openaiApiKey: openaiKey,
       startTime: service.ai_start_time,
       endTime: service.ai_end_time,
