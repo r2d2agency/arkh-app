@@ -2,10 +2,11 @@
  * Transcrição de vídeos do YouTube via OpenAI Whisper.
  *
  * Estratégia:
- *  1. Baixa o áudio do YouTube com @distube/ytdl-core (formato opus/webm).
- *  2. Converte/recorta para mp3 mono 16k via ffmpeg (passa CLI, sem dependência nativa).
- *  3. Divide em chunks de até ~10 minutos para respeitar o limite de 25MB do Whisper.
- *  4. Envia cada chunk para a API /v1/audio/transcriptions (modelo whisper-1) e concatena.
+ *  1. Tenta baixar o áudio do YouTube com yt-dlp (mais resiliente contra bloqueios).
+ *  2. Se necessário, cai para @distube/ytdl-core como fallback.
+ *  3. Converte/recorta para mp3 mono 16k via ffmpeg.
+ *  4. Divide em chunks de até ~10 minutos para respeitar o limite de 25MB do Whisper.
+ *  5. Envia cada chunk para a API /v1/audio/transcriptions (modelo whisper-1) e concatena.
  */
 
 const fs = require('fs');
@@ -18,6 +19,10 @@ const FormData = require('form-data');
 
 const WHISPER_MAX_BYTES = 24 * 1024 * 1024; // margem de segurança em relação aos 25MB
 const CHUNK_SECONDS = 600; // 10 minutos por chunk
+const YT_DLP_CANDIDATES = [
+  { cmd: 'yt-dlp', baseArgs: [] },
+  { cmd: 'python3', baseArgs: ['-m', 'yt_dlp'] },
+];
 
 function timeToSeconds(t) {
   if (!t) return 0;
@@ -55,7 +60,98 @@ async function ffprobeDuration(filePath) {
   });
 }
 
-async function downloadYouTubeAudio(videoId, workDir) {
+async function resolveYtDlpCommand() {
+  for (const candidate of YT_DLP_CANDIDATES) {
+    try {
+      await runCommand(candidate.cmd, [...candidate.baseArgs, '--version']);
+      return candidate;
+    } catch {}
+  }
+  return null;
+}
+
+function isYouTubeBotBlockError(message) {
+  return /confirm you(?:'|’)re not a bot|captcha|sign in to confirm|unusual traffic/i.test(String(message || ''));
+}
+
+function formatDownloadFailure(errors) {
+  const cleaned = errors.filter(Boolean).map((msg) => String(msg).trim());
+  const detail = cleaned.join(' | ').slice(0, 700);
+  if (cleaned.some(isYouTubeBotBlockError)) {
+    return `O YouTube bloqueou a captura automática do áudio deste vídeo. Tente novamente em alguns minutos e confirme que o vídeo é público. Detalhes: ${detail}`;
+  }
+  return `Falha ao baixar áudio do YouTube. Detalhes: ${detail || 'sem detalhes adicionais.'}`;
+}
+
+async function downloadYouTubeAudioViaYtDlp(videoId, workDir) {
+  const url = `https://www.youtube.com/watch?v=${videoId}`;
+  const audioPath = path.join(workDir, 'full.mp3');
+  const ytDlp = await resolveYtDlpCommand();
+
+  if (!ytDlp) {
+    throw new Error('yt-dlp não está disponível no servidor');
+  }
+
+  await new Promise((resolve, reject) => {
+    const dl = spawn(ytDlp.cmd, [
+      ...ytDlp.baseArgs,
+      '--no-playlist',
+      '--no-warnings',
+      '--ignore-config',
+      '--extractor-args', 'youtube:player_client=android,web',
+      '-f', 'bestaudio[acodec!=none]/bestaudio/best',
+      '-o', '-',
+      url,
+    ], { stdio: ['ignore', 'pipe', 'pipe'] });
+
+    const ff = spawn('ffmpeg', [
+      '-y',
+      '-i', 'pipe:0',
+      '-vn',
+      '-ac', '1',
+      '-ar', '16000',
+      '-b:a', '64k',
+      '-f', 'mp3',
+      audioPath,
+    ], { stdio: ['pipe', 'ignore', 'pipe'] });
+
+    let dlErr = '';
+    let ffErr = '';
+    let settled = false;
+
+    const fail = (message) => {
+      if (settled) return;
+      settled = true;
+      try { dl.kill('SIGKILL'); } catch {}
+      try { ff.kill('SIGKILL'); } catch {}
+      reject(new Error(message));
+    };
+
+    dl.stderr.on('data', (d) => { dlErr += d.toString(); });
+    ff.stderr.on('data', (d) => { ffErr += d.toString(); });
+    dl.on('error', (err) => fail(`yt-dlp failed: ${err.message}`));
+    ff.on('error', (err) => fail(`ffmpeg conversion failed: ${err.message}`));
+    dl.stdout.pipe(ff.stdin);
+
+    dl.on('close', (code) => {
+      if (code !== 0) fail(`yt-dlp exited ${code}: ${dlErr.slice(-500)}`);
+    });
+
+    ff.on('close', (code) => {
+      if (settled) return;
+      if (code === 0) {
+        settled = true;
+        resolve();
+      } else {
+        fail(`ffmpeg conversion failed: ${ffErr.slice(-500)}`);
+      }
+    });
+  });
+
+  return audioPath;
+}
+
+async function downloadYouTubeAudioWithYtdlCore(videoId, workDir) {
   const url = `https://www.youtube.com/watch?v=${videoId}`;
   const audioPath = path.join(workDir, 'full.mp3');
 
@@ -90,6 +186,29 @@ async function downloadYouTubeAudio(videoId, workDir) {
   });
 
   return audioPath;
+}
+
+async function downloadYouTubeAudio(videoId, workDir, onProgress) {
+  const failures = [];
+
+  try {
+    onProgress && onProgress('⬇️ Baixando áudio do YouTube via yt-dlp...');
+    const audioPath = await downloadYouTubeAudioViaYtDlp(videoId, workDir);
+    return { audioPath, transport: 'yt-dlp' };
+  } catch (err) {
+    failures.push(`yt-dlp: ${err.message}`);
+    onProgress && onProgress('⚠️ yt-dlp falhou; tentando método alternativo de captura...');
+  }
+
+  try {
+    onProgress && onProgress('🔁 Tentando método alternativo de captura do áudio...');
+    const audioPath = await downloadYouTubeAudioWithYtdlCore(videoId, workDir);
+    return { audioPath, transport: 'ytdl-core' };
+  } catch (err) {
+    failures.push(`ytdl-core: ${err.message}`);
+  }
+
+  throw new Error(formatDownloadFailure(failures));
 }
 
 async function sliceAudio(inputPath, start, duration, outputPath) {
@@ -174,10 +293,9 @@ async function transcribeYouTubeWithWhisper({ videoId, openaiApiKey, startTime, 
   const log = (m) => { try { onProgress && onProgress(m); } catch {} };
 
   try {
-    log('⬇️ Baixando áudio do YouTube...');
-    const fullAudio = await downloadYouTubeAudio(videoId, workDir);
+    const { audioPath: fullAudio, transport } = await downloadYouTubeAudio(videoId, workDir, log);
     const stat = fs.statSync(fullAudio);
-    log(`🎵 Áudio extraído (${(stat.size / 1024 / 1024).toFixed(1)} MB)`);
+    log(`🎵 Áudio extraído via ${transport} (${(stat.size / 1024 / 1024).toFixed(1)} MB)`);
 
     const fullDuration = await ffprobeDuration(fullAudio);
     const startSec = Math.max(0, timeToSeconds(startTime));
@@ -225,7 +343,7 @@ async function transcribeYouTubeWithWhisper({ videoId, openaiApiKey, startTime, 
     return {
       text: formatted,
       segments: allSegments,
-      source: 'whisper',
+      source: `whisper:${transport}`,
       durationSec: totalSec,
     };
   } finally {

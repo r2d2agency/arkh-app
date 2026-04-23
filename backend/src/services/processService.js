@@ -1640,12 +1640,15 @@ async function runTranscribeStage(serviceId, options = {}) {
         transcription_source = $2,
         transcription_length = $3
        WHERE id = $4`,
-      [result.text, 'whisper', result.text.length, serviceId]
+      [result.text, result.source || 'whisper', result.text.length, serviceId]
     );
     await appendStageLog(serviceId, 'transcribe', `✅ Transcrição concluída (${result.text.length.toLocaleString('pt-BR')} caracteres) e salva no banco.`, 'success');
     await setStageStatus(serviceId, 'transcribe', 'completed');
     return { length: result.text.length };
   } catch (err) {
+    if (/confirm you(?:'|’)re not a bot|captcha|unusual traffic/i.test(String(err.message || ''))) {
+      err.message = 'O YouTube bloqueou temporariamente a captura automática do áudio deste vídeo. Tente novamente em alguns minutos ou confirme que o vídeo está público e disponível sem restrições.';
+    }
     await appendStageLog(serviceId, 'transcribe', `❌ ${err.message}`, 'error');
     await setStageStatus(serviceId, 'transcribe', 'error');
     await pool.query(`UPDATE services SET processing_error = $1 WHERE id = $2`, [err.message, serviceId]);
