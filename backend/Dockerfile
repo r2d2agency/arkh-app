@@ -1,5 +1,8 @@
 FROM node:20-alpine
 
+# ffmpeg é necessário para extrair/converter o áudio dos vídeos do YouTube antes de enviar ao Whisper
+RUN apk add --no-cache ffmpeg python3
+
 WORKDIR /app
 
 COPY package*.json ./
