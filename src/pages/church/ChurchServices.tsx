@@ -122,13 +122,16 @@ const ChurchServices = () => {
     fetchServices();
   }, []);
 
-  // Auto-poll ALL services that are in "processing" state
+  // Auto-poll services em "processing" OU com qualquer etapa em "processing"
   useEffect(() => {
-    const processingServices = services.filter(s => s.ai_status === 'processing');
-    if (processingServices.length === 0) return;
+    const inFlight = services.filter(s =>
+      s.ai_status === 'processing' ||
+      Object.values(s.processing_stages || {}).some(v => v === 'processing')
+    );
+    if (inFlight.length === 0) return;
 
     const poll = async () => {
-      for (const svc of processingServices) {
+      for (const svc of inFlight) {
         try {
           const data = await api.get<any>(`/api/church/services/${svc.id}/status`);
           setServices(prev => prev.map(s => s.id === svc.id ? {
@@ -136,6 +139,9 @@ const ChurchServices = () => {
             ai_status: data.ai_status,
             processing_logs: data.processing_logs || [],
             processing_error: data.processing_error,
+            processing_stages: data.processing_stages || {},
+            has_transcription: data.has_transcription,
+            transcription_length: data.transcription_length,
             ai_summary: data.ai_summary || s.ai_summary,
           } : s));
           if (selectedServiceId === svc.id && logDialogOpen) {
@@ -152,7 +158,7 @@ const ChurchServices = () => {
     poll();
     const interval = setInterval(poll, 3000);
     return () => clearInterval(interval);
-  }, [services.filter(s => s.ai_status === 'processing').map(s => s.id).join(','), selectedServiceId, logDialogOpen]);
+  }, [services.map(s => `${s.id}:${s.ai_status}:${Object.values(s.processing_stages || {}).join(',')}`).join('|'), selectedServiceId, logDialogOpen]);
 
   // Poll when log dialog is open for non-processing services (to load logs)
   useEffect(() => {
