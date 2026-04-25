@@ -14,8 +14,9 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["DM Sans", "sans-serif"],
-        heading: ["Space Grotesk", "sans-serif"],
+        sans: ["Plus Jakarta Sans", "sans-serif"],
+        heading: ["Plus Jakarta Sans", "sans-serif"],
+        scripture: ["Noto Serif", "serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -26,6 +27,8 @@ export default {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+          glow: "hsl(var(--primary-glow))",
+          container: "hsl(var(--primary-container))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -50,6 +53,7 @@ export default {
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
+          container: "hsl(var(--accent-container))",
         },
         gold: {
           DEFAULT: "hsl(var(--gold))",
