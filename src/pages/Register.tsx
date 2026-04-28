@@ -94,7 +94,7 @@ const Register = () => {
     <div className="min-h-screen flex bg-background">
       {/* Left - Info */}
       <div className="hidden lg:flex lg:w-1/2 bg-primary items-center justify-center p-12 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-gold/10 blur-3xl" />
+        <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-accent/10 blur-3xl" />
         <div className="absolute bottom-0 left-0 w-72 h-72 rounded-full bg-white/5 blur-3xl" />
         <div className="relative z-10 max-w-lg text-primary-foreground space-y-8">
           <img src={logoImg} alt="ARKHÉ" className="w-24 h-24 object-contain" />
@@ -107,7 +107,7 @@ const Register = () => {
           <div className="space-y-4">
             {features.map((f, i) => (
               <div key={i} className="flex items-center gap-3">
-                <CheckCircle2 className="w-5 h-5 text-gold shrink-0" />
+                <CheckCircle2 className="w-5 h-5 text-accent shrink-0" />
                 <span className="text-primary-foreground/90">{f}</span>
               </div>
             ))}
@@ -133,7 +133,7 @@ const Register = () => {
           {/* Steps indicator */}
           <div className="flex items-center gap-2 justify-center">
             <div className={`h-2 w-12 rounded-full transition-colors ${step >= 1 ? 'bg-primary' : 'bg-muted'}`} />
-            <div className={`h-2 w-12 rounded-full transition-colors ${step >= 2 ? 'bg-gold' : 'bg-muted'}`} />
+            <div className={`h-2 w-12 rounded-full transition-colors ${step >= 2 ? 'bg-accent' : 'bg-muted'}`} />
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -219,7 +219,7 @@ const Register = () => {
                   </Button>
                   <Button
                     type="submit"
-                    className="flex-1 rounded-xl bg-gold hover:bg-gold-dark border-0 shadow-md shadow-gold/20 text-foreground font-semibold"
+                    className="flex-1 rounded-xl bg-accent hover:bg-accent/90 border-0 shadow-md shadow-accent/20 text-foreground font-semibold"
                     disabled={loading}
                   >
                     {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Criar minha igreja'}

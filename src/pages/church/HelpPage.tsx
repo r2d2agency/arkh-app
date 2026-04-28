@@ -85,7 +85,7 @@ const faqSections: FaqSection[] = [
   {
     title: 'Estudos Bíblicos',
     icon: BookOpen,
-    color: 'text-gold',
+    color: 'text-accent',
     roles: ['member', 'leader', 'admin_church'],
     items: [
       {
@@ -252,7 +252,7 @@ const faqSections: FaqSection[] = [
   {
     title: 'Gerenciar Cultos (Admin)',
     icon: Video,
-    color: 'text-gold',
+    color: 'text-accent',
     roles: ['leader', 'admin_church'],
     items: [
       {
@@ -280,7 +280,7 @@ const faqSections: FaqSection[] = [
   {
     title: 'Gerenciar Estudos (Admin)',
     icon: BookOpen,
-    color: 'text-gold',
+    color: 'text-accent',
     roles: ['leader', 'admin_church'],
     items: [
       {
@@ -298,7 +298,7 @@ const faqSections: FaqSection[] = [
   {
     title: 'Escola Bíblica - Admin',
     icon: GraduationCap,
-    color: 'text-gold',
+    color: 'text-accent',
     roles: ['leader', 'admin_church'],
     items: [
       {
@@ -331,7 +331,7 @@ const faqSections: FaqSection[] = [
   {
     title: 'Membros (Admin)',
     icon: UserCheck,
-    color: 'text-gold',
+    color: 'text-accent',
     roles: ['leader', 'admin_church'],
     items: [
       {
@@ -354,7 +354,7 @@ const faqSections: FaqSection[] = [
   {
     title: 'Grupos (Admin)',
     icon: Users,
-    color: 'text-gold',
+    color: 'text-accent',
     roles: ['leader', 'admin_church'],
     items: [
       {
@@ -367,7 +367,7 @@ const faqSections: FaqSection[] = [
   {
     title: 'Enquetes (Admin)',
     icon: BarChart3,
-    color: 'text-gold',
+    color: 'text-accent',
     roles: ['leader', 'admin_church'],
     items: [
       {
@@ -380,7 +380,7 @@ const faqSections: FaqSection[] = [
   {
     title: 'Personalizar Igreja (Admin)',
     icon: Palette,
-    color: 'text-gold',
+    color: 'text-accent',
     roles: ['admin_church'],
     items: [
       {
@@ -393,7 +393,7 @@ const faqSections: FaqSection[] = [
   {
     title: 'Configurações de IA (Admin)',
     icon: Settings,
-    color: 'text-gold',
+    color: 'text-accent',
     roles: ['admin_church'],
     items: [
       {

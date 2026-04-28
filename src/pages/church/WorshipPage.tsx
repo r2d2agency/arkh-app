@@ -588,7 +588,7 @@ const WorshipPage = () => {
                   onChange={e => setEditSong(p => ({ ...p, title: e.target.value }))} />
                 <Button type="button" variant="outline" size="sm" className="rounded-xl gap-1 shrink-0"
                   onClick={handleAIIdentify} disabled={identifying}>
-                  {identifying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-gold" />}
+                  {identifying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-accent" />}
                   IA
                 </Button>
               </div>

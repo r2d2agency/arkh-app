@@ -46,7 +46,7 @@ const AdminSidebar = () => {
             <span className="font-heading font-bold text-base text-white tracking-tight leading-tight">
               ARKHÉ
             </span>
-            <span className="text-[10px] text-gold tracking-widest uppercase">
+            <span className="text-[10px] text-accent tracking-widest uppercase">
               Super Admin
             </span>
           </div>
@@ -69,11 +69,11 @@ const AdminSidebar = () => {
               )}
             >
               {isActive && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-gold" />
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-accent" />
               )}
               <item.icon className={cn(
                 "w-[18px] h-[18px] shrink-0 transition-colors",
-                isActive ? "text-gold" : "text-sidebar-foreground group-hover:text-sidebar-accent-foreground"
+                isActive ? "text-accent" : "text-sidebar-foreground group-hover:text-sidebar-accent-foreground"
               )} />
               {!collapsed && <span>{item.label}</span>}
             </NavLink>

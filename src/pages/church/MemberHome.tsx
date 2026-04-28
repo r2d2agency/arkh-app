@@ -7,7 +7,7 @@ import {
   Sun, CloudRain, Smile, Frown, Flame, HelpCircle, Zap, GraduationCap, Gamepad2, Calendar, MapPin,
   Church, Navigation, CreditCard, Phone, Copy, Check, Users, ExternalLink, X, Megaphone, Share2, Music, Swords,
   Home, UsersRound, HandHeart, Landmark, Cross, PersonStanding, Baby, Mic2, BookHeart, Globe, Star,
-  Headphones, type LucideIcon,
+  Headphones, Layers, type LucideIcon,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
@@ -469,11 +469,16 @@ const MemberHome = () => {
             <span className="text-[11px] font-bold text-center leading-tight text-foreground/80">Batalha</span>
           </Link>
           <Link to="/church/verse-rush" className="flex flex-col items-center gap-2 group">
-            <div className="w-[60px] h-[60px] rounded-3xl flex items-center justify-center text-white transition-all group-hover:scale-105 group-active:scale-95 shadow-md"
-              style={{ background: 'linear-gradient(135deg, #ec4899, #8b5cf6)' }}>
+            <div className="w-[60px] h-[60px] rounded-3xl flex items-center justify-center bg-gradient-to-br from-primary to-primary-glow text-primary-foreground transition-all group-hover:scale-105 group-active:scale-95 shadow-soft">
               <Zap className="w-7 h-7" strokeWidth={2.2} />
             </div>
             <span className="text-[11px] font-bold text-center leading-tight text-foreground/80">Rush</span>
+          </Link>
+          <Link to="/church/mahjong" className="flex flex-col items-center gap-2 group">
+            <div className="w-[60px] h-[60px] rounded-3xl flex items-center justify-center bg-gradient-to-br from-accent to-accent/70 text-accent-foreground transition-all group-hover:scale-105 group-active:scale-95 shadow-soft">
+              <Layers className="w-7 h-7" strokeWidth={2.2} />
+            </div>
+            <span className="text-[11px] font-bold text-center leading-tight text-foreground/80">Mahjong</span>
           </Link>
           <Link to="/church/social-post" className="flex flex-col items-center gap-2 group">
             <div className="w-[60px] h-[60px] rounded-3xl flex items-center justify-center transition-all group-hover:scale-105 group-active:scale-95 shadow-sm border bg-pink-400/12 text-pink-600 border-pink-400/15">

@@ -192,12 +192,12 @@ const StudyDetailPage = () => {
 
       {/* Key verse */}
       {study.key_verse && (
-        <Card className="p-4 rounded-2xl border-gold/20 bg-gold/5 space-y-2">
+        <Card className="p-4 rounded-2xl border-accent/20 bg-accent/5 space-y-2">
           <div className="flex items-center gap-2">
-            <BookMarked className="w-4 h-4 text-gold" />
+            <BookMarked className="w-4 h-4 text-accent" />
             <h3 className="font-heading text-sm font-semibold">Versículo-chave</h3>
           </div>
-          <blockquote className="text-sm italic text-muted-foreground border-l-2 border-gold/40 pl-3">
+          <blockquote className="text-sm italic text-muted-foreground border-l-2 border-accent/40 pl-3">
             {study.key_verse}
           </blockquote>
         </Card>
@@ -247,9 +247,9 @@ const StudyDetailPage = () => {
 
       {/* Application */}
       {study.application && (
-        <Card className="p-4 rounded-2xl space-y-2 border-gold/10 bg-gold/5">
+        <Card className="p-4 rounded-2xl space-y-2 border-accent/10 bg-accent/5">
           <div className="flex items-center gap-2">
-            <Lightbulb className="w-4 h-4 text-gold" />
+            <Lightbulb className="w-4 h-4 text-accent" />
             <h3 className="font-heading text-sm font-semibold">Aplicação prática</h3>
           </div>
           <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{linkify(study.application)}</p>

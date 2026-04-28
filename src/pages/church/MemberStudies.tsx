@@ -74,7 +74,7 @@ const MemberStudies = () => {
                   <p className="text-xs text-muted-foreground line-clamp-2">{study.description}</p>
                 )}
                 {study.key_verse && (
-                  <p className="text-xs text-gold italic flex items-center gap-1">
+                  <p className="text-xs text-accent italic flex items-center gap-1">
                     <BookMarked className="w-3 h-3" /> {study.key_verse}
                   </p>
                 )}

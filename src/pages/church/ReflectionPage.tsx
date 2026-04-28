@@ -19,7 +19,7 @@ const moodMap: Record<string, { label: string; icon: any; color: string; verse: 
   peaceful: {
     label: 'Em paz',
     icon: Sun,
-    color: 'text-gold',
+    color: 'text-accent',
     verse: '"Deixo-lhes a paz; a minha paz lhes dou. Não a dou como o mundo a dá." — João 14:27',
     reflection: 'A paz que vem de Deus não depende das circunstâncias. É um estado do coração que permanece mesmo em meio à tempestade.',
   },
@@ -95,12 +95,12 @@ const ReflectionPage = () => {
       </div>
 
       {/* Verse card */}
-      <Card className="p-5 rounded-2xl border-gold/20 bg-gold/5 space-y-3">
+      <Card className="p-5 rounded-2xl border-accent/20 bg-accent/5 space-y-3">
         <div className="flex items-center gap-2">
-          <BookOpen className="w-4 h-4 text-gold" />
+          <BookOpen className="w-4 h-4 text-accent" />
           <h3 className="font-heading text-sm font-semibold">Versículo para hoje</h3>
         </div>
-        <blockquote className="text-sm italic border-l-2 border-gold/40 pl-3 text-muted-foreground">
+        <blockquote className="text-sm italic border-l-2 border-accent/40 pl-3 text-muted-foreground">
           {moodData.verse}
         </blockquote>
       </Card>

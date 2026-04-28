@@ -63,7 +63,7 @@ const ChurchLayout = () => {
                 <img src={logoImg} alt="ARKHÉ" className="w-9 h-9 rounded-lg object-contain" />
                 <div>
                   <h2 className="font-heading text-sm font-bold text-sidebar-accent-foreground">Minha Igreja</h2>
-                  <p className="text-xs text-gold">Área do Membro</p>
+                  <p className="text-xs text-accent">Área do Membro</p>
                 </div>
               </div>
               <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-sidebar-foreground">
@@ -82,7 +82,7 @@ const ChurchLayout = () => {
                   onClick={() => setSidebarOpen(false)}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
                     isActive
-                      ? 'bg-sidebar-accent text-gold font-medium'
+                      ? 'bg-sidebar-accent text-accent font-medium'
                       : 'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground'
                   }`}
                 >
@@ -109,7 +109,7 @@ const ChurchLayout = () => {
                       onClick={() => setSidebarOpen(false)}
                       className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
                         isActive
-                          ? 'bg-sidebar-accent text-gold font-medium'
+                          ? 'bg-sidebar-accent text-accent font-medium'
                           : 'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground'
                       }`}
                     >
@@ -124,7 +124,7 @@ const ChurchLayout = () => {
 
           <div className="p-4 border-t border-sidebar-border">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-8 h-8 rounded-full bg-gold/20 flex items-center justify-center text-xs font-bold text-gold">
+              <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-xs font-bold text-accent">
                 {user?.name?.charAt(0) || 'A'}
               </div>
               <div className="flex-1 min-w-0">
@@ -182,7 +182,7 @@ const ChurchLayout = () => {
                     isActive ? 'text-primary' : 'text-muted-foreground'
                   }`}
                 >
-                  <item.icon className={`w-5 h-5 ${isActive ? 'text-gold' : ''}`} />
+                  <item.icon className={`w-5 h-5 ${isActive ? 'text-accent' : ''}`} />
                   <span className="text-[10px] font-medium">{item.label}</span>
                 </Link>
               );

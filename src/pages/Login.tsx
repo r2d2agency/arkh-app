@@ -85,7 +85,7 @@ const Login = () => {
         </form>
         <p className="text-center text-sm text-muted-foreground">
           Sua igreja ainda não está cadastrada?{' '}
-          <Link to="/register" className="text-gold hover:underline font-medium">
+          <Link to="/register" className="text-accent hover:underline font-medium">
             Cadastre gratuitamente
           </Link>
         </p>
