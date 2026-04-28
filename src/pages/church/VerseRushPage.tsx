@@ -398,7 +398,7 @@ export default function VerseRushPage() {
             </button>
             <div>
               <h1 className="font-heading text-2xl font-bold tracking-tight" style={{
-                backgroundImage: 'linear-gradient(90deg, #fbbf24, #ec4899, #8b5cf6)',
+                backgroundImage: 'linear-gradient(90deg, hsl(var(--accent)), hsl(var(--primary-glow)), hsl(var(--primary)))',
                 WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
               }}>Versículo Rush</h1>
               <p className="text-xs text-white/60">Monte versículos no toque · rápido e viciante</p>
@@ -428,7 +428,7 @@ export default function VerseRushPage() {
           <div className="grid grid-cols-2 gap-3 mb-5">
             <button onClick={startSolo} disabled={creating} className="text-left">
               <Card className="p-4 rounded-2xl border-0 h-full" style={{
-                background: 'linear-gradient(135deg, #1e3a8a, #06b6d4)',
+                background: 'linear-gradient(135deg, hsl(var(--primary-container)), hsl(var(--primary-glow)))',
                 boxShadow: '0 12px 30px -10px rgba(6,182,212,0.6)',
               }}>
                 <Bot className="w-6 h-6 text-cyan-200 mb-2" />
@@ -439,7 +439,7 @@ export default function VerseRushPage() {
             </button>
             <button onClick={() => setScreen('online-create')} className="text-left">
               <Card className="p-4 rounded-2xl border-0 h-full" style={{
-                background: 'linear-gradient(135deg, #831843, #db2777)',
+                background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)))',
                 boxShadow: '0 12px 30px -10px rgba(219,39,119,0.6)',
               }}>
                 <Users className="w-6 h-6 text-pink-200 mb-2" />
@@ -514,7 +514,7 @@ export default function VerseRushPage() {
           </div>
 
           <Card className="p-5 rounded-2xl border-0 mb-4" style={{
-            background: 'linear-gradient(135deg, #831843, #db2777)',
+            background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)))',
           }}>
             <Users className="w-7 h-7 text-pink-100 mb-2" />
             <p className="font-heading font-bold text-lg mb-1">Criar nova sala</p>
@@ -525,7 +525,7 @@ export default function VerseRushPage() {
           </Card>
 
           <Card className="p-5 rounded-2xl border-0" style={{
-            background: 'linear-gradient(135deg, #1e3a8a, #6366f1)',
+            background: 'linear-gradient(135deg, hsl(var(--primary-container)), hsl(var(--primary)))',
           }}>
             <p className="font-heading font-bold text-lg mb-1">Entrar com código</p>
             <p className="text-xs text-white/80 mb-3">Use o convite recebido</p>
@@ -591,7 +591,7 @@ export default function VerseRushPage() {
 
           {isHost ? (
             <Button onClick={startOnlineMatch} disabled={creating || players.length < 2} className="w-full rounded-2xl h-12 font-bold text-base" style={{
-              background: 'linear-gradient(90deg, #f59e0b, #ec4899, #8b5cf6)', color: 'white',
+              background: 'linear-gradient(90deg, hsl(var(--accent)), hsl(var(--primary-glow)), hsl(var(--primary)))', color: 'white',
             }}>
               {creating ? <Loader2 className="w-5 h-5 animate-spin" /> : players.length < 2 ? 'Aguardando jogadores...' : '🚀 Iniciar partida'}
             </Button>
@@ -647,7 +647,7 @@ export default function VerseRushPage() {
           {/* Combo + Score + Rank */}
           <div className="grid grid-cols-3 gap-2 mb-4">
             <div className="p-2.5 rounded-xl text-center" style={{
-              background: combo >= 3 ? 'linear-gradient(135deg, #f59e0b, #ec4899)' : 'rgba(255,255,255,0.08)',
+              background: combo >= 3 ? 'linear-gradient(135deg, hsl(var(--accent)), hsl(var(--primary-glow)))' : 'rgba(255,255,255,0.08)',
             }}>
               <div className="flex items-center justify-center gap-1">
                 <Flame className={`w-3.5 h-3.5 ${combo >= 2 ? 'text-yellow-300' : 'text-white/50'}`} />
@@ -695,7 +695,7 @@ export default function VerseRushPage() {
                 <p className="text-xs text-white/80 leading-relaxed mb-3">{v.text}</p>
                 {v.explanation && <p className="text-[11px] italic text-white/60 mb-3">{v.explanation}</p>}
                 <Button onClick={nextRound} className="rounded-xl font-bold" style={{
-                  background: 'linear-gradient(90deg, #f59e0b, #ec4899)', color: 'white',
+                  background: 'linear-gradient(90deg, hsl(var(--accent)), hsl(var(--primary-glow)))', color: 'white',
                 }}>
                   {roundIdx + 1 >= verses.length ? 'Ver resultado' : 'Próximo versículo'} →
                 </Button>
@@ -732,7 +732,7 @@ export default function VerseRushPage() {
                       : 'text-white shadow-lg hover:scale-105 active:shadow-sm'
                   }`}
                   style={!p.used ? {
-                    background: 'linear-gradient(135deg, #8b5cf6, #ec4899)',
+                    background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)))',
                     boxShadow: '0 6px 20px -6px rgba(236,72,153,0.6)',
                   } : undefined}
                 >
@@ -762,7 +762,7 @@ export default function VerseRushPage() {
               <>
                 <Crown className="w-16 h-16 text-yellow-300 mx-auto mb-2 drop-shadow-lg" />
                 <h1 className="font-heading text-3xl font-black mb-1" style={{
-                  backgroundImage: 'linear-gradient(90deg, #fbbf24, #ec4899)',
+                  backgroundImage: 'linear-gradient(90deg, hsl(var(--accent)), hsl(var(--primary-glow)))',
                   WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
                 }}>VITÓRIA!</h1>
               </>
@@ -838,7 +838,7 @@ export default function VerseRushPage() {
               Sair
             </Button>
             <Button onClick={() => { exitGame(); setTimeout(() => startSolo(), 100); }} className="flex-1 rounded-xl font-bold" style={{
-              background: 'linear-gradient(90deg, #f59e0b, #ec4899, #8b5cf6)', color: 'white',
+              background: 'linear-gradient(90deg, hsl(var(--accent)), hsl(var(--primary-glow)), hsl(var(--primary)))', color: 'white',
             }}>
               Jogar de novo
             </Button>
