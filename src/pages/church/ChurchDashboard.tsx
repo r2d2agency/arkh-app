@@ -138,10 +138,10 @@ const ChurchDashboard = () => {
             {churchInfo?.pix_enabled && churchInfo?.pix_key && (
               <div className="space-y-3">
                 <h3 className="font-heading text-sm font-semibold flex items-center gap-2">
-                  <CreditCard className="w-4 h-4 text-gold" />
+                  <CreditCard className="w-4 h-4 text-accent" />
                   Oferta & Dízimo
                 </h3>
-                <div className="p-4 rounded-xl border border-gold/20 bg-gold/5 space-y-3">
+                <div className="p-4 rounded-xl border border-accent/20 bg-accent/5 space-y-3">
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">
                       Chave PIX ({pixTypeLabel[churchInfo.pix_key_type || ''] || churchInfo.pix_key_type})
@@ -151,7 +151,7 @@ const ChurchDashboard = () => {
                       <p className="text-xs text-muted-foreground">Favorecido: {churchInfo.pix_beneficiary}</p>
                     )}
                   </div>
-                  <Button onClick={copyPix} variant="outline" className="w-full rounded-xl border-gold/30 hover:bg-gold/10" size="sm">
+                  <Button onClick={copyPix} variant="outline" className="w-full rounded-xl border-accent/30 hover:bg-accent/10" size="sm">
                     {pixCopied ? <Check className="w-4 h-4 mr-2 text-green-500" /> : <Copy className="w-4 h-4 mr-2" />}
                     {pixCopied ? 'Copiada!' : 'Copiar chave PIX'}
                   </Button>
@@ -229,9 +229,9 @@ const ChurchDashboard = () => {
           </Card>
         </Link>
         <Link to="/church/studies">
-          <Card className="p-5 rounded-xl card-hover text-center space-y-2 h-full border-gold/20">
-            <div className="w-12 h-12 rounded-xl bg-gold/10 flex items-center justify-center mx-auto">
-              <BookOpen className="w-6 h-6 text-gold" />
+          <Card className="p-5 rounded-xl card-hover text-center space-y-2 h-full border-accent/20">
+            <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center mx-auto">
+              <BookOpen className="w-6 h-6 text-accent" />
             </div>
             <p className="font-heading font-semibold text-sm">Estudos</p>
             <p className="text-xs text-muted-foreground">Gerados por IA</p>
@@ -283,12 +283,12 @@ const ChurchDashboard = () => {
       )}
 
       {/* Devotional Card */}
-      <Card className="p-5 rounded-xl border-gold/20 bg-gold/5 space-y-3">
+      <Card className="p-5 rounded-xl border-accent/20 bg-accent/5 space-y-3">
         <div className="flex items-center gap-2">
-          <Heart className="w-4 h-4 text-gold" />
+          <Heart className="w-4 h-4 text-accent" />
           <h2 className="font-heading text-sm font-semibold">Devocional do dia</h2>
         </div>
-        <blockquote className="text-sm text-muted-foreground italic border-l-2 border-gold/40 pl-3">
+        <blockquote className="text-sm text-muted-foreground italic border-l-2 border-accent/40 pl-3">
           "Porque Deus amou o mundo de tal maneira que deu o seu Filho unigênito, para que todo aquele que nele crê não pereça, mas tenha a vida eterna."
         </blockquote>
         <p className="text-xs text-muted-foreground font-medium">João 3:16</p>

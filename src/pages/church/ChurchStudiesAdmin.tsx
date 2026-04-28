@@ -241,7 +241,7 @@ const ChurchStudiesAdmin = () => {
                   </Badge>
                 </div>
                 {study.description && <p className="text-xs text-muted-foreground line-clamp-2">{study.description}</p>}
-                {study.key_verse && <p className="text-xs text-gold italic">📖 {study.key_verse}</p>}
+                {study.key_verse && <p className="text-xs text-accent italic">📖 {study.key_verse}</p>}
                 <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                   <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3" /> {study.completions || 0} completaram</span>
                   <span>• {study.author_name}</span>

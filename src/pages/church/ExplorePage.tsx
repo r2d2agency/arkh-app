@@ -28,7 +28,7 @@ const categories = [
   { key: 'finanças', label: 'Finanças', icon: DollarSign, color: 'bg-green-500/10 text-green-500' },
   { key: 'cura', label: 'Cura emocional', icon: Heart, color: 'bg-red-500/10 text-red-500' },
   { key: 'sabedoria', label: 'Sabedoria', icon: BookOpen, color: 'bg-blue-500/10 text-blue-500' },
-  { key: 'coragem', label: 'Coragem', icon: Shield, color: 'bg-gold/10 text-gold' },
+  { key: 'coragem', label: 'Coragem', icon: Shield, color: 'bg-accent/10 text-accent' },
   { key: 'alegria', label: 'Alegria', icon: Sparkles, color: 'bg-yellow-500/10 text-yellow-500' },
 ];
 

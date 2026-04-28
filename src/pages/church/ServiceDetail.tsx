@@ -318,7 +318,7 @@ const ServiceDetailPage = () => {
             <TabsContent value="summary" className="mt-4 space-y-4">
               <Card className="p-4 rounded-2xl space-y-3">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-gold" />
+                  <Sparkles className="w-4 h-4 text-accent" />
                   <h3 className="font-heading text-sm font-semibold">Resumo da Pregação</h3>
                 </div>
                 <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
@@ -373,9 +373,9 @@ const ServiceDetailPage = () => {
 
               {/* Theological Context */}
               {topicsData.theological_context && (
-                <Card className="p-4 rounded-2xl space-y-3 border-gold/20 bg-gold/5">
+                <Card className="p-4 rounded-2xl space-y-3 border-accent/20 bg-accent/5">
                   <div className="flex items-center gap-2">
-                    <BookOpen className="w-4 h-4 text-gold" />
+                    <BookOpen className="w-4 h-4 text-accent" />
                     <h3 className="font-heading text-sm font-semibold">Contexto Teológico</h3>
                   </div>
                   <p className="text-sm text-muted-foreground leading-relaxed">
@@ -455,14 +455,14 @@ const ServiceDetailPage = () => {
             <TabsContent value="verses" className="mt-4">
               <Card className="p-4 rounded-2xl space-y-3">
                 <div className="flex items-center gap-2">
-                  <BookMarked className="w-4 h-4 text-gold" />
+                  <BookMarked className="w-4 h-4 text-accent" />
                   <h3 className="font-heading text-sm font-semibold">Versículos Citados</h3>
                 </div>
                 <div className="space-y-3">
                   {verses.map((verse, i) => (
-                    <div key={i} className="p-4 rounded-xl bg-gold/5 border border-gold/10 space-y-2">
+                    <div key={i} className="p-4 rounded-xl bg-accent/5 border border-accent/10 space-y-2">
                       <div className="flex items-center justify-between">
-                        <p className="text-sm font-bold text-gold">{verse.reference}</p>
+                        <p className="text-sm font-bold text-accent">{verse.reference}</p>
                         <Button
                           size="sm"
                           variant="ghost"
@@ -478,7 +478,7 @@ const ServiceDetailPage = () => {
                         </Button>
                       </div>
                       {verse.text && (
-                        <blockquote className="text-sm italic text-muted-foreground border-l-2 border-gold/30 pl-3">
+                        <blockquote className="text-sm italic text-muted-foreground border-l-2 border-accent/30 pl-3">
                           "{verse.text}"
                         </blockquote>
                       )}
@@ -520,13 +520,13 @@ const ServiceDetailPage = () => {
               {topicsData.practical_applications && topicsData.practical_applications.length > 0 && (
                 <Card className="p-4 rounded-2xl space-y-3">
                   <div className="flex items-center gap-2">
-                    <Lightbulb className="w-4 h-4 text-gold" />
+                    <Lightbulb className="w-4 h-4 text-accent" />
                     <h3 className="font-heading text-sm font-semibold">Aplicações Práticas</h3>
                   </div>
                   <div className="space-y-2">
                     {topicsData.practical_applications.map((app, i) => (
-                      <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-gold/5 border border-gold/10">
-                        <span className="text-gold text-sm mt-0.5">✦</span>
+                      <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-accent/5 border border-accent/10">
+                        <span className="text-accent text-sm mt-0.5">✦</span>
                         <p className="text-sm text-muted-foreground">{app}</p>
                       </div>
                     ))}

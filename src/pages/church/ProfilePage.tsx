@@ -18,7 +18,7 @@ const ProfilePage = () => {
 
   const menuItems = [
     { icon: Lock, label: 'Alterar senha', path: '/church/password', color: 'text-primary' },
-    { icon: Bell, label: 'Notificações', path: '/church/notifications', color: 'text-gold' },
+    { icon: Bell, label: 'Notificações', path: '/church/notifications', color: 'text-accent' },
     { icon: BookOpen, label: 'Meu caderno', path: '/church/notebook', color: 'text-green-500' },
     { icon: Video, label: 'Cultos assistidos', path: '/church/services', color: 'text-purple-500' },
   ];
@@ -43,7 +43,7 @@ const ProfilePage = () => {
           <p className="text-[10px] text-muted-foreground">Cultos</p>
         </Card>
         <Card className="p-3 rounded-2xl text-center">
-          <p className="font-heading text-xl font-bold text-gold">0</p>
+          <p className="font-heading text-xl font-bold text-accent">0</p>
           <p className="text-[10px] text-muted-foreground">Anotações</p>
         </Card>
         <Card className="p-3 rounded-2xl text-center">
