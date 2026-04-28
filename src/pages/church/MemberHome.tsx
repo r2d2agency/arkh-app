@@ -469,8 +469,7 @@ const MemberHome = () => {
             <span className="text-[11px] font-bold text-center leading-tight text-foreground/80">Batalha</span>
           </Link>
           <Link to="/church/verse-rush" className="flex flex-col items-center gap-2 group">
-            <div className="w-[60px] h-[60px] rounded-3xl flex items-center justify-center text-white transition-all group-hover:scale-105 group-active:scale-95 shadow-md"
-              style={{ background: 'linear-gradient(135deg, #ec4899, #8b5cf6)' }}>
+            <div className="w-[60px] h-[60px] rounded-3xl flex items-center justify-center bg-gradient-to-br from-primary to-primary-glow text-primary-foreground transition-all group-hover:scale-105 group-active:scale-95 shadow-soft">
               <Zap className="w-7 h-7" strokeWidth={2.2} />
             </div>
             <span className="text-[11px] font-bold text-center leading-tight text-foreground/80">Rush</span>
