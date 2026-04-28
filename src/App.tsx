@@ -56,6 +56,7 @@ import ExploreGroupsPage from "@/pages/church/ExploreGroupsPage";
 import ReadingPlanPage from "@/pages/church/ReadingPlanPage";
 import BibleBattlePage from "@/pages/church/BibleBattlePage";
 import VerseRushPage from "@/pages/church/VerseRushPage";
+import MahjongPage from "@/pages/church/MahjongPage";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -132,6 +133,7 @@ const AppRoutes = () => (
         <Route path="/church/reading-plan" element={<ReadingPlanPage />} />
         <Route path="/church/bible-battle" element={<BibleBattlePage />} />
         <Route path="/church/verse-rush" element={<VerseRushPage />} />
+        <Route path="/church/mahjong" element={<MahjongPage />} />
       </Route>
 
       {/* Admin-only management pages (with sidebar layout) */}
