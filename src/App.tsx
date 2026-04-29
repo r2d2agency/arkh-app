@@ -135,6 +135,7 @@ const AppRoutes = () => (
         <Route path="/church/bible-battle" element={<BibleBattlePage />} />
         <Route path="/church/verse-rush" element={<VerseRushPage />} />
         <Route path="/church/mahjong" element={<MahjongPage />} />
+        <Route path="/church/bible" element={<BiblePage />} />
       </Route>
 
       {/* Admin-only management pages (with sidebar layout) */}
