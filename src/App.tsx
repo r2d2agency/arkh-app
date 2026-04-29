@@ -57,6 +57,7 @@ import ReadingPlanPage from "@/pages/church/ReadingPlanPage";
 import BibleBattlePage from "@/pages/church/BibleBattlePage";
 import VerseRushPage from "@/pages/church/VerseRushPage";
 import MahjongPage from "@/pages/church/MahjongPage";
+import BiblePage from "@/pages/church/BiblePage";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound.tsx";
 
