@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
-import { ArrowLeft, Loader2, Sparkles, Zap, BookOpen, Timer, Trophy, RotateCcw, Layers, X } from 'lucide-react';
+import { ArrowLeft, Loader2, Sparkles, Zap, BookOpen, Timer, Trophy, RotateCcw, Layers, X, Info } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 type Mode = 'relax' | 'study' | 'challenge';
 
@@ -53,65 +54,108 @@ const MODE_META: Record<Mode, { label: string; icon: any; tint: string; desc: st
   challenge: { label: 'Desafio', icon: Timer, tint: 'bg-destructive/10 text-destructive', desc: 'Tempo e pontuação. Vai fundo!' },
 };
 
-const TILE_W = 64; // px
-const TILE_H = 84; // px
-const GAP_X = 6;
-const GAP_Y = 8;
-const Z_OFFSET = 6;
+const TILE_W = 60; // Base width for 3D skin
+const TILE_H = 76; // Base height for 3D skin
+const TILE_DEPTH = 12; // 3D depth effect
 
+/**
+ * Logica Mahjong Solitaire Profissional:
+ * Uma peça está livre se:
+ * 1. Não houver NENHUMA peça acima (z > p.z) que toque nela.
+ * 2. Tiver o lado ESQUERDO ou o lado DIREITO livre (sem peças adjacentes no mesmo Z).
+ * 
+ * Usamos coordenadas de "meia-unidade" (grid 0.5) para layouts complexos.
+ * Uma peça (largura 2, altura 2) em (x,y) cobre o retângulo [x, x+2] e [y, y+2].
+ */
 function isPieceFree(p: Piece, all: Piece[]): boolean {
   if (p.removed) return false;
-  // Bloqueada se houver peça acima cobrindo a célula
-  const covered = all.some(o =>
+
+  // 1. Checar se há algo em cima (z superior)
+  const isCovered = all.some(o => 
     !o.removed && o.piece_id !== p.piece_id && o.z > p.z &&
-    Math.abs(o.x - p.x) < 2 && Math.abs(o.y - p.y) < 2
+    o.x > p.x - 2 && o.x < p.x + 2 &&
+    o.y > p.y - 2 && o.y < p.y + 2
   );
-  if (covered) return false;
-  // Precisa ter pelo menos um lado livre na mesma camada
-  const leftBlocked = all.some(o =>
-    !o.removed && o.piece_id !== p.piece_id && o.z === p.z && o.y === p.y && o.x === p.x - 2
+  if (isCovered) return false;
+
+  // 2. Checar se está travada lateralmente (mesmo Z)
+  const leftBlocked = all.some(o => 
+    !o.removed && o.piece_id !== p.piece_id && o.z === p.z &&
+    o.x === p.x - 2 &&
+    o.y > p.y - 2 && o.y < p.y + 2
   );
-  const rightBlocked = all.some(o =>
-    !o.removed && o.piece_id !== p.piece_id && o.z === p.z && o.y === p.y && o.x === p.x + 2
+  const rightBlocked = all.some(o => 
+    !o.removed && o.piece_id !== p.piece_id && o.z === p.z &&
+    o.x === p.x + 2 &&
+    o.y > p.y - 2 && o.y < p.y + 2
   );
-  return !(leftBlocked && rightBlocked);
+
+  return !leftBlocked || !rightBlocked;
 }
 
-function TileCard({ piece, free, selected, onClick }: { piece: Piece; free: boolean; selected: boolean; onClick: () => void }) {
+function TileCard({ piece, free, selected, onClick, matchEffect }: { piece: Piece; free: boolean; selected: boolean; onClick: () => void; matchEffect?: boolean }) {
   const t = piece.tile;
   const isHebrew = t.kind === 'original';
+  
   return (
-    <button
-      onClick={free ? onClick : undefined}
-      disabled={!free}
-      className={[
-        'absolute rounded-2xl border-2 transition-all duration-200 select-none flex flex-col items-center justify-center px-1.5 text-center shadow-soft',
-        free ? 'cursor-pointer hover:-translate-y-0.5' : 'cursor-not-allowed',
-        selected
-          ? 'bg-accent text-accent-foreground border-accent ring-4 ring-accent/40 scale-[1.04]'
-          : free
-            ? 'bg-card text-card-foreground border-border hover:border-primary/60'
-            : 'bg-muted text-muted-foreground border-border opacity-60',
-      ].join(' ')}
+    <div
+      className={cn(
+        "absolute transition-all duration-300 transform-gpu preserve-3d",
+        piece.removed ? "opacity-0 scale-50 pointer-events-none" : "opacity-100",
+        matchEffect && "animate-ping opacity-0"
+      )}
       style={{
-        left: piece.x * (TILE_W / 2 + GAP_X / 2),
-        top: piece.y * (TILE_H / 2 + GAP_Y / 2),
+        left: piece.x * (TILE_W / 2),
+        top: piece.y * (TILE_H / 2),
         width: TILE_W,
         height: TILE_H,
-        transform: `translate(${piece.z * Z_OFFSET}px, ${-piece.z * Z_OFFSET}px)${selected ? ' scale(1.04)' : ''}`,
         zIndex: 10 + piece.z * 10,
+        transform: `translate3d(${-piece.z * 2}px, ${-piece.z * 3}px, 0)`,
       }}
     >
-      {t.icon && <span className="text-base leading-none mb-0.5">{t.icon}</span>}
-      <span className={isHebrew ? 'font-scripture text-lg leading-tight' : 'font-bold text-[11px] leading-tight'}>
-        {t.text}
-      </span>
-      {t.transliteration && (
-        <span className="text-[9px] opacity-70 italic mt-0.5 leading-tight">{t.transliteration}</span>
-      )}
-    </button>
+      {/* 3D Sides */}
+      <div 
+        className="absolute inset-0 bg-slate-300 dark:bg-slate-700 rounded-lg shadow-lg"
+        style={{ transform: `translate3d(4px, 6px, -1px)` }}
+      />
+      
+      {/* Main Face */}
+      <button
+        onClick={free ? onClick : undefined}
+        disabled={!free}
+        className={cn(
+          "absolute inset-0 rounded-lg border-b-4 border-r-2 flex flex-col items-center justify-center p-1 text-center transition-all",
+          "shadow-[4px_4px_0px_rgba(0,0,0,0.1)]",
+          free ? "cursor-pointer active:translate-y-1 active:shadow-none" : "cursor-not-allowed grayscale-[0.5]",
+          selected 
+            ? "bg-amber-100 dark:bg-amber-900 border-amber-500 ring-2 ring-amber-400 -translate-y-1" 
+            : free 
+              ? "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700" 
+              : "bg-slate-100 dark:bg-slate-900 border-slate-200/50 opacity-80"
+        )}
+      >
+        <div className="flex-1 flex flex-col items-center justify-center overflow-hidden w-full">
+          {t.icon && <span className="text-xl mb-0.5 filter drop-shadow-sm">{t.icon}</span>}
+          <span className={cn(
+            "leading-tight w-full break-words px-0.5",
+            isHebrew ? "font-scripture text-lg" : "font-bold text-[10px]"
+          )}>
+            {t.text}
+          </span>
+          {t.transliteration && (
+            <span className="text-[8px] opacity-60 italic mt-0.5 line-clamp-1">{t.transliteration}</span>
+          )}
+        </div>
+        
+        {/* Indicators */}
+        <div className="absolute top-1 right-1 opacity-20">
+          {!free && piece.z > 0 && <Layers className="w-2 h-2" />}
+        </div>
+      </button>
+    </div>
   );
 }
+
 
 function MahjongPage() {
   const navigate = useNavigate();
@@ -130,6 +174,7 @@ function MahjongPage() {
   const [feedback, setFeedback] = useState<{ ok: boolean; level?: number; explanation?: string } | null>(null);
   const [validating, setValidating] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [matchingIds, setMatchingIds] = useState<string[]>([]);
   const timerRef = useRef<number | null>(null);
 
   // Lobby load
@@ -176,6 +221,7 @@ function MahjongPage() {
       setSelected(null);
       setScore(0); setCorrect(0); setWrong(0); setSeconds(0);
       setFeedback(null); setCompleted(false);
+      setMatchingIds([]);
       setScreen('play');
     } catch (err: any) {
       toast({ title: 'Erro ao iniciar', description: err.message, variant: 'destructive' });
@@ -184,8 +230,8 @@ function MahjongPage() {
     }
   }
 
-  async function handlePieceClick(p: Piece) {
-    if (validating || completed || feedback) return;
+  const handlePieceClick = useCallback(async (p: Piece) => {
+    if (validating || completed || feedback || matchingIds.length > 0) return;
     if (selected?.piece_id === p.piece_id) { setSelected(null); return; }
     if (!selected) { setSelected(p); return; }
 
@@ -196,17 +242,25 @@ function MahjongPage() {
         { tile_a_id: selected.tile.id, tile_b_id: p.tile.id }
       );
       if (result.match) {
-        setPieces(prev => prev.map(x =>
-          x.piece_id === selected.piece_id || x.piece_id === p.piece_id
-            ? { ...x, removed: true } : x
-        ));
+        // Efeito visual antes de remover
+        setMatchingIds([selected.piece_id, p.piece_id]);
         setCorrect(c => c + 1);
         const pts = (result.level || 1) * 10 + (mode === 'challenge' ? 5 : 0);
         setScore(s => s + pts);
         setFeedback({ ok: true, level: result.level, explanation: result.explanation });
-        if (mode !== 'study') {
-          setTimeout(() => setFeedback(null), 1800);
-        }
+
+        // Espera animação
+        setTimeout(() => {
+          setPieces(prev => prev.map(x =>
+            x.piece_id === selected.piece_id || x.piece_id === p.piece_id
+              ? { ...x, removed: true } : x
+          ));
+          setMatchingIds([]);
+          if (mode !== 'study') {
+            setTimeout(() => setFeedback(null), 1000);
+          }
+        }, 600);
+
       } else {
         setWrong(w => w + 1);
         if (mode === 'challenge') setScore(s => Math.max(0, s - 2));
@@ -219,7 +273,7 @@ function MahjongPage() {
       setSelected(null);
       setValidating(false);
     }
-  }
+  }, [validating, completed, feedback, matchingIds, selected, mode, toast]);
 
   function restart() {
     if (!level) return;
@@ -227,6 +281,7 @@ function MahjongPage() {
     setSelected(null);
     setScore(0); setCorrect(0); setWrong(0); setSeconds(0);
     setFeedback(null); setCompleted(false);
+    setMatchingIds([]);
   }
 
   function backToLobby() {
@@ -234,17 +289,17 @@ function MahjongPage() {
     setLevel(null);
   }
 
-  // Bounding box do tabuleiro
+  // Bounding box do tabuleiro com padding para o efeito 3D
   const board = useMemo(() => {
     if (!pieces.length) return { w: 0, h: 0 };
     const maxX = Math.max(...pieces.map(p => p.x));
     const maxY = Math.max(...pieces.map(p => p.y));
-    const maxZ = Math.max(...pieces.map(p => p.z));
     return {
-      w: maxX * (TILE_W / 2 + GAP_X / 2) + TILE_W + maxZ * Z_OFFSET + 8,
-      h: maxY * (TILE_H / 2 + GAP_Y / 2) + TILE_H + maxZ * Z_OFFSET + 8,
+      w: (maxX * (TILE_W / 2)) + TILE_W + 20,
+      h: (maxY * (TILE_H / 2)) + TILE_H + 20,
     };
   }, [pieces]);
+
 
   const remaining = pieces.filter(p => !p.removed).length;
 
@@ -424,15 +479,14 @@ function MahjongPage() {
           style={{ width: board.w, height: board.h, minWidth: board.w }}
         >
           {pieces.map(p => (
-            !p.removed && (
-              <TileCard
-                key={p.piece_id}
-                piece={p}
-                free={isPieceFree(p, pieces)}
-                selected={selected?.piece_id === p.piece_id}
-                onClick={() => handlePieceClick(p)}
-              />
-            )
+            <TileCard
+              key={p.piece_id}
+              piece={p}
+              free={isPieceFree(p, pieces)}
+              selected={selected?.piece_id === p.piece_id}
+              onClick={() => handlePieceClick(p)}
+              matchEffect={matchingIds.includes(p.piece_id)}
+            />
           ))}
         </div>
       </Card>

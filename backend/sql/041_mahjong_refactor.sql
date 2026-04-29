@@ -1,3 +1,4 @@
+DELETE FROM mahjong_levels WHERE church_id IS NULL; DELETE FROM mahjong_relations; DELETE FROM mahjong_tiles WHERE church_id IS NULL;
 -- Mahjong Bíblico — peças, relações, níveis e progresso
 
 -- Biblioteca de peças

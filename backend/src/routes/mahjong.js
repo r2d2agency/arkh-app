@@ -54,11 +54,18 @@ router.get('/levels/:id', async (req, res) => {
     tiles.forEach(t => { tileMap[t.id] = t; });
 
     // Cada peça do layout vira uma "instância" com piece_id único + tile_data
-    const pieces = layout.map((p, idx) => ({
+    let pieces = layout.map((p, idx) => ({
       piece_id: `${lvl.id}-${idx}`,
-      x: p.x, y: p.y, z: p.z,
+      x: parseFloat(p.x), y: parseFloat(p.y), z: parseInt(p.z),
       tile: tileMap[p.tile_id] || null,
     })).filter(p => p.tile);
+
+    // Validação de paridade: Se o layout tiver um número ímpar de peças para um tipo de combinação,
+    // o nível pode ser impossível. No entanto, Mahjong Bíblico permite combinações N2/N3.
+    // O que importa é que o total de peças seja PAR.
+    if (pieces.length % 2 !== 0) {
+      console.warn(`Nível ${lvl.name} tem número ímpar de peças (${pieces.length})`);
+    }
 
     res.json({
       id: lvl.id,
