@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import Tesseract from 'tesseract.js';
+import { Camera } from 'lucide-react';
 import { useParams, Link } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -123,6 +125,24 @@ const ServiceDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [note, setNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleOcr = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setOcrLoading(true);
+    toast.info('IA Transcrevendo sua foto...');
+    try {
+      const { data: { text } } = await Tesseract.recognize(file, 'por');
+      setNote(prev => prev + (prev ? '\n\n' : '') + text);
+      toast.success('Texto extraído!');
+    } catch {
+      toast.error('Erro ao ler imagem');
+    } finally {
+      setOcrLoading(false);
+    }
+  };
   const [focusMode, setFocusMode] = useState(false);
   const [expandedSummary, setExpandedSummary] = useState(false);
   const [savingVerse, setSavingVerse] = useState<string | null>(null);
@@ -603,10 +623,23 @@ const ServiceDetailPage = () => {
 
         {/* Notes section */}
         <Card className="p-4 rounded-2xl space-y-3">
-          <h3 className="font-heading text-sm font-semibold flex items-center gap-2">
-            <BookOpen className="w-4 h-4 text-primary" />
-            Minhas Anotações
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-heading text-sm font-semibold flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-primary" />
+              Minhas Anotações
+            </h3>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-7 text-[10px] rounded-full gap-1.5 text-primary bg-primary/5"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={ocrLoading}
+            >
+              {ocrLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Camera className="w-3 h-3" />}
+              Transcrever Foto
+            </Button>
+            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleOcr} />
+          </div>
           <Textarea
             placeholder="Escreva suas reflexões sobre esta pregação..."
             value={note}
