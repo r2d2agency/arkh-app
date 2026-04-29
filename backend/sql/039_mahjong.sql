@@ -155,13 +155,13 @@ BEGIN
     (LEAST(t_cat_fe, t_emunah), GREATEST(t_cat_fe, t_emunah), 3, 'Emunáh é a fé fiel — categoria Fé.'),
     (LEAST(t_cat_fe, t_torah), GREATEST(t_cat_fe, t_torah), 3, 'Toráh sustenta a vida de fé.');
 
-  -- Nível 1: pirâmide pequena (10 peças = 5 pares)
-  -- Layout: x (col), y (row), z (camada). Camada 0 = base.
+  -- Nível 1: Pirâmide corrigida (Grid de 2x2 para cada peça)
   INSERT INTO mahjong_levels (name, shape, difficulty, description, sort_order, layout) VALUES (
     'Iniciante — Pares Hebraicos', 'pyramid', 1,
-    'Combine cada palavra hebraica com sua tradução. Sem pressão.',
+    'Combine cada palavra hebraica com sua tradução. Layout clássico em 3D.',
     1,
     jsonb_build_array(
+      -- Base (Camada 0) - 4x2 grid de peças (8 peças)
       jsonb_build_object('x',0,'y',0,'z',0,'tile_id',t_shalom),
       jsonb_build_object('x',2,'y',0,'z',0,'tile_id',t_shalom_pt),
       jsonb_build_object('x',4,'y',0,'z',0,'tile_id',t_ahava),
@@ -170,27 +170,29 @@ BEGIN
       jsonb_build_object('x',2,'y',2,'z',0,'tile_id',t_emunah_pt),
       jsonb_build_object('x',4,'y',2,'z',0,'tile_id',t_ruach),
       jsonb_build_object('x',6,'y',2,'z',0,'tile_id',t_ruach_pt),
-      jsonb_build_object('x',1,'y',1,'z',1,'tile_id',t_chesed),
-      jsonb_build_object('x',5,'y',1,'z',1,'tile_id',t_chesed_pt)
+      -- Topo (Camada 1) - 2 peças centralizadas que travam as de baixo
+      jsonb_build_object('x',2,'y',1,'z',1,'tile_id',t_chesed),
+      jsonb_build_object('x',4,'y',1,'z',1,'tile_id',t_chesed_pt)
     )
   );
 
-  -- Nível 2: cruz (símbolos + versículos + originais)
+  -- Nível 2: Cruz (Grid corrigido)
   INSERT INTO mahjong_levels (name, shape, difficulty, description, sort_order, layout) VALUES (
     'Símbolos da Aliança', 'cross', 2,
     'Ligue símbolos a versículos e palavras a categorias.',
     2,
     jsonb_build_array(
-      jsonb_build_object('x',2,'y',0,'z',0,'tile_id',t_lamb_sym),
-      jsonb_build_object('x',2,'y',4,'z',0,'tile_id',t_lamb_verse),
-      jsonb_build_object('x',0,'y',2,'z',0,'tile_id',t_light_sym),
-      jsonb_build_object('x',4,'y',2,'z',0,'tile_id',t_light_verse),
-      jsonb_build_object('x',2,'y',2,'z',1,'tile_id',t_cat_amor),
-      jsonb_build_object('x',1,'y',2,'z',0,'tile_id',t_ahava),
-      jsonb_build_object('x',3,'y',2,'z',0,'tile_id',t_chesed),
-      jsonb_build_object('x',2,'y',1,'z',0,'tile_id',t_cat_fe),
-      jsonb_build_object('x',2,'y',3,'z',0,'tile_id',t_emunah),
-      jsonb_build_object('x',2,'y',5,'z',0,'tile_id',t_torah)
+      -- Peças em cruz (10 peças)
+      jsonb_build_object('x',4,'y',0,'z',0,'tile_id',t_lamb_sym),
+      jsonb_build_object('x',4,'y',2,'z',0,'tile_id',t_lamb_verse),
+      jsonb_build_object('x',4,'y',4,'z',0,'tile_id',t_light_sym),
+      jsonb_build_object('x',4,'y',6,'z',0,'tile_id',t_light_verse),
+      jsonb_build_object('x',0,'y',3,'z',0,'tile_id',t_cat_amor),
+      jsonb_build_object('x',2,'y',3,'z',0,'tile_id',t_ahava),
+      jsonb_build_object('x',6,'y',3,'z',0,'tile_id',t_chesed),
+      jsonb_build_object('x',8,'y',3,'z',0,'tile_id',t_cat_fe),
+      jsonb_build_object('x',4,'y',3,'z',1,'tile_id',t_emunah), -- Central sobreposta
+      jsonb_build_object('x',4,'y',3,'z',2,'tile_id',t_torah)   -- Topo da pilha central
     )
   );
 END $$;
