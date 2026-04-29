@@ -69,8 +69,8 @@ const NotebookPage = () => {
     if (!formContent.trim()) return;
     setSaving(true);
     try {
-      const { enhanced } = await api.post('/api/church/notebook-ai/enhance', { content: formContent, task });
-      setFormContent(enhanced);
+      const data = await api.post<{ enhanced: string }>('/api/church/notebook-ai/enhance', { content: formContent, task });
+      setFormContent(data.enhanced);
       toast.success('Melhorado com IA!');
     } catch {
       toast.error('Erro ao usar IA');
