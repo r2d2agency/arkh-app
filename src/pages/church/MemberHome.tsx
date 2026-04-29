@@ -119,6 +119,7 @@ const featureItems: Feature[] = [
   { to: '/church/worship',      label: 'Louvor',    icon: Music,         tint: 'bg-cyan-400/12 text-cyan-600 border-cyan-400/15' },
   { to: '/church/agenda',       label: 'Agenda',    icon: Calendar,      tint: 'bg-orange-400/12 text-orange-600 border-orange-400/15' },
   { to: '/church/reading-plan', label: 'Leitura',   icon: Headphones,    tint: 'bg-accent/15 text-accent-foreground border-accent/20' },
+  { to: '/church/bible',        label: 'Bíblia',    icon: BookOpen,      tint: 'bg-amber-400/12 text-amber-600 border-amber-400/15' },
 ];
 
 const getYouTubeId = (url: string) => {
