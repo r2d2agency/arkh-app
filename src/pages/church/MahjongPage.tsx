@@ -479,15 +479,14 @@ function MahjongPage() {
           style={{ width: board.w, height: board.h, minWidth: board.w }}
         >
           {pieces.map(p => (
-            !p.removed && (
-              <TileCard
-                key={p.piece_id}
-                piece={p}
-                free={isPieceFree(p, pieces)}
-                selected={selected?.piece_id === p.piece_id}
-                onClick={() => handlePieceClick(p)}
-              />
-            )
+            <TileCard
+              key={p.piece_id}
+              piece={p}
+              free={isPieceFree(p, pieces)}
+              selected={selected?.piece_id === p.piece_id}
+              onClick={() => handlePieceClick(p)}
+              matchEffect={matchingIds.includes(p.piece_id)}
+            />
           ))}
         </div>
       </Card>
