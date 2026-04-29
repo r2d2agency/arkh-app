@@ -66,6 +66,24 @@ const StudyDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [note, setNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleOcr = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setOcrLoading(true);
+    toast.info('IA Transcrevendo sua foto...');
+    try {
+      const { data: { text } } = await Tesseract.recognize(file, 'por');
+      setNote(prev => prev + (prev ? '\n\n' : '') + text);
+      toast.success('Texto extraído!');
+    } catch {
+      toast.error('Erro ao ler imagem');
+    } finally {
+      setOcrLoading(false);
+    }
+  };
   const [completing, setCompleting] = useState(false);
   const [completed, setCompleted] = useState(false);
 
