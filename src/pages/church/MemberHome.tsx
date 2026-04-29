@@ -112,14 +112,13 @@ type Feature = { to: string; label: string; icon: LucideIcon; tint: string };
 
 const featureItems: Feature[] = [
   { to: '/church/services',     label: 'Cultos',    icon: Video,         tint: 'bg-primary/8 text-primary border-primary/10' },
+  { to: '/church/bible',        label: 'Bíblia',    icon: BookMarked,    tint: 'bg-amber-400/12 text-amber-600 border-amber-400/15' },
   { to: '/church/studies',      label: 'Estudar',   icon: BookOpen,      tint: 'bg-emerald-400/12 text-emerald-600 border-emerald-400/15' },
   { to: '/church/school',       label: 'Escola',    icon: GraduationCap, tint: 'bg-blue-400/12 text-blue-600 border-blue-400/15' },
   { to: '/church/notebook',     label: 'Caderno',   icon: BookHeart,     tint: 'bg-rose-400/12 text-rose-600 border-rose-400/15' },
   { to: '/church/quiz',         label: 'Games',     icon: Gamepad2,      tint: 'bg-violet-400/12 text-violet-600 border-violet-400/15' },
   { to: '/church/worship',      label: 'Louvor',    icon: Music,         tint: 'bg-cyan-400/12 text-cyan-600 border-cyan-400/15' },
   { to: '/church/agenda',       label: 'Agenda',    icon: Calendar,      tint: 'bg-orange-400/12 text-orange-600 border-orange-400/15' },
-  { to: '/church/reading-plan', label: 'Leitura',   icon: Headphones,    tint: 'bg-accent/15 text-accent-foreground border-accent/20' },
-  { to: '/church/bible',        label: 'Bíblia',    icon: BookOpen,      tint: 'bg-amber-400/12 text-amber-600 border-amber-400/15' },
 ];
 
 const getYouTubeId = (url: string) => {
