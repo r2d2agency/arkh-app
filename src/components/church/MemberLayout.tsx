@@ -27,6 +27,7 @@ import {
   Gamepad2,
   Megaphone,
   Music,
+  BookMarked,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
@@ -35,7 +36,7 @@ import logoImg from '@/assets/logo.png';
 const memberBottomNav = [
   { path: '/church', label: 'Início', icon: Home },
   { path: '/church/services', label: 'Cultos', icon: Video },
-  { path: '/church/announcements', label: 'Recados', icon: Megaphone },
+  { path: '/church/bible', label: 'Bíblia', icon: BookMarked },
   { path: '/church/studies', label: 'Estudar', icon: BookOpen },
   { path: '/church/profile', label: 'Perfil', icon: User },
 ];
