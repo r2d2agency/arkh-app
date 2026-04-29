@@ -326,9 +326,22 @@ const StudyDetailPage = () => {
 
       {/* Notes */}
       <Card className="p-4 rounded-2xl space-y-3">
-        <h3 className="font-heading text-sm font-semibold flex items-center gap-2">
-          <BookOpen className="w-4 h-4 text-primary" /> Minhas Anotações
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="font-heading text-sm font-semibold flex items-center gap-2">
+            <BookOpen className="w-4 h-4 text-primary" /> Minhas Anotações
+          </h3>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-7 text-[10px] rounded-full gap-1.5 text-primary bg-primary/5"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={ocrLoading}
+          >
+            {ocrLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Camera className="w-3 h-3" />}
+            Transcrever Foto
+          </Button>
+          <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleOcr} />
+        </div>
         <Textarea
           placeholder="Escreva suas reflexões sobre este estudo..."
           value={note} onChange={e => setNote(e.target.value)}
