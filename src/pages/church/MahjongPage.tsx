@@ -174,6 +174,7 @@ function MahjongPage() {
   const [feedback, setFeedback] = useState<{ ok: boolean; level?: number; explanation?: string } | null>(null);
   const [validating, setValidating] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [matchingIds, setMatchingIds] = useState<string[]>([]);
   const timerRef = useRef<number | null>(null);
 
   // Lobby load
@@ -220,6 +221,7 @@ function MahjongPage() {
       setSelected(null);
       setScore(0); setCorrect(0); setWrong(0); setSeconds(0);
       setFeedback(null); setCompleted(false);
+      setMatchingIds([]);
       setScreen('play');
     } catch (err: any) {
       toast({ title: 'Erro ao iniciar', description: err.message, variant: 'destructive' });
@@ -228,8 +230,8 @@ function MahjongPage() {
     }
   }
 
-  async function handlePieceClick(p: Piece) {
-    if (validating || completed || feedback) return;
+  const handlePieceClick = useCallback(async (p: Piece) => {
+    if (validating || completed || feedback || matchingIds.length > 0) return;
     if (selected?.piece_id === p.piece_id) { setSelected(null); return; }
     if (!selected) { setSelected(p); return; }
 
@@ -240,17 +242,25 @@ function MahjongPage() {
         { tile_a_id: selected.tile.id, tile_b_id: p.tile.id }
       );
       if (result.match) {
-        setPieces(prev => prev.map(x =>
-          x.piece_id === selected.piece_id || x.piece_id === p.piece_id
-            ? { ...x, removed: true } : x
-        ));
+        // Efeito visual antes de remover
+        setMatchingIds([selected.piece_id, p.piece_id]);
         setCorrect(c => c + 1);
         const pts = (result.level || 1) * 10 + (mode === 'challenge' ? 5 : 0);
         setScore(s => s + pts);
         setFeedback({ ok: true, level: result.level, explanation: result.explanation });
-        if (mode !== 'study') {
-          setTimeout(() => setFeedback(null), 1800);
-        }
+
+        // Espera animação
+        setTimeout(() => {
+          setPieces(prev => prev.map(x =>
+            x.piece_id === selected.piece_id || x.piece_id === p.piece_id
+              ? { ...x, removed: true } : x
+          ));
+          setMatchingIds([]);
+          if (mode !== 'study') {
+            setTimeout(() => setFeedback(null), 1000);
+          }
+        }, 600);
+
       } else {
         setWrong(w => w + 1);
         if (mode === 'challenge') setScore(s => Math.max(0, s - 2));
@@ -263,7 +273,7 @@ function MahjongPage() {
       setSelected(null);
       setValidating(false);
     }
-  }
+  }, [validating, completed, feedback, matchingIds, selected, mode, toast]);
 
   function restart() {
     if (!level) return;
@@ -271,6 +281,7 @@ function MahjongPage() {
     setSelected(null);
     setScore(0); setCorrect(0); setWrong(0); setSeconds(0);
     setFeedback(null); setCompleted(false);
+    setMatchingIds([]);
   }
 
   function backToLobby() {
@@ -278,17 +289,17 @@ function MahjongPage() {
     setLevel(null);
   }
 
-  // Bounding box do tabuleiro
+  // Bounding box do tabuleiro com padding para o efeito 3D
   const board = useMemo(() => {
     if (!pieces.length) return { w: 0, h: 0 };
     const maxX = Math.max(...pieces.map(p => p.x));
     const maxY = Math.max(...pieces.map(p => p.y));
-    const maxZ = Math.max(...pieces.map(p => p.z));
     return {
-      w: maxX * (TILE_W / 2 + GAP_X / 2) + TILE_W + maxZ * Z_OFFSET + 8,
-      h: maxY * (TILE_H / 2 + GAP_Y / 2) + TILE_H + maxZ * Z_OFFSET + 8,
+      w: (maxX * (TILE_W / 2)) + TILE_W + 20,
+      h: (maxY * (TILE_H / 2)) + TILE_H + 20,
     };
   }, [pieces]);
+
 
   const remaining = pieces.filter(p => !p.removed).length;
 
