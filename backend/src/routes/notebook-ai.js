@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { pool } = require('../db');
+const pool = require('../db/pool');
 const { transcribeYouTubeWithWhisper } = require('../services/whisperService');
 
 // POST /api/church/notebook-ai/enhance — Enhance note with AI
