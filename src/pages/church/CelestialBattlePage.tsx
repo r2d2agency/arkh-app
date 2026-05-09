@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Sparkles, Shield, Eye, Cloud, Wind, Crown, RotateCcw, Sword, Target, Star } from 'lucide-react';
+import { ArrowLeft, Sparkles, Shield, Eye, Cloud, Wind, Crown, RotateCcw, Sword, Target, Star, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { CelestialLobby, CelestialPvPGame } from './CelestialPvP';
 
 // ============================================================
 // BATALHA CELESTIAL — MVP
@@ -97,13 +98,14 @@ function tryPlace(units: UnitDef[]): PlacedUnit[] {
 }
 
 // ============================================================
-type Phase = 'menu' | 'placing' | 'playing' | 'gameover';
+type Phase = 'menu' | 'placing' | 'playing' | 'gameover' | 'pvp_lobby' | 'pvp_game';
 type Turn = 'player' | 'enemy';
 
 export default function CelestialBattlePage() {
   const [phase, setPhase] = useState<Phase>('menu');
   const [turn, setTurn] = useState<Turn>('player');
   const [winner, setWinner] = useState<'player' | 'enemy' | null>(null);
+  const [pvpRoomId, setPvpRoomId] = useState<string | null>(null);
 
   // Player owns these (visible to player)
   const [playerUnits, setPlayerUnits] = useState<PlacedUnit[]>([]);
@@ -426,7 +428,19 @@ export default function CelestialBattlePage() {
   // ============================================================
 
   if (phase === 'menu') {
-    return <MenuScreen onStart={startBattle} />;
+    return <MenuScreen
+      onStart={startBattle}
+      onPvP={() => setPhase('pvp_lobby')}
+    />;
+  }
+  if (phase === 'pvp_lobby') {
+    return <PvPLobbyScreen
+      onBack={() => setPhase('menu')}
+      onEnter={(roomId) => { setPvpRoomId(roomId); setPhase('pvp_game'); }}
+    />;
+  }
+  if (phase === 'pvp_game' && pvpRoomId) {
+    return <CelestialPvPGame roomId={pvpRoomId} onExit={() => { setPvpRoomId(null); setPhase('menu'); }} />;
   }
 
   return (
@@ -677,7 +691,7 @@ function CellBtn({
   );
 }
 
-function MenuScreen({ onStart }: { onStart: () => void }) {
+function MenuScreen({ onStart, onPvP }: { onStart: () => void; onPvP: () => void }) {
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,hsl(var(--accent)/0.25),transparent_60%),radial-gradient(ellipse_at_bottom,hsl(var(--primary)/0.2),transparent_55%),hsl(220_45%_8%)] text-white flex flex-col">
       <div className="px-4 pt-3">
@@ -707,7 +721,16 @@ function MenuScreen({ onStart }: { onStart: () => void }) {
           className="w-full max-w-xs bg-gradient-to-r from-accent to-accent/80 hover:from-accent hover:to-accent text-accent-foreground font-bold text-base h-14 rounded-2xl shadow-[0_15px_40px_-10px_hsl(var(--accent)/0.6)] hover:scale-[1.02] transition"
         >
           <Sword className="w-5 h-5 mr-2" />
-          Iniciar Batalha vs IA
+          Batalha vs IA
+        </Button>
+        <Button
+          size="lg"
+          variant="outline"
+          onClick={onPvP}
+          className="w-full max-w-xs mt-3 bg-white/5 hover:bg-white/10 border-white/20 text-white font-bold text-base h-14 rounded-2xl hover:scale-[1.02] transition"
+        >
+          <Users className="w-5 h-5 mr-2" />
+          Jogar com Amigo (PvP)
         </Button>
 
         <div className="mt-10 grid grid-cols-3 gap-3 w-full">
@@ -780,6 +803,27 @@ function Stat({ label, value }: { label: string; value: string | number }) {
     <div className="rounded-xl bg-white/5 border border-white/10 p-2">
       <div className="text-[9px] uppercase tracking-wider text-white/50">{label}</div>
       <div className="text-base font-black text-accent mt-0.5">{value}</div>
+    </div>
+  );
+}
+
+function PvPLobbyScreen({ onBack, onEnter }: { onBack: () => void; onEnter: (roomId: string) => void }) {
+  return (
+    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,hsl(var(--primary)/0.25),transparent_60%),hsl(220_45%_8%)] text-white">
+      <div className="max-w-md mx-auto px-6 py-6">
+        <button onClick={onBack} className="flex items-center gap-2 text-white/70 text-sm hover:text-white mb-8">
+          <ArrowLeft className="w-4 h-4" /> Voltar ao menu
+        </button>
+        <div className="text-center mb-8">
+          <div className="text-5xl mb-3">⚔️</div>
+          <div className="text-[10px] uppercase tracking-[0.4em] text-accent/80 font-bold mb-2">PvP Online</div>
+          <h2 className="text-3xl font-black mb-2 bg-gradient-to-r from-accent to-primary-glow bg-clip-text text-transparent">
+            Jogue com um amigo
+          </h2>
+          <p className="text-sm text-white/60">Crie uma sala e compartilhe o código, ou entre em uma sala existente.</p>
+        </div>
+        <CelestialLobby onEnter={onEnter} />
+      </div>
     </div>
   );
 }
