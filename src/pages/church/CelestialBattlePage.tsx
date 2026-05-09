@@ -559,7 +559,7 @@ export default function CelestialBattlePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,hsl(var(--primary)/0.18),transparent_60%),radial-gradient(ellipse_at_bottom,hsl(var(--accent)/0.12),transparent_55%),hsl(220_45%_8%)] text-white">
+    <div className="min-h-screen text-white" style={{ background: "radial-gradient(ellipse at top, hsl(var(--primary)/0.18), transparent 60%), radial-gradient(ellipse at bottom, hsl(var(--accent)/0.12), transparent 55%), hsl(220 45% 8%)" }}>
       {showTutorial && <TutorialModal onClose={() => setShowTutorial(false)} />}
       <div className="sticky top-0 z-20 backdrop-blur-md bg-[hsl(220_55%_10%)]/95 border-b border-accent/20 shadow-lg">
         <div className="flex items-center justify-between px-4 py-3 max-w-2xl mx-auto">
@@ -814,7 +814,7 @@ function CellBtn({
 
 function MenuScreen({ onStart, onPvP, onTutorial }: { onStart: () => void; onPvP: () => void; onTutorial: () => void }) {
   return (
-    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,hsl(var(--accent)/0.25),transparent_60%),radial-gradient(ellipse_at_bottom,hsl(var(--primary)/0.2),transparent_55%),hsl(220_45%_8%)] text-white flex flex-col">
+    <div className="min-h-screen text-white flex flex-col" style={{ background: "radial-gradient(ellipse at top, hsl(var(--accent)/0.25), transparent 60%), radial-gradient(ellipse at bottom, hsl(var(--primary)/0.2), transparent 55%), hsl(220 45% 8%)" }}>
       <div className="px-4 pt-3 flex items-center justify-between">
         <Link to="/church" className="inline-flex items-center gap-2 text-white hover:text-accent text-sm font-semibold">
           <ArrowLeft className="w-4 h-4" /> Voltar
@@ -936,7 +936,7 @@ function Stat({ label, value }: { label: string; value: string | number }) {
 
 function PvPLobbyScreen({ onBack, onEnter }: { onBack: () => void; onEnter: (roomId: string) => void }) {
   return (
-    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,hsl(var(--primary)/0.25),transparent_60%),hsl(220_45%_8%)] text-white">
+    <div className="min-h-screen text-white" style={{ background: "radial-gradient(ellipse at top, hsl(var(--primary)/0.25), transparent 60%), hsl(220 45% 8%)" }}>
       <div className="max-w-md mx-auto px-6 py-6">
         <button onClick={onBack} className="flex items-center gap-2 text-white/70 text-sm hover:text-white mb-8">
           <ArrowLeft className="w-4 h-4" /> Voltar ao menu
@@ -981,7 +981,7 @@ function PlacementScreen({
   const allDone = !nextUnit;
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,hsl(var(--primary)/0.2),transparent_60%),hsl(220_45%_8%)] text-white">
+    <div className="min-h-screen text-white" style={{ background: "radial-gradient(ellipse at top, hsl(var(--primary)/0.2), transparent 60%), hsl(220 45% 8%)" }}>
       <div className="sticky top-0 z-20 backdrop-blur-md bg-[hsl(220_55%_10%)]/95 border-b border-accent/20">
         <div className="flex items-center justify-between px-4 py-3 max-w-2xl mx-auto">
           <button onClick={onBack} className="flex items-center gap-1.5 text-white hover:text-accent">

@@ -257,7 +257,7 @@ export function CelestialPvPGame({ roomId, onExit }: { roomId: string; onExit: (
   // ----- WAITING ROOM -----
   if (view.room.status === 'waiting') {
     return (
-      <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,hsl(var(--accent)/0.2),transparent_60%),hsl(220_45%_8%)] text-white">
+      <div className="min-h-screen text-white" style={{ background: "radial-gradient(ellipse at top, hsl(var(--accent)/0.2), transparent 60%), hsl(220 45% 8%)" }}>
         <div className="max-w-md mx-auto px-6 py-6">
           <button onClick={onExit} className="flex items-center gap-2 text-white/70 text-sm hover:text-white mb-6">
             <ArrowLeft className="w-4 h-4" /> Sair da sala
@@ -291,7 +291,7 @@ export function CelestialPvPGame({ roomId, onExit }: { roomId: string; onExit: (
   const won = view.room.status === 'finished' && view.room.winner_user_id === view.me.user_id;
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,hsl(var(--primary)/0.18),transparent_60%),radial-gradient(ellipse_at_bottom,hsl(var(--accent)/0.12),transparent_55%),hsl(220_45%_8%)] text-white">
+    <div className="min-h-screen text-white" style={{ background: "radial-gradient(ellipse at top, hsl(var(--primary)/0.18), transparent 60%), radial-gradient(ellipse at bottom, hsl(var(--accent)/0.12), transparent 55%), hsl(220 45% 8%)" }}>
       <div className="sticky top-0 z-20 backdrop-blur-md bg-black/30 border-b border-white/10">
         <div className="flex items-center justify-between px-4 py-3 max-w-2xl mx-auto">
           <button onClick={onExit} className="flex items-center gap-2 text-white/80 hover:text-white">
