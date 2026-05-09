@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Sparkles, Shield, Eye, Cloud, Wind, Crown, RotateCcw, Sword, Target, Star } from 'lucide-react';
+import { ArrowLeft, Sparkles, Shield, Eye, Cloud, Wind, Crown, RotateCcw, Sword, Target, Star, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { CelestialLobby, CelestialPvPGame } from './CelestialPvP';
 
 // ============================================================
 // BATALHA CELESTIAL — MVP
