@@ -997,7 +997,16 @@ function PlacementScreen({
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-3 pt-4 pb-32 space-y-4">
+      <div className="max-w-2xl mx-auto px-3 pt-4 pb-40 space-y-4">
+        {/* Primary CTA at top — always visible, never hidden behind bottom nav */}
+        <Button
+          disabled={!allDone}
+          onClick={onStart}
+          className="w-full h-14 bg-gradient-to-r from-accent to-accent/80 text-accent-foreground font-black text-base rounded-2xl shadow-[0_15px_40px_-10px_hsl(var(--accent)/0.6)] disabled:opacity-50"
+        >
+          <Play className="w-5 h-5 mr-2" />
+          {allDone ? 'Iniciar Batalha' : `Posicione mais ${UNITS.length - playerUnits.length} unidade(s)`}
+        </Button>
         {/* Instruction card */}
         <div className="rounded-2xl bg-gradient-to-br from-accent/25 to-accent/5 border border-accent/40 p-4">
           {nextUnit ? (
