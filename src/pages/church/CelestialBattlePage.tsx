@@ -106,6 +106,7 @@ export default function CelestialBattlePage() {
   const [turn, setTurn] = useState<Turn>('player');
   const [winner, setWinner] = useState<'player' | 'enemy' | null>(null);
   const [pvpRoomId, setPvpRoomId] = useState<string | null>(null);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   // Player owns these (visible to player)
   const [playerUnits, setPlayerUnits] = useState<PlacedUnit[]>([]);
@@ -130,12 +131,19 @@ export default function CelestialBattlePage() {
   const [shotCount, setShotCount] = useState(0);
   const [hitCount, setHitCount] = useState(0);
 
-  // ---------- start a battle ----------
-  const startBattle = useCallback(() => {
-    const pUnits = tryPlace(UNITS);
-    const eUnits = tryPlace(UNITS);
-    setPlayerUnits(pUnits);
-    setEnemyUnits(eUnits);
+  // Placement state
+  const [placeOrientation, setPlaceOrientation] = useState<Orientation>('h');
+  const [placeHover, setPlaceHover] = useState<number | null>(null);
+
+  const nextUnitToPlace = useMemo(() => {
+    const placedKeys = new Set(playerUnits.map(p => p.unit.key));
+    return UNITS.find(u => !placedKeys.has(u.key)) || null;
+  }, [playerUnits]);
+
+  // ---------- enter placement phase ----------
+  const enterPlacement = useCallback(() => {
+    setPlayerUnits([]);
+    setEnemyUnits(tryPlace(UNITS));
     setPlayerBoard(emptyBoard());
     setEnemyView(emptyBoard());
     setCards(INITIAL_CARDS());
@@ -149,9 +157,93 @@ export default function CelestialBattlePage() {
     setHitCount(0);
     setWinner(null);
     setTurn('player');
+    setPlaceOrientation('h');
+    setPlaceHover(null);
+    setPhase('placing');
+  }, []);
+
+  // ---------- begin battle (after placement) ----------
+  const beginBattle = useCallback((units: PlacedUnit[]) => {
+    setPlayerUnits(units);
     setPhase('playing');
+    setTurn('player');
     toast.success('Que a sabedoria de Moisés te guie!', { description: 'Encontre e neutralize as unidades inimigas.' });
   }, []);
+
+  // ---------- restart (used by Game Over) ----------
+  const startBattle = useCallback(() => {
+    enterPlacement();
+  }, [enterPlacement]);
+
+  // ---------- placement helpers ----------
+  const previewCells = useMemo(() => {
+    if (placeHover === null || !nextUnitToPlace) return { cells: [] as number[], valid: false };
+    const r = Math.floor(placeHover / 10), c = placeHover % 10;
+    const cells: number[] = [];
+    const occ = new Set(playerUnits.flatMap(u => u.cells));
+    let valid = true;
+    for (let i = 0; i < nextUnitToPlace.size; i++) {
+      const rr = r + (placeOrientation === 'v' ? i : 0);
+      const cc = c + (placeOrientation === 'h' ? i : 0);
+      if (rr >= 10 || cc >= 10) { valid = false; break; }
+      const idx = rr * 10 + cc;
+      if (occ.has(idx)) valid = false;
+      cells.push(idx);
+    }
+    return { cells, valid };
+  }, [placeHover, placeOrientation, nextUnitToPlace, playerUnits]);
+
+  const handlePlaceCellClick = useCallback((idx: number) => {
+    if (!nextUnitToPlace) return;
+    const r = Math.floor(idx / 10), c = idx % 10;
+    const cells: number[] = [];
+    const occ = new Set(playerUnits.flatMap(u => u.cells));
+    for (let i = 0; i < nextUnitToPlace.size; i++) {
+      const rr = r + (placeOrientation === 'v' ? i : 0);
+      const cc = c + (placeOrientation === 'h' ? i : 0);
+      if (rr >= 10 || cc >= 10) { toast.error('Não cabe aqui — gire ou escolha outra posição.'); return; }
+      const idx2 = rr * 10 + cc;
+      if (occ.has(idx2)) { toast.error('Tem outra unidade nesse caminho.'); return; }
+      cells.push(idx2);
+    }
+    const u = nextUnitToPlace;
+    const hp = u.key === 'muralha' ? 3 : u.size;
+    setPlayerUnits(prev => [...prev, { unit: u, cells, hits: new Set(), hp, sunk: false }]);
+  }, [nextUnitToPlace, placeOrientation, playerUnits]);
+
+  const removeLastUnit = useCallback(() => {
+    setPlayerUnits(prev => prev.slice(0, -1));
+  }, []);
+
+  const autoPlaceRest = useCallback(() => {
+    // place remaining units randomly without conflict with already placed ones
+    const placed = [...playerUnits];
+    const occ = new Set(placed.flatMap(u => u.cells));
+    const remaining = UNITS.filter(u => !placed.some(p => p.unit.key === u.key));
+    for (const u of remaining) {
+      let ok = false;
+      for (let attempts = 0; attempts < 500 && !ok; attempts++) {
+        const orient: Orientation = Math.random() < 0.5 ? 'h' : 'v';
+        const maxR = orient === 'v' ? 10 - u.size : 9;
+        const maxC = orient === 'h' ? 10 - u.size : 9;
+        const r = Math.floor(Math.random() * (maxR + 1));
+        const c = Math.floor(Math.random() * (maxC + 1));
+        const cells: number[] = [];
+        let conflict = false;
+        for (let i = 0; i < u.size; i++) {
+          const idx = (r + (orient === 'v' ? i : 0)) * 10 + (c + (orient === 'h' ? i : 0));
+          if (occ.has(idx)) { conflict = true; break; }
+          cells.push(idx);
+        }
+        if (conflict) continue;
+        cells.forEach(i => occ.add(i));
+        placed.push({ unit: u, cells, hits: new Set(), hp: u.key === 'muralha' ? 3 : u.size, sunk: false });
+        ok = true;
+      }
+    }
+    setPlayerUnits(placed);
+  }, [playerUnits]);
+
 
   // ---------- attack logic ----------
   const applyShot = useCallback((idx: number, isPlayer: boolean): { hit: boolean; sunk?: PlacedUnit; dodged?: boolean } => {
