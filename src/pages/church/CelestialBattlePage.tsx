@@ -521,8 +521,9 @@ export default function CelestialBattlePage() {
 
   if (phase === 'menu') {
     return <MenuScreen
-      onStart={startBattle}
+      onStart={enterPlacement}
       onPvP={() => setPhase('pvp_lobby')}
+      onTutorial={() => setShowTutorial(true)}
     />;
   }
   if (phase === 'pvp_lobby') {
@@ -534,24 +535,52 @@ export default function CelestialBattlePage() {
   if (phase === 'pvp_game' && pvpRoomId) {
     return <CelestialPvPGame roomId={pvpRoomId} onExit={() => { setPvpRoomId(null); setPhase('menu'); }} />;
   }
+  if (phase === 'placing') {
+    return (
+      <>
+        <PlacementScreen
+          playerUnits={playerUnits}
+          nextUnit={nextUnitToPlace}
+          orientation={placeOrientation}
+          previewCells={previewCells}
+          onHover={setPlaceHover}
+          onCellClick={handlePlaceCellClick}
+          onRotate={() => setPlaceOrientation(o => o === 'h' ? 'v' : 'h')}
+          onAuto={autoPlaceRest}
+          onUndo={removeLastUnit}
+          onClear={() => setPlayerUnits([])}
+          onStart={() => beginBattle(playerUnits)}
+          onBack={() => setPhase('menu')}
+          onHelp={() => setShowTutorial(true)}
+        />
+        {showTutorial && <TutorialModal onClose={() => setShowTutorial(false)} />}
+      </>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,hsl(var(--primary)/0.18),transparent_60%),radial-gradient(ellipse_at_bottom,hsl(var(--accent)/0.12),transparent_55%),hsl(220_45%_8%)] text-white">
-      <div className="sticky top-0 z-20 backdrop-blur-md bg-black/30 border-b border-white/10">
+      {showTutorial && <TutorialModal onClose={() => setShowTutorial(false)} />}
+      <div className="sticky top-0 z-20 backdrop-blur-md bg-[hsl(220_55%_10%)]/95 border-b border-accent/20 shadow-lg">
         <div className="flex items-center justify-between px-4 py-3 max-w-2xl mx-auto">
-          <Link to="/church" className="flex items-center gap-2 text-white/80 hover:text-white">
+          <button onClick={() => setPhase('menu')} className="flex items-center gap-1.5 text-white hover:text-accent transition">
             <ArrowLeft className="w-5 h-5" />
-            <span className="text-sm font-semibold">Sair</span>
-          </Link>
-          <div className="text-center">
-            <div className="text-[10px] uppercase tracking-[0.25em] text-accent/90 font-bold">Batalha Celestial</div>
-            <div className="text-xs text-white/60 mt-0.5">
-              {turn === 'player' ? '⚔️ Sua vez' : '🌀 Vez do inimigo...'}
+            <span className="text-sm font-bold">Sair</span>
+          </button>
+          <div className="text-center flex-1 px-2">
+            <div className="text-[10px] uppercase tracking-[0.25em] text-accent font-black">Batalha Celestial</div>
+            <div className="text-xs text-white font-semibold mt-0.5">
+              {turn === 'player' ? '⚔️ Sua vez de atacar' : '🌀 Vez do inimigo...'}
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-[10px] uppercase tracking-wider text-white/50">Pontos</div>
-            <div className="text-base font-black text-accent">{score}</div>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowTutorial(true)} className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white" title="Como jogar">
+              <HelpCircle className="w-4 h-4" />
+            </button>
+            <div className="text-right">
+              <div className="text-[9px] uppercase tracking-wider text-white/70 font-bold">Pontos</div>
+              <div className="text-base font-black text-accent leading-none">{score}</div>
+            </div>
           </div>
         </div>
       </div>
