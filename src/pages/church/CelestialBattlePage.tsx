@@ -721,7 +721,16 @@ function MenuScreen({ onStart, onPvP }: { onStart: () => void; onPvP: () => void
           className="w-full max-w-xs bg-gradient-to-r from-accent to-accent/80 hover:from-accent hover:to-accent text-accent-foreground font-bold text-base h-14 rounded-2xl shadow-[0_15px_40px_-10px_hsl(var(--accent)/0.6)] hover:scale-[1.02] transition"
         >
           <Sword className="w-5 h-5 mr-2" />
-          Iniciar Batalha vs IA
+          Batalha vs IA
+        </Button>
+        <Button
+          size="lg"
+          variant="outline"
+          onClick={onPvP}
+          className="w-full max-w-xs mt-3 bg-white/5 hover:bg-white/10 border-white/20 text-white font-bold text-base h-14 rounded-2xl hover:scale-[1.02] transition"
+        >
+          <Users className="w-5 h-5 mr-2" />
+          Jogar com Amigo (PvP)
         </Button>
 
         <div className="mt-10 grid grid-cols-3 gap-3 w-full">
