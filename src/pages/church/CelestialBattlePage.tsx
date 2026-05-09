@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Sparkles, Shield, Eye, Cloud, Wind, Crown, RotateCcw, Sword, Target, Star, Users } from 'lucide-react';
+import { ArrowLeft, Sparkles, Shield, Eye, Cloud, Wind, Crown, RotateCcw, Sword, Target, Star, Users, HelpCircle, RotateCw, Shuffle, Play, X, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -106,6 +106,7 @@ export default function CelestialBattlePage() {
   const [turn, setTurn] = useState<Turn>('player');
   const [winner, setWinner] = useState<'player' | 'enemy' | null>(null);
   const [pvpRoomId, setPvpRoomId] = useState<string | null>(null);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   // Player owns these (visible to player)
   const [playerUnits, setPlayerUnits] = useState<PlacedUnit[]>([]);
@@ -130,12 +131,19 @@ export default function CelestialBattlePage() {
   const [shotCount, setShotCount] = useState(0);
   const [hitCount, setHitCount] = useState(0);
 
-  // ---------- start a battle ----------
-  const startBattle = useCallback(() => {
-    const pUnits = tryPlace(UNITS);
-    const eUnits = tryPlace(UNITS);
-    setPlayerUnits(pUnits);
-    setEnemyUnits(eUnits);
+  // Placement state
+  const [placeOrientation, setPlaceOrientation] = useState<Orientation>('h');
+  const [placeHover, setPlaceHover] = useState<number | null>(null);
+
+  const nextUnitToPlace = useMemo(() => {
+    const placedKeys = new Set(playerUnits.map(p => p.unit.key));
+    return UNITS.find(u => !placedKeys.has(u.key)) || null;
+  }, [playerUnits]);
+
+  // ---------- enter placement phase ----------
+  const enterPlacement = useCallback(() => {
+    setPlayerUnits([]);
+    setEnemyUnits(tryPlace(UNITS));
     setPlayerBoard(emptyBoard());
     setEnemyView(emptyBoard());
     setCards(INITIAL_CARDS());
@@ -149,9 +157,93 @@ export default function CelestialBattlePage() {
     setHitCount(0);
     setWinner(null);
     setTurn('player');
+    setPlaceOrientation('h');
+    setPlaceHover(null);
+    setPhase('placing');
+  }, []);
+
+  // ---------- begin battle (after placement) ----------
+  const beginBattle = useCallback((units: PlacedUnit[]) => {
+    setPlayerUnits(units);
     setPhase('playing');
+    setTurn('player');
     toast.success('Que a sabedoria de Moisés te guie!', { description: 'Encontre e neutralize as unidades inimigas.' });
   }, []);
+
+  // ---------- restart (used by Game Over) ----------
+  const startBattle = useCallback(() => {
+    enterPlacement();
+  }, [enterPlacement]);
+
+  // ---------- placement helpers ----------
+  const previewCells = useMemo(() => {
+    if (placeHover === null || !nextUnitToPlace) return { cells: [] as number[], valid: false };
+    const r = Math.floor(placeHover / 10), c = placeHover % 10;
+    const cells: number[] = [];
+    const occ = new Set(playerUnits.flatMap(u => u.cells));
+    let valid = true;
+    for (let i = 0; i < nextUnitToPlace.size; i++) {
+      const rr = r + (placeOrientation === 'v' ? i : 0);
+      const cc = c + (placeOrientation === 'h' ? i : 0);
+      if (rr >= 10 || cc >= 10) { valid = false; break; }
+      const idx = rr * 10 + cc;
+      if (occ.has(idx)) valid = false;
+      cells.push(idx);
+    }
+    return { cells, valid };
+  }, [placeHover, placeOrientation, nextUnitToPlace, playerUnits]);
+
+  const handlePlaceCellClick = useCallback((idx: number) => {
+    if (!nextUnitToPlace) return;
+    const r = Math.floor(idx / 10), c = idx % 10;
+    const cells: number[] = [];
+    const occ = new Set(playerUnits.flatMap(u => u.cells));
+    for (let i = 0; i < nextUnitToPlace.size; i++) {
+      const rr = r + (placeOrientation === 'v' ? i : 0);
+      const cc = c + (placeOrientation === 'h' ? i : 0);
+      if (rr >= 10 || cc >= 10) { toast.error('Não cabe aqui — gire ou escolha outra posição.'); return; }
+      const idx2 = rr * 10 + cc;
+      if (occ.has(idx2)) { toast.error('Tem outra unidade nesse caminho.'); return; }
+      cells.push(idx2);
+    }
+    const u = nextUnitToPlace;
+    const hp = u.key === 'muralha' ? 3 : u.size;
+    setPlayerUnits(prev => [...prev, { unit: u, cells, hits: new Set(), hp, sunk: false }]);
+  }, [nextUnitToPlace, placeOrientation, playerUnits]);
+
+  const removeLastUnit = useCallback(() => {
+    setPlayerUnits(prev => prev.slice(0, -1));
+  }, []);
+
+  const autoPlaceRest = useCallback(() => {
+    // place remaining units randomly without conflict with already placed ones
+    const placed = [...playerUnits];
+    const occ = new Set(placed.flatMap(u => u.cells));
+    const remaining = UNITS.filter(u => !placed.some(p => p.unit.key === u.key));
+    for (const u of remaining) {
+      let ok = false;
+      for (let attempts = 0; attempts < 500 && !ok; attempts++) {
+        const orient: Orientation = Math.random() < 0.5 ? 'h' : 'v';
+        const maxR = orient === 'v' ? 10 - u.size : 9;
+        const maxC = orient === 'h' ? 10 - u.size : 9;
+        const r = Math.floor(Math.random() * (maxR + 1));
+        const c = Math.floor(Math.random() * (maxC + 1));
+        const cells: number[] = [];
+        let conflict = false;
+        for (let i = 0; i < u.size; i++) {
+          const idx = (r + (orient === 'v' ? i : 0)) * 10 + (c + (orient === 'h' ? i : 0));
+          if (occ.has(idx)) { conflict = true; break; }
+          cells.push(idx);
+        }
+        if (conflict) continue;
+        cells.forEach(i => occ.add(i));
+        placed.push({ unit: u, cells, hits: new Set(), hp: u.key === 'muralha' ? 3 : u.size, sunk: false });
+        ok = true;
+      }
+    }
+    setPlayerUnits(placed);
+  }, [playerUnits]);
+
 
   // ---------- attack logic ----------
   const applyShot = useCallback((idx: number, isPlayer: boolean): { hit: boolean; sunk?: PlacedUnit; dodged?: boolean } => {
@@ -429,8 +521,9 @@ export default function CelestialBattlePage() {
 
   if (phase === 'menu') {
     return <MenuScreen
-      onStart={startBattle}
+      onStart={enterPlacement}
       onPvP={() => setPhase('pvp_lobby')}
+      onTutorial={() => setShowTutorial(true)}
     />;
   }
   if (phase === 'pvp_lobby') {
@@ -442,24 +535,52 @@ export default function CelestialBattlePage() {
   if (phase === 'pvp_game' && pvpRoomId) {
     return <CelestialPvPGame roomId={pvpRoomId} onExit={() => { setPvpRoomId(null); setPhase('menu'); }} />;
   }
+  if (phase === 'placing') {
+    return (
+      <>
+        <PlacementScreen
+          playerUnits={playerUnits}
+          nextUnit={nextUnitToPlace}
+          orientation={placeOrientation}
+          previewCells={previewCells}
+          onHover={setPlaceHover}
+          onCellClick={handlePlaceCellClick}
+          onRotate={() => setPlaceOrientation(o => o === 'h' ? 'v' : 'h')}
+          onAuto={autoPlaceRest}
+          onUndo={removeLastUnit}
+          onClear={() => setPlayerUnits([])}
+          onStart={() => beginBattle(playerUnits)}
+          onBack={() => setPhase('menu')}
+          onHelp={() => setShowTutorial(true)}
+        />
+        {showTutorial && <TutorialModal onClose={() => setShowTutorial(false)} />}
+      </>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,hsl(var(--primary)/0.18),transparent_60%),radial-gradient(ellipse_at_bottom,hsl(var(--accent)/0.12),transparent_55%),hsl(220_45%_8%)] text-white">
-      <div className="sticky top-0 z-20 backdrop-blur-md bg-black/30 border-b border-white/10">
+      {showTutorial && <TutorialModal onClose={() => setShowTutorial(false)} />}
+      <div className="sticky top-0 z-20 backdrop-blur-md bg-[hsl(220_55%_10%)]/95 border-b border-accent/20 shadow-lg">
         <div className="flex items-center justify-between px-4 py-3 max-w-2xl mx-auto">
-          <Link to="/church" className="flex items-center gap-2 text-white/80 hover:text-white">
+          <button onClick={() => setPhase('menu')} className="flex items-center gap-1.5 text-white hover:text-accent transition">
             <ArrowLeft className="w-5 h-5" />
-            <span className="text-sm font-semibold">Sair</span>
-          </Link>
-          <div className="text-center">
-            <div className="text-[10px] uppercase tracking-[0.25em] text-accent/90 font-bold">Batalha Celestial</div>
-            <div className="text-xs text-white/60 mt-0.5">
-              {turn === 'player' ? '⚔️ Sua vez' : '🌀 Vez do inimigo...'}
+            <span className="text-sm font-bold">Sair</span>
+          </button>
+          <div className="text-center flex-1 px-2">
+            <div className="text-[10px] uppercase tracking-[0.25em] text-accent font-black">Batalha Celestial</div>
+            <div className="text-xs text-white font-semibold mt-0.5">
+              {turn === 'player' ? '⚔️ Sua vez de atacar' : '🌀 Vez do inimigo...'}
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-[10px] uppercase tracking-wider text-white/50">Pontos</div>
-            <div className="text-base font-black text-accent">{score}</div>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowTutorial(true)} className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white" title="Como jogar">
+              <HelpCircle className="w-4 h-4" />
+            </button>
+            <div className="text-right">
+              <div className="text-[9px] uppercase tracking-wider text-white/70 font-bold">Pontos</div>
+              <div className="text-base font-black text-accent leading-none">{score}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -471,9 +592,9 @@ export default function CelestialBattlePage() {
             👴
           </div>
           <div className="flex-1">
-            <div className="text-xs text-accent/90 font-bold uppercase tracking-wider">Comandante</div>
+            <div className="text-xs text-accent font-bold uppercase tracking-wider">Comandante</div>
             <div className="text-sm font-bold">Moisés — O Libertador</div>
-            <div className="text-[11px] text-white/60 italic">"Não temas, o Senhor pelejará por ti."</div>
+            <div className="text-[11px] text-white/85 italic">"Não temas, o Senhor pelejará por ti."</div>
           </div>
         </div>
 
@@ -481,8 +602,8 @@ export default function CelestialBattlePage() {
         <div>
           <div className="flex items-center gap-2 mb-2 px-1">
             <Target className="w-4 h-4 text-accent" />
-            <h2 className="text-xs font-bold uppercase tracking-widest text-white/80">Mar Inimigo</h2>
-            <div className="text-[10px] text-white/50 ml-auto">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-white">Mar Inimigo</h2>
+            <div className="text-[10px] text-white/75 ml-auto">
               Restantes: {enemyUnits.filter(u => !u.sunk).length}/{enemyUnits.length}
             </div>
           </div>
@@ -499,7 +620,7 @@ export default function CelestialBattlePage() {
         <div>
           <div className="flex items-center gap-2 mb-2 px-1">
             <Sparkles className="w-4 h-4 text-accent" />
-            <h2 className="text-xs font-bold uppercase tracking-widest text-white/80">Cartas de Milagre</h2>
+            <h2 className="text-xs font-bold uppercase tracking-widest text-white">Cartas de Milagre</h2>
           </div>
           <div className="grid grid-cols-4 gap-2">
             {cards.map(c => {
@@ -520,13 +641,13 @@ export default function CelestialBattlePage() {
                 >
                   <Icon className="w-5 h-5 text-accent mb-1" />
                   <div className="text-[10px] font-bold leading-tight">{c.name}</div>
-                  <div className="text-[9px] text-white/50 mt-1 leading-tight">{c.desc}</div>
+                  <div className="text-[9px] text-white/75 mt-1 leading-tight">{c.desc}</div>
                   <div className="absolute top-1 right-1.5 text-[9px] font-black text-accent">×{c.uses}</div>
                 </button>
               );
             })}
             {cards.length === 0 && (
-              <div className="col-span-4 text-center text-[11px] text-white/40 py-4">Sem cartas restantes</div>
+              <div className="col-span-4 text-center text-[11px] text-white/65 py-4">Sem cartas restantes</div>
             )}
           </div>
         </div>
@@ -535,8 +656,8 @@ export default function CelestialBattlePage() {
         <div>
           <div className="flex items-center gap-2 mb-2 px-1">
             <Shield className="w-4 h-4 text-primary-glow" />
-            <h2 className="text-xs font-bold uppercase tracking-widest text-white/80">Sua Frota</h2>
-            <div className="text-[10px] text-white/50 ml-auto">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-white">Sua Frota</h2>
+            <div className="text-[10px] text-white/75 ml-auto">
               Restantes: {playerUnits.filter(u => !u.sunk).length}/{playerUnits.length}
             </div>
           </div>
@@ -549,7 +670,7 @@ export default function CelestialBattlePage() {
 
         {/* UNITS LEGEND */}
         <div className="rounded-2xl bg-white/5 border border-white/10 p-3">
-          <div className="text-[10px] uppercase tracking-widest font-bold text-white/60 mb-2">Unidades em campo</div>
+          <div className="text-[10px] uppercase tracking-widest font-bold text-white/85 mb-2">Unidades em campo</div>
           <div className="grid grid-cols-1 gap-1.5">
             {UNITS.map(u => {
               const enemy = enemyUnits.find(e => e.unit.key === u.key);
@@ -558,7 +679,7 @@ export default function CelestialBattlePage() {
                 <div key={u.key} className="flex items-center gap-2 text-[11px]">
                   <span className="text-base">{u.emoji}</span>
                   <span className={cn('flex-1 font-semibold', enemy?.sunk && 'line-through text-red-400')}>{u.name}</span>
-                  <span className="text-white/40">{u.size}⌗</span>
+                  <span className="text-white/65">{u.size}⌗</span>
                   <span className={cn('text-[9px] px-1.5 py-0.5 rounded-full', mine?.sunk ? 'bg-red-500/30 text-red-200' : 'bg-emerald-500/20 text-emerald-200')}>
                     {mine?.sunk ? 'caída' : 'viva'}
                   </span>
@@ -605,12 +726,12 @@ function Board({
       <div className="grid gap-[2px] mb-1" style={{ gridTemplateColumns: 'auto repeat(10, minmax(0,1fr))' }}>
         <div />
         {Array.from({ length: 10 }, (_, i) => (
-          <div key={i} className="text-[8px] text-center text-accent/60 font-bold">{String.fromCharCode(65 + i)}</div>
+          <div key={i} className="text-[8px] text-center text-accent/90 font-bold">{String.fromCharCode(65 + i)}</div>
         ))}
       </div>
       {Array.from({ length: 10 }, (_, r) => (
         <div key={r} className="grid gap-[2px] mb-[2px]" style={{ gridTemplateColumns: 'auto repeat(10, minmax(0,1fr))' }}>
-          <div className="text-[8px] text-accent/60 font-bold flex items-center justify-center">{r + 1}</div>
+          <div className="text-[8px] text-accent/90 font-bold flex items-center justify-center">{r + 1}</div>
           {Array.from({ length: 10 }, (_, c) => {
             const idx = r * 10 + c;
             const cell = cells[idx];
@@ -648,7 +769,7 @@ function CellBtn({
   let extra = '';
 
   if (cell.state === 'miss') {
-    content = <span className="text-white/50 text-[10px]">·</span>;
+    content = <span className="text-white/75 text-[10px]">·</span>;
     bg = 'bg-[hsl(220_40%_18%)]';
   } else if (cell.state === 'hit') {
     content = <span className="text-base">💥</span>;
@@ -691,13 +812,16 @@ function CellBtn({
   );
 }
 
-function MenuScreen({ onStart, onPvP }: { onStart: () => void; onPvP: () => void }) {
+function MenuScreen({ onStart, onPvP, onTutorial }: { onStart: () => void; onPvP: () => void; onTutorial: () => void }) {
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,hsl(var(--accent)/0.25),transparent_60%),radial-gradient(ellipse_at_bottom,hsl(var(--primary)/0.2),transparent_55%),hsl(220_45%_8%)] text-white flex flex-col">
-      <div className="px-4 pt-3">
-        <Link to="/church" className="inline-flex items-center gap-2 text-white/70 hover:text-white text-sm">
+      <div className="px-4 pt-3 flex items-center justify-between">
+        <Link to="/church" className="inline-flex items-center gap-2 text-white hover:text-accent text-sm font-semibold">
           <ArrowLeft className="w-4 h-4" /> Voltar
         </Link>
+        <button onClick={onTutorial} className="inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg">
+          <HelpCircle className="w-4 h-4" /> Como jogar
+        </button>
       </div>
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 max-w-md mx-auto text-center">
         <div className="relative mb-6">
@@ -707,11 +831,11 @@ function MenuScreen({ onStart, onPvP }: { onStart: () => void; onPvP: () => void
           </div>
         </div>
 
-        <div className="text-[10px] uppercase tracking-[0.4em] text-accent/80 font-bold mb-2">Estratégia Bíblica</div>
+        <div className="text-[10px] uppercase tracking-[0.4em] text-accent font-bold mb-2">Estratégia Bíblica</div>
         <h1 className="text-4xl font-black mb-3 bg-gradient-to-r from-accent via-accent/80 to-primary-glow bg-clip-text text-transparent">
           Batalha Celestial
         </h1>
-        <p className="text-sm text-white/70 leading-relaxed mb-8 max-w-xs">
+        <p className="text-sm text-white/85 leading-relaxed mb-6 max-w-xs">
           Posicione suas unidades sagradas, invoque milagres e neutralize a frota inimiga em uma jornada épica de fé e estratégia.
         </p>
 
@@ -727,11 +851,14 @@ function MenuScreen({ onStart, onPvP }: { onStart: () => void; onPvP: () => void
           size="lg"
           variant="outline"
           onClick={onPvP}
-          className="w-full max-w-xs mt-3 bg-white/5 hover:bg-white/10 border-white/20 text-white font-bold text-base h-14 rounded-2xl hover:scale-[1.02] transition"
+          className="w-full max-w-xs mt-3 bg-white/10 hover:bg-white/20 border-white/30 text-white font-bold text-base h-14 rounded-2xl hover:scale-[1.02] transition"
         >
           <Users className="w-5 h-5 mr-2" />
           Jogar com Amigo (PvP)
         </Button>
+        <button onClick={onTutorial} className="mt-3 text-sm text-accent hover:text-accent/80 font-bold underline-offset-4 hover:underline">
+          Ver tutorial completo
+        </button>
 
         <div className="mt-10 grid grid-cols-3 gap-3 w-full">
           {[
@@ -741,13 +868,13 @@ function MenuScreen({ onStart, onPvP }: { onStart: () => void; onPvP: () => void
           ].map((it, i) => (
             <div key={i} className="rounded-2xl bg-white/5 border border-white/10 p-3">
               <it.icon className="w-5 h-5 text-accent mx-auto mb-1.5" />
-              <div className="text-[9px] uppercase tracking-wider text-white/50">{it.label}</div>
+              <div className="text-[9px] uppercase tracking-wider text-white/75">{it.label}</div>
               <div className="text-xs font-bold mt-0.5">{it.sub}</div>
             </div>
           ))}
         </div>
 
-        <div className="mt-8 text-[10px] text-white/40 italic max-w-xs">
+        <div className="mt-8 text-[10px] text-white/65 italic max-w-xs">
           "O Senhor é a minha luz e a minha salvação; a quem temerei?" — Salmos 27:1
         </div>
       </div>
@@ -769,13 +896,13 @@ function GameOver({ winner, score, shots, hits, onRestart, onMenu }: {
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-6 animate-fade-in">
       <div className="max-w-sm w-full rounded-3xl bg-gradient-to-br from-[hsl(220_50%_18%)] to-[hsl(220_60%_8%)] border border-accent/40 p-6 text-center text-white shadow-2xl animate-scale-in">
         <div className="text-6xl mb-3">{won ? '👑' : '🕊️'}</div>
-        <div className="text-[10px] uppercase tracking-[0.4em] text-accent/90 font-bold mb-1">
+        <div className="text-[10px] uppercase tracking-[0.4em] text-accent font-bold mb-1">
           {won ? 'Vitória Celestial' : 'Derrota Honrosa'}
         </div>
         <h2 className="text-2xl font-black mb-2">
           {won ? 'A glória é sua!' : 'A jornada continua'}
         </h2>
-        <p className="text-xs text-white/60 italic mb-5">
+        <p className="text-xs text-white/85 italic mb-5">
           {won
             ? '"Tudo posso naquele que me fortalece." — Filipenses 4:13'
             : '"Confia no Senhor de todo o teu coração." — Provérbios 3:5'}
@@ -801,7 +928,7 @@ function GameOver({ winner, score, shots, hits, onRestart, onMenu }: {
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-xl bg-white/5 border border-white/10 p-2">
-      <div className="text-[9px] uppercase tracking-wider text-white/50">{label}</div>
+      <div className="text-[9px] uppercase tracking-wider text-white/75">{label}</div>
       <div className="text-base font-black text-accent mt-0.5">{value}</div>
     </div>
   );
@@ -816,13 +943,234 @@ function PvPLobbyScreen({ onBack, onEnter }: { onBack: () => void; onEnter: (roo
         </button>
         <div className="text-center mb-8">
           <div className="text-5xl mb-3">⚔️</div>
-          <div className="text-[10px] uppercase tracking-[0.4em] text-accent/80 font-bold mb-2">PvP Online</div>
+          <div className="text-[10px] uppercase tracking-[0.4em] text-accent font-bold mb-2">PvP Online</div>
           <h2 className="text-3xl font-black mb-2 bg-gradient-to-r from-accent to-primary-glow bg-clip-text text-transparent">
             Jogue com um amigo
           </h2>
-          <p className="text-sm text-white/60">Crie uma sala e compartilhe o código, ou entre em uma sala existente.</p>
+          <p className="text-sm text-white/85">Crie uma sala e compartilhe o código, ou entre em uma sala existente.</p>
         </div>
         <CelestialLobby onEnter={onEnter} />
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// PLACEMENT SCREEN — manual ship placement
+// ============================================================
+function PlacementScreen({
+  playerUnits, nextUnit, orientation, previewCells, onHover, onCellClick,
+  onRotate, onAuto, onUndo, onClear, onStart, onBack, onHelp,
+}: {
+  playerUnits: PlacedUnit[];
+  nextUnit: UnitDef | null;
+  orientation: Orientation;
+  previewCells: { cells: number[]; valid: boolean };
+  onHover: (idx: number | null) => void;
+  onCellClick: (idx: number) => void;
+  onRotate: () => void;
+  onAuto: () => void;
+  onUndo: () => void;
+  onClear: () => void;
+  onStart: () => void;
+  onBack: () => void;
+  onHelp: () => void;
+}) {
+  const placedSet = new Map<number, PlacedUnit>();
+  playerUnits.forEach(u => u.cells.forEach(c => placedSet.set(c, u)));
+  const allDone = !nextUnit;
+
+  return (
+    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,hsl(var(--primary)/0.2),transparent_60%),hsl(220_45%_8%)] text-white">
+      <div className="sticky top-0 z-20 backdrop-blur-md bg-[hsl(220_55%_10%)]/95 border-b border-accent/20">
+        <div className="flex items-center justify-between px-4 py-3 max-w-2xl mx-auto">
+          <button onClick={onBack} className="flex items-center gap-1.5 text-white hover:text-accent">
+            <ArrowLeft className="w-5 h-5" /><span className="text-sm font-bold">Voltar</span>
+          </button>
+          <div className="text-center">
+            <div className="text-[10px] uppercase tracking-[0.25em] text-accent font-black">Posicione sua frota</div>
+            <div className="text-xs text-white font-semibold mt-0.5">{playerUnits.length}/{UNITS.length} unidades posicionadas</div>
+          </div>
+          <button onClick={onHelp} className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20" title="Como jogar">
+            <HelpCircle className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="max-w-2xl mx-auto px-3 pt-4 pb-32 space-y-4">
+        {/* Instruction card */}
+        <div className="rounded-2xl bg-gradient-to-br from-accent/25 to-accent/5 border border-accent/40 p-4">
+          {nextUnit ? (
+            <>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-12 h-12 rounded-xl bg-accent/30 flex items-center justify-center text-2xl">{nextUnit.emoji}</div>
+                <div className="flex-1">
+                  <div className="text-[10px] uppercase tracking-wider text-accent font-bold">Posicionando agora</div>
+                  <div className="text-base font-black text-white">{nextUnit.name}</div>
+                  <div className="text-[11px] text-white/85">{nextUnit.size} casas · {nextUnit.passive}</div>
+                </div>
+              </div>
+              <div className="text-xs text-white bg-black/30 rounded-lg p-2 leading-relaxed">
+                👆 <b>Toque em uma casa</b> do tabuleiro abaixo. A peça começa nessa casa e segue {orientation === 'h' ? '→ para a direita' : '↓ para baixo'}.
+              </div>
+            </>
+          ) : (
+            <div className="text-center">
+              <div className="text-3xl mb-1">✅</div>
+              <div className="text-base font-black text-white">Frota completa!</div>
+              <div className="text-xs text-white/85">Toque em "Iniciar Batalha" para começar.</div>
+            </div>
+          )}
+        </div>
+
+        {/* Action buttons */}
+        <div className="grid grid-cols-2 gap-2">
+          <Button onClick={onRotate} disabled={!nextUnit} variant="outline" className="bg-white/10 border-white/30 text-white hover:bg-white/20 font-bold h-12">
+            <RotateCw className="w-4 h-4 mr-1.5" /> Girar ({orientation === 'h' ? 'Horizontal' : 'Vertical'})
+          </Button>
+          <Button onClick={onAuto} disabled={!nextUnit} variant="outline" className="bg-white/10 border-white/30 text-white hover:bg-white/20 font-bold h-12">
+            <Shuffle className="w-4 h-4 mr-1.5" /> Auto-posicionar
+          </Button>
+          <Button onClick={onUndo} disabled={playerUnits.length === 0} variant="outline" className="bg-white/10 border-white/30 text-white hover:bg-white/20 font-bold h-12">
+            <X className="w-4 h-4 mr-1.5" /> Desfazer
+          </Button>
+          <Button onClick={onClear} disabled={playerUnits.length === 0} variant="outline" className="bg-white/10 border-white/30 text-white hover:bg-white/20 font-bold h-12">
+            <RotateCcw className="w-4 h-4 mr-1.5" /> Limpar tudo
+          </Button>
+        </div>
+
+        {/* Placement board */}
+        <div className="rounded-2xl p-2 bg-gradient-to-br from-[hsl(220_50%_15%)] to-[hsl(220_60%_8%)] border border-accent/30 shadow-[0_10px_40px_-10px_hsl(var(--accent)/0.3)]">
+          <div className="grid gap-[2px] mb-1" style={{ gridTemplateColumns: 'auto repeat(10, minmax(0,1fr))' }}>
+            <div />
+            {Array.from({ length: 10 }, (_, i) => (
+              <div key={i} className="text-[8px] text-center text-accent font-bold">{String.fromCharCode(65 + i)}</div>
+            ))}
+          </div>
+          {Array.from({ length: 10 }, (_, r) => (
+            <div key={r} className="grid gap-[2px] mb-[2px]" style={{ gridTemplateColumns: 'auto repeat(10, minmax(0,1fr))' }}>
+              <div className="text-[8px] text-accent font-bold flex items-center justify-center">{r + 1}</div>
+              {Array.from({ length: 10 }, (_, c) => {
+                const idx = r * 10 + c;
+                const placed = placedSet.get(idx);
+                const inPreview = previewCells.cells.includes(idx);
+                let bg = 'bg-[hsl(220_50%_22%)]/70';
+                let content: React.ReactNode = null;
+                if (placed) {
+                  bg = 'bg-gradient-to-br from-primary/70 to-primary-glow/50 ring-1 ring-primary/60';
+                  content = <span className="text-sm">{placed.unit.emoji}</span>;
+                } else if (inPreview) {
+                  bg = previewCells.valid
+                    ? 'bg-accent/60 ring-2 ring-accent'
+                    : 'bg-red-500/60 ring-2 ring-red-400';
+                }
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    disabled={!nextUnit}
+                    onMouseEnter={() => onHover(idx)}
+                    onMouseLeave={() => onHover(null)}
+                    onTouchStart={() => onHover(idx)}
+                    onClick={() => onCellClick(idx)}
+                    className={cn(
+                      'aspect-square rounded-[6px] flex items-center justify-center transition-all',
+                      bg,
+                      nextUnit && 'hover:ring-2 hover:ring-accent active:scale-95 cursor-pointer',
+                    )}
+                  >
+                    {content}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+
+        {/* Units list */}
+        <div className="rounded-2xl bg-white/5 border border-white/15 p-3">
+          <div className="text-[10px] uppercase tracking-widest font-bold text-white mb-2">Suas unidades</div>
+          <div className="space-y-1.5">
+            {UNITS.map(u => {
+              const isPlaced = playerUnits.some(p => p.unit.key === u.key);
+              const isCurrent = nextUnit?.key === u.key;
+              return (
+                <div key={u.key} className={cn(
+                  'flex items-center gap-2 text-[12px] p-2 rounded-lg',
+                  isCurrent && 'bg-accent/25 ring-1 ring-accent/60',
+                  isPlaced && 'opacity-60',
+                )}>
+                  <span className="text-base">{u.emoji}</span>
+                  <span className="flex-1 font-semibold text-white">{u.name}</span>
+                  <span className="text-white/75 text-[10px]">{u.size}⌗</span>
+                  {isPlaced ? <Check className="w-4 h-4 text-emerald-400" /> : isCurrent ? <span className="text-[10px] text-accent font-bold">AGORA</span> : null}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Sticky CTA */}
+      <div className="fixed bottom-0 inset-x-0 z-20 bg-[hsl(220_55%_8%)]/95 backdrop-blur border-t border-accent/30 p-3">
+        <div className="max-w-2xl mx-auto">
+          <Button
+            disabled={!allDone}
+            onClick={onStart}
+            className="w-full h-14 bg-gradient-to-r from-accent to-accent/80 text-accent-foreground font-black text-base rounded-2xl shadow-[0_15px_40px_-10px_hsl(var(--accent)/0.6)] disabled:opacity-50"
+          >
+            <Play className="w-5 h-5 mr-2" />
+            {allDone ? 'Iniciar Batalha' : `Posicione mais ${UNITS.length - playerUnits.length} unidade(s)`}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// TUTORIAL MODAL — clear how-to-play
+// ============================================================
+function TutorialModal({ onClose }: { onClose: () => void }) {
+  const steps = [
+    { icon: '🎯', title: 'Objetivo', text: 'Encontre e afunde TODAS as 7 unidades inimigas escondidas no tabuleiro 10×10 antes que o inimigo afunde as suas.' },
+    { icon: '⚓', title: '1. Posicione sua frota', text: 'Toque em uma casa para colocar cada unidade. Use "Girar" para mudar entre horizontal/vertical, ou "Auto-posicionar" para que o jogo posicione tudo por você.' },
+    { icon: '💥', title: '2. Atire no Mar Inimigo', text: 'No seu turno, toque numa casa do tabuleiro de cima. 💥 = acerto, · = água. Acertou? Joga de novo! Errou? É a vez do inimigo.' },
+    { icon: '🚢', title: '3. Afunde as unidades', text: 'Cada unidade ocupa de 1 a 5 casas. Acerte TODAS para afundar. Algumas têm habilidades: Arca sobrevive ao 1º tiro, Discípulos podem esquivar, Muralha exige 3 acertos.' },
+    { icon: '✨', title: '4. Use Cartas de Milagre', text: 'Estrela Guia revela área 3×3 · Mar Vermelho revela uma linha · Salmo 91 bloqueia o próximo ataque inimigo · Chuva de Maná: próximo tiro vira cruz (5 casas).' },
+    { icon: '👑', title: 'Vitória', text: 'Quem afundar a frota inteira do oponente primeiro vence. Acertos seguidos mantêm seu turno!' },
+  ];
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
+      <div className="w-full max-w-md bg-gradient-to-br from-[hsl(220_50%_14%)] to-[hsl(220_60%_7%)] border border-accent/40 rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b border-white/10">
+          <div className="flex items-center gap-2">
+            <HelpCircle className="w-5 h-5 text-accent" />
+            <h2 className="text-base font-black text-white">Como jogar</h2>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="overflow-y-auto p-4 space-y-3">
+          {steps.map((s, i) => (
+            <div key={i} className="rounded-xl bg-white/5 border border-white/10 p-3 flex gap-3">
+              <div className="text-2xl">{s.icon}</div>
+              <div className="flex-1">
+                <div className="text-sm font-black text-accent">{s.title}</div>
+                <div className="text-xs text-white/90 leading-relaxed mt-0.5">{s.text}</div>
+              </div>
+            </div>
+          ))}
+          <div className="text-[11px] text-white/75 italic text-center pt-2">
+            "O Senhor pelejará por vós, e vós vos calareis." — Êxodo 14:14
+          </div>
+        </div>
+        <div className="p-4 border-t border-white/10">
+          <Button onClick={onClose} className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-bold h-12 rounded-xl">
+            Entendi, vamos jogar!
+          </Button>
+        </div>
       </div>
     </div>
   );
