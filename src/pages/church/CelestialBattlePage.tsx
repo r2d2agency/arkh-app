@@ -105,6 +105,7 @@ export default function CelestialBattlePage() {
   const [phase, setPhase] = useState<Phase>('menu');
   const [turn, setTurn] = useState<Turn>('player');
   const [winner, setWinner] = useState<'player' | 'enemy' | null>(null);
+  const [pvpRoomId, setPvpRoomId] = useState<string | null>(null);
 
   // Player owns these (visible to player)
   const [playerUnits, setPlayerUnits] = useState<PlacedUnit[]>([]);
@@ -427,7 +428,19 @@ export default function CelestialBattlePage() {
   // ============================================================
 
   if (phase === 'menu') {
-    return <MenuScreen onStart={startBattle} />;
+    return <MenuScreen
+      onStart={startBattle}
+      onPvP={() => setPhase('pvp_lobby')}
+    />;
+  }
+  if (phase === 'pvp_lobby') {
+    return <PvPLobbyScreen
+      onBack={() => setPhase('menu')}
+      onEnter={(roomId) => { setPvpRoomId(roomId); setPhase('pvp_game'); }}
+    />;
+  }
+  if (phase === 'pvp_game' && pvpRoomId) {
+    return <CelestialPvPGame roomId={pvpRoomId} onExit={() => { setPvpRoomId(null); setPhase('menu'); }} />;
   }
 
   return (
