@@ -592,9 +592,9 @@ export default function CelestialBattlePage() {
             👴
           </div>
           <div className="flex-1">
-            <div className="text-xs text-accent/90 font-bold uppercase tracking-wider">Comandante</div>
+            <div className="text-xs text-accent font-bold uppercase tracking-wider">Comandante</div>
             <div className="text-sm font-bold">Moisés — O Libertador</div>
-            <div className="text-[11px] text-white/60 italic">"Não temas, o Senhor pelejará por ti."</div>
+            <div className="text-[11px] text-white/85 italic">"Não temas, o Senhor pelejará por ti."</div>
           </div>
         </div>
 
@@ -602,8 +602,8 @@ export default function CelestialBattlePage() {
         <div>
           <div className="flex items-center gap-2 mb-2 px-1">
             <Target className="w-4 h-4 text-accent" />
-            <h2 className="text-xs font-bold uppercase tracking-widest text-white/80">Mar Inimigo</h2>
-            <div className="text-[10px] text-white/50 ml-auto">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-white">Mar Inimigo</h2>
+            <div className="text-[10px] text-white/75 ml-auto">
               Restantes: {enemyUnits.filter(u => !u.sunk).length}/{enemyUnits.length}
             </div>
           </div>
@@ -620,7 +620,7 @@ export default function CelestialBattlePage() {
         <div>
           <div className="flex items-center gap-2 mb-2 px-1">
             <Sparkles className="w-4 h-4 text-accent" />
-            <h2 className="text-xs font-bold uppercase tracking-widest text-white/80">Cartas de Milagre</h2>
+            <h2 className="text-xs font-bold uppercase tracking-widest text-white">Cartas de Milagre</h2>
           </div>
           <div className="grid grid-cols-4 gap-2">
             {cards.map(c => {
@@ -641,13 +641,13 @@ export default function CelestialBattlePage() {
                 >
                   <Icon className="w-5 h-5 text-accent mb-1" />
                   <div className="text-[10px] font-bold leading-tight">{c.name}</div>
-                  <div className="text-[9px] text-white/50 mt-1 leading-tight">{c.desc}</div>
+                  <div className="text-[9px] text-white/75 mt-1 leading-tight">{c.desc}</div>
                   <div className="absolute top-1 right-1.5 text-[9px] font-black text-accent">×{c.uses}</div>
                 </button>
               );
             })}
             {cards.length === 0 && (
-              <div className="col-span-4 text-center text-[11px] text-white/40 py-4">Sem cartas restantes</div>
+              <div className="col-span-4 text-center text-[11px] text-white/65 py-4">Sem cartas restantes</div>
             )}
           </div>
         </div>
@@ -656,8 +656,8 @@ export default function CelestialBattlePage() {
         <div>
           <div className="flex items-center gap-2 mb-2 px-1">
             <Shield className="w-4 h-4 text-primary-glow" />
-            <h2 className="text-xs font-bold uppercase tracking-widest text-white/80">Sua Frota</h2>
-            <div className="text-[10px] text-white/50 ml-auto">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-white">Sua Frota</h2>
+            <div className="text-[10px] text-white/75 ml-auto">
               Restantes: {playerUnits.filter(u => !u.sunk).length}/{playerUnits.length}
             </div>
           </div>
@@ -670,7 +670,7 @@ export default function CelestialBattlePage() {
 
         {/* UNITS LEGEND */}
         <div className="rounded-2xl bg-white/5 border border-white/10 p-3">
-          <div className="text-[10px] uppercase tracking-widest font-bold text-white/60 mb-2">Unidades em campo</div>
+          <div className="text-[10px] uppercase tracking-widest font-bold text-white/85 mb-2">Unidades em campo</div>
           <div className="grid grid-cols-1 gap-1.5">
             {UNITS.map(u => {
               const enemy = enemyUnits.find(e => e.unit.key === u.key);
@@ -679,7 +679,7 @@ export default function CelestialBattlePage() {
                 <div key={u.key} className="flex items-center gap-2 text-[11px]">
                   <span className="text-base">{u.emoji}</span>
                   <span className={cn('flex-1 font-semibold', enemy?.sunk && 'line-through text-red-400')}>{u.name}</span>
-                  <span className="text-white/40">{u.size}⌗</span>
+                  <span className="text-white/65">{u.size}⌗</span>
                   <span className={cn('text-[9px] px-1.5 py-0.5 rounded-full', mine?.sunk ? 'bg-red-500/30 text-red-200' : 'bg-emerald-500/20 text-emerald-200')}>
                     {mine?.sunk ? 'caída' : 'viva'}
                   </span>
@@ -726,12 +726,12 @@ function Board({
       <div className="grid gap-[2px] mb-1" style={{ gridTemplateColumns: 'auto repeat(10, minmax(0,1fr))' }}>
         <div />
         {Array.from({ length: 10 }, (_, i) => (
-          <div key={i} className="text-[8px] text-center text-accent/60 font-bold">{String.fromCharCode(65 + i)}</div>
+          <div key={i} className="text-[8px] text-center text-accent/90 font-bold">{String.fromCharCode(65 + i)}</div>
         ))}
       </div>
       {Array.from({ length: 10 }, (_, r) => (
         <div key={r} className="grid gap-[2px] mb-[2px]" style={{ gridTemplateColumns: 'auto repeat(10, minmax(0,1fr))' }}>
-          <div className="text-[8px] text-accent/60 font-bold flex items-center justify-center">{r + 1}</div>
+          <div className="text-[8px] text-accent/90 font-bold flex items-center justify-center">{r + 1}</div>
           {Array.from({ length: 10 }, (_, c) => {
             const idx = r * 10 + c;
             const cell = cells[idx];
@@ -769,7 +769,7 @@ function CellBtn({
   let extra = '';
 
   if (cell.state === 'miss') {
-    content = <span className="text-white/50 text-[10px]">·</span>;
+    content = <span className="text-white/75 text-[10px]">·</span>;
     bg = 'bg-[hsl(220_40%_18%)]';
   } else if (cell.state === 'hit') {
     content = <span className="text-base">💥</span>;
@@ -828,7 +828,7 @@ function MenuScreen({ onStart, onPvP }: { onStart: () => void; onPvP: () => void
           </div>
         </div>
 
-        <div className="text-[10px] uppercase tracking-[0.4em] text-accent/80 font-bold mb-2">Estratégia Bíblica</div>
+        <div className="text-[10px] uppercase tracking-[0.4em] text-accent font-bold mb-2">Estratégia Bíblica</div>
         <h1 className="text-4xl font-black mb-3 bg-gradient-to-r from-accent via-accent/80 to-primary-glow bg-clip-text text-transparent">
           Batalha Celestial
         </h1>
@@ -862,13 +862,13 @@ function MenuScreen({ onStart, onPvP }: { onStart: () => void; onPvP: () => void
           ].map((it, i) => (
             <div key={i} className="rounded-2xl bg-white/5 border border-white/10 p-3">
               <it.icon className="w-5 h-5 text-accent mx-auto mb-1.5" />
-              <div className="text-[9px] uppercase tracking-wider text-white/50">{it.label}</div>
+              <div className="text-[9px] uppercase tracking-wider text-white/75">{it.label}</div>
               <div className="text-xs font-bold mt-0.5">{it.sub}</div>
             </div>
           ))}
         </div>
 
-        <div className="mt-8 text-[10px] text-white/40 italic max-w-xs">
+        <div className="mt-8 text-[10px] text-white/65 italic max-w-xs">
           "O Senhor é a minha luz e a minha salvação; a quem temerei?" — Salmos 27:1
         </div>
       </div>
@@ -890,13 +890,13 @@ function GameOver({ winner, score, shots, hits, onRestart, onMenu }: {
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-6 animate-fade-in">
       <div className="max-w-sm w-full rounded-3xl bg-gradient-to-br from-[hsl(220_50%_18%)] to-[hsl(220_60%_8%)] border border-accent/40 p-6 text-center text-white shadow-2xl animate-scale-in">
         <div className="text-6xl mb-3">{won ? '👑' : '🕊️'}</div>
-        <div className="text-[10px] uppercase tracking-[0.4em] text-accent/90 font-bold mb-1">
+        <div className="text-[10px] uppercase tracking-[0.4em] text-accent font-bold mb-1">
           {won ? 'Vitória Celestial' : 'Derrota Honrosa'}
         </div>
         <h2 className="text-2xl font-black mb-2">
           {won ? 'A glória é sua!' : 'A jornada continua'}
         </h2>
-        <p className="text-xs text-white/60 italic mb-5">
+        <p className="text-xs text-white/85 italic mb-5">
           {won
             ? '"Tudo posso naquele que me fortalece." — Filipenses 4:13'
             : '"Confia no Senhor de todo o teu coração." — Provérbios 3:5'}
@@ -922,7 +922,7 @@ function GameOver({ winner, score, shots, hits, onRestart, onMenu }: {
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-xl bg-white/5 border border-white/10 p-2">
-      <div className="text-[9px] uppercase tracking-wider text-white/50">{label}</div>
+      <div className="text-[9px] uppercase tracking-wider text-white/75">{label}</div>
       <div className="text-base font-black text-accent mt-0.5">{value}</div>
     </div>
   );
@@ -937,11 +937,11 @@ function PvPLobbyScreen({ onBack, onEnter }: { onBack: () => void; onEnter: (roo
         </button>
         <div className="text-center mb-8">
           <div className="text-5xl mb-3">⚔️</div>
-          <div className="text-[10px] uppercase tracking-[0.4em] text-accent/80 font-bold mb-2">PvP Online</div>
+          <div className="text-[10px] uppercase tracking-[0.4em] text-accent font-bold mb-2">PvP Online</div>
           <h2 className="text-3xl font-black mb-2 bg-gradient-to-r from-accent to-primary-glow bg-clip-text text-transparent">
             Jogue com um amigo
           </h2>
-          <p className="text-sm text-white/60">Crie uma sala e compartilhe o código, ou entre em uma sala existente.</p>
+          <p className="text-sm text-white/85">Crie uma sala e compartilhe o código, ou entre em uma sala existente.</p>
         </div>
         <CelestialLobby onEnter={onEnter} />
       </div>
