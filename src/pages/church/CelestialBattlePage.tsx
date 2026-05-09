@@ -812,13 +812,16 @@ function CellBtn({
   );
 }
 
-function MenuScreen({ onStart, onPvP }: { onStart: () => void; onPvP: () => void }) {
+function MenuScreen({ onStart, onPvP, onTutorial }: { onStart: () => void; onPvP: () => void; onTutorial: () => void }) {
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,hsl(var(--accent)/0.25),transparent_60%),radial-gradient(ellipse_at_bottom,hsl(var(--primary)/0.2),transparent_55%),hsl(220_45%_8%)] text-white flex flex-col">
-      <div className="px-4 pt-3">
-        <Link to="/church" className="inline-flex items-center gap-2 text-white/70 hover:text-white text-sm">
+      <div className="px-4 pt-3 flex items-center justify-between">
+        <Link to="/church" className="inline-flex items-center gap-2 text-white hover:text-accent text-sm font-semibold">
           <ArrowLeft className="w-4 h-4" /> Voltar
         </Link>
+        <button onClick={onTutorial} className="inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg">
+          <HelpCircle className="w-4 h-4" /> Como jogar
+        </button>
       </div>
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 max-w-md mx-auto text-center">
         <div className="relative mb-6">
@@ -832,7 +835,7 @@ function MenuScreen({ onStart, onPvP }: { onStart: () => void; onPvP: () => void
         <h1 className="text-4xl font-black mb-3 bg-gradient-to-r from-accent via-accent/80 to-primary-glow bg-clip-text text-transparent">
           Batalha Celestial
         </h1>
-        <p className="text-sm text-white/70 leading-relaxed mb-8 max-w-xs">
+        <p className="text-sm text-white/85 leading-relaxed mb-6 max-w-xs">
           Posicione suas unidades sagradas, invoque milagres e neutralize a frota inimiga em uma jornada épica de fé e estratégia.
         </p>
 
@@ -848,11 +851,14 @@ function MenuScreen({ onStart, onPvP }: { onStart: () => void; onPvP: () => void
           size="lg"
           variant="outline"
           onClick={onPvP}
-          className="w-full max-w-xs mt-3 bg-white/5 hover:bg-white/10 border-white/20 text-white font-bold text-base h-14 rounded-2xl hover:scale-[1.02] transition"
+          className="w-full max-w-xs mt-3 bg-white/10 hover:bg-white/20 border-white/30 text-white font-bold text-base h-14 rounded-2xl hover:scale-[1.02] transition"
         >
           <Users className="w-5 h-5 mr-2" />
           Jogar com Amigo (PvP)
         </Button>
+        <button onClick={onTutorial} className="mt-3 text-sm text-accent hover:text-accent/80 font-bold underline-offset-4 hover:underline">
+          Ver tutorial completo
+        </button>
 
         <div className="mt-10 grid grid-cols-3 gap-3 w-full">
           {[
