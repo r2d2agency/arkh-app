@@ -1120,8 +1120,8 @@ function PlacementScreen({
         </div>
       </div>
 
-      {/* Sticky CTA */}
-      <div className="fixed bottom-0 inset-x-0 z-20 bg-[hsl(220_55%_8%)]/95 backdrop-blur border-t border-accent/30 p-3">
+      {/* Sticky CTA — sits above bottom nav (h-16 ≈ 4rem) */}
+      <div className="fixed bottom-16 inset-x-0 z-40 bg-[hsl(220_55%_8%)]/95 backdrop-blur border-t border-accent/30 p-3">
         <div className="max-w-2xl mx-auto">
           <Button
             disabled={!allDone}
