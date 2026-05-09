@@ -98,7 +98,7 @@ function tryPlace(units: UnitDef[]): PlacedUnit[] {
 }
 
 // ============================================================
-type Phase = 'menu' | 'placing' | 'playing' | 'gameover';
+type Phase = 'menu' | 'placing' | 'playing' | 'gameover' | 'pvp_lobby' | 'pvp_game';
 type Turn = 'player' | 'enemy';
 
 export default function CelestialBattlePage() {
