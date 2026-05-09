@@ -691,7 +691,7 @@ function CellBtn({
   );
 }
 
-function MenuScreen({ onStart }: { onStart: () => void }) {
+function MenuScreen({ onStart, onPvP }: { onStart: () => void; onPvP: () => void }) {
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,hsl(var(--accent)/0.25),transparent_60%),radial-gradient(ellipse_at_bottom,hsl(var(--primary)/0.2),transparent_55%),hsl(220_45%_8%)] text-white flex flex-col">
       <div className="px-4 pt-3">
